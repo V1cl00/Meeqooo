@@ -1,16 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "MeeQo",
   description: "Menschen kennenlernen durch echte Erlebnisse",
   manifest: "/manifest.json",
-  themeColor: "#E07A5F",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "MeeQo",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#E07A5F",
 };
 
 export default function RootLayout({

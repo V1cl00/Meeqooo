@@ -1,11 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
 
 export default function ActivityDetail() {
-  const params = useParams();
-
   return (
     <div className="min-h-screen bg-[#F7F1EA] pb-8">
       <div className="h-48 bg-gradient-to-br from-amber-100 to-orange-100 relative">

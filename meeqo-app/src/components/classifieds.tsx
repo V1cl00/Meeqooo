@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Tag } from "lucide-react";
 import { Button, Field, Note, TextArea, TextInput } from "@/components/bits";
 import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
@@ -62,13 +63,20 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
       {error ? <Note>{error}</Note> : null}
       {loading ? <p className="text-sm text-muted">Anzeigen werden geladen…</p> : null}
       {items.map((item) => (
-        <article key={item.id} className="card space-y-2 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="font-display text-2xl leading-none">{item.title}</h2>
-            <span className="rounded-full border border-line bg-card px-2.5 py-1 text-xs font-semibold">{item.category}</span>
+        <article key={item.id} className="overflow-hidden rounded-[1.5rem] border-2 border-dashed border-ink/40 bg-sand-deep">
+          <div className="flex items-center gap-2 bg-ink/90 px-4 py-2 text-xs font-bold uppercase tracking-wide text-onaccent">
+            <Tag className="h-4 w-4 shrink-0" />
+            <span>Kleinanzeige · {item.category}</span>
+            <span className="ml-auto font-semibold normal-case tracking-normal opacity-80">Kein Treffen</span>
           </div>
-          <p className="text-sm">{item.body}</p>
-          <p className="text-sm text-muted">{item.city}{item.price ? ` · ${item.price}` : ""} · {item.authorName} · {formatWhen(item.createdAt)}</p>
+          <div className="space-y-2 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="font-display text-2xl leading-none">{item.title}</h2>
+              {item.price ? <span className="shrink-0 rounded-full bg-card px-3 py-1 text-sm font-bold">{item.price}</span> : null}
+            </div>
+            <p className="text-sm">{item.body}</p>
+            <p className="text-sm text-muted">{item.city} · {item.authorName} · {formatWhen(item.createdAt)}</p>
+          </div>
         </article>
       ))}
       {!loading && items.length === 0 ? <p className="text-sm text-muted">In diesem Filter ist noch nichts eingestellt.</p> : null}

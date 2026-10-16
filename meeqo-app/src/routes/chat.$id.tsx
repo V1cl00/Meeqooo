@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, Note, TextInput } from "@/components/bits";
 import { Shell } from "@/components/shell";
 import { listMessages, sendMessage } from "@/lib/meeqo/api";
@@ -39,7 +39,33 @@ function Thread({ id }: { id: string }) {
 
   return (
     <div className="mx-auto flex min-h-[70dvh] max-w-lg flex-col">
-      <h1 className="font-display text-3xl leading-none">{data.title}</h1>
+      <div className="flex items-start justify-between gap-3">
+        <h1 className="font-display text-3xl leading-none">{data.title}</h1>
+        {data.group ? <span className="mt-1 shrink-0 rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold tracking-wide text-onaccent">GRUPPE</span> : null}
+      </div>
+      {data.group ? (
+        <div className="-mx-4 mt-4 flex gap-3 overflow-x-auto px-4 pb-1" aria-label="Teilnehmende">
+          {data.people.map((person) => {
+            const face = person.avatar ? (
+              <img src={person.avatar} alt="" className="h-14 w-14 rounded-full object-cover" />
+            ) : (
+              <span className="grid h-14 w-14 place-items-center rounded-full bg-sand-deep text-lg font-semibold">{person.name.slice(0, 1)}</span>
+            );
+            const label = (
+              <>
+                {face}
+                <span className="mt-1 block truncate text-xs font-bold">{person.me ? "Du" : person.name.split(" ")[0]}</span>
+                {person.isHost ? <span className="block text-[10px] font-semibold text-accent-deep">Gastgeber</span> : null}
+              </>
+            );
+            return person.me ? (
+              <Link key={person.id} to="/profile" className="w-16 shrink-0 text-center">{label}</Link>
+            ) : (
+              <Link key={person.id} to="/profile/$id" params={{ id: person.id }} className="w-16 shrink-0 text-center">{label}</Link>
+            );
+          })}
+        </div>
+      ) : null}
       <div className="mt-4 flex flex-1 flex-col gap-2">
         {data.messages.map((message) => (
           <div key={message.id} className={`flex max-w-[85%] items-end gap-2 ${message.mine ? "ml-auto" : ""}`}>

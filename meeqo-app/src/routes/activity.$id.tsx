@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { BadgeRow, Button, IntentPill, Note, StatusLine } from "@/components/bits";
+import { BadgeRow, Button, IntentPill, Note, SparteStrip, StatusLine } from "@/components/bits";
 import { ShareSheet } from "@/components/share";
 import { Shell } from "@/components/shell";
 import { checkIn, getActivity, hideActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
-import { bookingLabel, errText, formatWhen } from "@/lib/meeqo/labels";
+import { bookingLabel, errText, formatWhen, sparteOf } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/activity/$id")({ component: Page });
@@ -86,16 +86,19 @@ function Detail({ id }: { id: string }) {
 
   if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
   if (error || !item || !data) return <Note>{error || "Nicht gefunden."}</Note>;
-  const oneToOne = item.intent === "date" && item.spots <= 2;
+  const sparte = sparteOf(item.category, item.hostOrganizer);
+  const business = sparte.kind === "business";
+  const oneToOne = !business && item.intent === "date" && item.spots <= 2;
   const shareText = `MeeQo: ${item.title}\n${formatWhen(item.startsAt)}\n${item.placeName}, ${item.city}\nMit ${item.hostName}.\nLeute über eine Aktivität kennenlernen. Dating und Freundschaft bleiben getrennt.`;
 
   return (
     <article className="space-y-4">
-      <div className="card overflow-hidden">
+      <div className={`card overflow-hidden ${business ? "!border-2 !border-ink" : sparte.kind === "event" ? "!border-2 !border-accent-deep" : ""}`}>
+        <SparteStrip kind={sparte.kind} sub={sparte.sub} />
         {item.imageUrl ? <img src={item.imageUrl} alt="" className="aspect-[3/2] w-full object-cover" /> : <div className="aspect-[3/2] bg-sand-deep" />}
         <div className="space-y-3 p-4">
           <div className="flex flex-wrap gap-2">
-            <IntentPill intent={item.intent} />
+            {business ? null : <IntentPill intent={item.intent} />}
             <span className="rounded-full bg-sand-deep px-2.5 py-1 text-xs font-semibold">{bookingLabel(item.bookingMode)}</span>
             {item.publicPlace ? <span className="rounded-full bg-sand-deep px-2.5 py-1 text-xs font-semibold">Öffentlicher Ort</span> : null}
           </div>
@@ -107,7 +110,7 @@ function Detail({ id }: { id: string }) {
         </div>
       </div>
       <div className="card p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Gastgeber</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">{business ? "Ansprechperson" : "Gastgeber"}</p>
         <div className="mt-3 flex items-center gap-3">
           <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-sand-deep font-display text-xl">
             {item.hostAvatar ? <img src={item.hostAvatar} alt="" className="h-full w-full object-cover" /> : item.hostName.slice(0, 1)}
@@ -118,7 +121,7 @@ function Detail({ id }: { id: string }) {
             ) : (
               <Link to="/profile/$id" params={{ id: item.hostId }} className="font-semibold">{item.hostName}</Link>
             )}
-            <p className="text-sm text-muted">{item.hostOrganizer ? "Veranstalter" : "Privates Treffen"}</p>
+            <p className="text-sm text-muted">{item.hostOrganizer ? "Veranstalter" : business ? "Business-Kontakt" : "Privates Treffen"}</p>
           </div>
         </div>
         <div className="mt-3">
@@ -156,7 +159,7 @@ function Detail({ id }: { id: string }) {
         <div className="mx-auto flex max-w-lg gap-2">
           {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" ? (
             <Button type="button" disabled={busy || item.spotsLeft < 1} className="h-12 flex-1" onClick={join}>
-              {item.bookingMode === "instant" ? "Sofort dabei" : "Anfragen"}
+              {item.bookingMode === "instant" ? "Sofort dabei" : business ? "Kontakt anfragen" : "Anfragen"}
             </Button>
           ) : null}
           {item.myStatus === "accepted" || item.isHost ? (

@@ -97,7 +97,9 @@ function Feed() {
           ))}
         </div>
       ) : null}
-      <WhenBar days={days} onChange={setDays} />
+      {filter === "business" ? <Note>Business: Kontakte und Kooperationen. Kein Date, keine Absicht außer Arbeit.</Note> : null}
+      {filter === "classifieds" ? <Note>Kleinanzeigen: Dinge und Angebote statt Verabredungen. Hier gibt es keine Zeit und keinen Treffpunkt.</Note> : null}
+      {filter === "classifieds" ? null : <WhenBar days={days} onChange={setDays} />}
       {!profile?.avatarUrl ? (
         <Link to="/profile" className="card block p-4">
           <p className="font-semibold">Ohne Foto bist du ein Buchstabe.</p>

@@ -9,6 +9,7 @@ import type {
   ActivityDetail,
   CategoryHit,
   ChatMessage,
+  ChatPerson,
   ChatThread,
   Classified,
   CommunityCard,
@@ -1288,7 +1289,7 @@ async function assertChat(sql: Sql, activityId: string, userId: string) {
 export const listMessages = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
-  .handler(async ({ data, context }): Promise<{ title: string; messages: ChatMessage[] }> => {
+  .handler(async ({ data, context }): Promise<{ title: string; group: boolean; people: ChatPerson[]; messages: ChatMessage[] }> => {
     const sql = await getSql();
     const activity = await assertChat(sql, data.id, context.userId);
     const rows = await sql<{ id: string; sender_id: string; body: string; created_at: unknown; display_name: string | null; avatar_url: string | null }>`
@@ -1298,8 +1299,29 @@ export const listMessages = createServerFn({ method: "POST" })
       where m.activity_id = ${data.id}
       order by m.created_at asc
     `;
+    const members = await sql<{ user_id: string; display_name: string | null; avatar_url: string | null; is_host: boolean }>`
+      select a.host_id as user_id, p.display_name, p.avatar_url, true as is_host
+      from activities a
+      left join profiles p on p.user_id = a.host_id
+      where a.id = ${data.id}
+      union all
+      select j.requester_id as user_id, p.display_name, p.avatar_url, false as is_host
+      from join_requests j
+      left join profiles p on p.user_id = j.requester_id
+      where j.activity_id = ${data.id} and j.status = 'accepted'
+      order by is_host desc, display_name asc
+    `;
+    const spots = await sql<{ spots: number }>`select spots from activities where id = ${data.id}`;
     return {
       title: activity.title,
+      group: members.length >= 3 || num(spots[0]?.spots) > 2,
+      people: members.map((row) => ({
+        id: row.user_id,
+        name: row.display_name || "Jemand",
+        avatar: row.avatar_url || "",
+        isHost: row.is_host,
+        me: row.user_id === context.userId,
+      })),
       messages: rows.map((row) => ({
         id: row.id,
         senderId: row.sender_id,

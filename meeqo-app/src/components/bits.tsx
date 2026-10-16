@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import { Link } from "@tanstack/react-router";
-import { Calendar, MapPin } from "lucide-react";
-import { activityIntentLabel, formatWhen } from "@/lib/meeqo/labels";
+import { Briefcase, Calendar, MapPin, Ticket } from "lucide-react";
+import { activityIntentLabel, formatWhen, sparteOf, type Sparte } from "@/lib/meeqo/labels";
 import type { ActivityCard as Activity } from "@/lib/meeqo/types";
 
 export function Mark({ className = "h-8 w-8" }: { className?: string }) {
@@ -124,20 +124,32 @@ export function BadgeRow({ badges }: { badges: string[] }) {
   );
 }
 
-export function ActivityCard({ item, onHide }: { item: Activity; onHide?: () => void }) {
+export function SparteStrip({ kind, sub }: { kind: Sparte; sub: string }) {
+  if (kind === "meetup") return null;
+  const business = kind === "business";
+  const Icon = business ? Briefcase : Ticket;
   return (
-    <article className="card overflow-hidden">
+    <div className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wide text-onaccent ${business ? "bg-ink" : "bg-accent-deep"}`}>
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="truncate">{business ? "Business" : "Veranstaltung"}{sub ? ` · ${sub}` : ""}</span>
+      <span className="ml-auto shrink-0 font-semibold normal-case tracking-normal opacity-80">{business ? "Kein Date" : "Vom Veranstalter"}</span>
+    </div>
+  );
+}
+
+export function ActivityCard({ item, onHide }: { item: Activity; onHide?: () => void }) {
+  const sparte = sparteOf(item.category, item.hostOrganizer);
+  return (
+    <article className={`card overflow-hidden ${sparte.kind === "business" ? "!border-2 !border-ink" : sparte.kind === "event" ? "!border-2 !border-accent-deep" : ""}`}>
       <Link to="/activity/$id" params={{ id: item.id }} className="block">
+        <SparteStrip kind={sparte.kind} sub={sparte.sub} />
         <div className="relative aspect-[16/11] bg-sand-deep">
           {item.imageUrl ? <img src={item.imageUrl} alt="" className="h-full w-full object-cover" /> : null}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent px-3 pb-3 pt-12">
             <h2 className="font-display text-[1.45rem] leading-tight text-white">{item.title}</h2>
           </div>
           <div className="absolute left-3 top-3 flex gap-1.5">
-            <IntentPill intent={item.intent} />
-            {item.category.startsWith("Business") || item.category.startsWith("Kleinanzeigen") || item.category.startsWith("Veranstaltungen") ? (
-              <span className="rounded-full bg-card px-2.5 py-1 text-xs font-semibold text-ink">{item.category.split(" · ")[0]}</span>
-            ) : null}
+            {sparte.kind === "business" ? null : <IntentPill intent={item.intent} />}
           </div>
         </div>
         <div className="space-y-1.5 px-4 py-3">

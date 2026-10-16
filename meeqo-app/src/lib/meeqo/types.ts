@@ -92,6 +92,14 @@ export type ChatThread = {
   group: boolean;
 };
 
+export type ChatPerson = {
+  id: string;
+  name: string;
+  avatar: string;
+  isHost: boolean;
+  me: boolean;
+};
+
 export type ChatMessage = {
   id: string;
   senderId: string;

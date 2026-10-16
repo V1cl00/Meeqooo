@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Tag } from "lucide-react";
 import { Button, Field, Note, TextArea, TextInput } from "@/components/bits";
 import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
 import { useMe } from "@/components/shell";
-import { createClassified, listClassifieds } from "@/lib/meeqo/api";
+import { createClassified, expressInterest, listClassifieds } from "@/lib/meeqo/api";
 import { CLASSIFIED_CATS, errText, formatWhen } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 
@@ -14,6 +15,7 @@ function chip(active: boolean) {
 
 export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
   const { profile } = useMe();
+  const navigate = useNavigate();
   const { data, error, loading, reload } = useLoad(() => listClassifieds(), []);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -25,6 +27,16 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
   const [fail, setFail] = useState("");
   const [open, setOpen] = useState(false);
   const items = (data ?? []).filter((item) => !sub || item.category === sub);
+
+  async function interest(id: string) {
+    setFail("");
+    try {
+      const result = await expressInterest({ data: { id } });
+      await navigate({ to: "/chat/anzeige/$id", params: { id: result.threadId } });
+    } catch (err) {
+      setFail(errText(err));
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -61,6 +73,7 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
         </form>
       ) : null}
       {error ? <Note>{error}</Note> : null}
+      {!open && fail ? <Note>{fail}</Note> : null}
       {loading ? <p className="text-sm text-muted">Anzeigen werden geladen…</p> : null}
       {items.map((item) => (
         <article key={item.id} className="overflow-hidden rounded-[1.5rem] border-2 border-dashed border-ink/40 bg-sand-deep">
@@ -76,6 +89,13 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
             </div>
             <p className="text-sm">{item.body}</p>
             <p className="text-sm text-muted">{item.city} · {item.authorName} · {formatWhen(item.createdAt)}</p>
+            {item.mine ? (
+              <p className="text-sm font-semibold">{item.interested ? `${item.interested} ${item.interested === 1 ? "Person hat" : "Leute haben"} geschrieben. Antworten findest du unter Chats.` : "Deine Anzeige. Noch niemand hat geschrieben."}</p>
+            ) : item.myThread ? (
+              <Link to="/chat/anzeige/$id" params={{ id: item.myThread }} className="inline-flex h-11 items-center justify-center rounded-full bg-ink px-5 text-sm font-semibold text-onaccent">Chat öffnen</Link>
+            ) : (
+              <Button type="button" className="h-11" onClick={() => interest(item.id)}>Interesse melden</Button>
+            )}
           </div>
         </article>
       ))}

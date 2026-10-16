@@ -5,7 +5,7 @@ import { ActivityCard, Button, Empty, face, Note } from "@/components/bits";
 import { ClassifiedBoard } from "@/components/classifieds";
 import { Shell, useMe } from "@/components/shell";
 import { WhenBar } from "@/components/when-bar";
-import { getFeed, hideActivity, setRadius, setRequireTraits, unhideActivity } from "@/lib/meeqo/api";
+import { getFeed, hideActivity, makeWish, setRadius, setRequireTraits, unhideActivity, wishInfo } from "@/lib/meeqo/api";
 import { TRAITS, berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -17,6 +17,37 @@ function Home() {
     <Shell>
       <Feed />
     </Shell>
+  );
+}
+
+const LENS_WISH: Record<string, string> = { essen: "Essen", business: "Business", date: "Dating", friends: "Freunde" };
+
+function WishPrompt({ category, day }: { category: string; day: string }) {
+  const info = useLoad(() => wishInfo({ data: { category } }), [category]);
+  const [fail, setFail] = useState("");
+
+  async function wish() {
+    setFail("");
+    try {
+      await makeWish({ data: { category, day } });
+      info.reload();
+    } catch (err) {
+      setFail(errText(err));
+    }
+  }
+
+  const count = info.data?.count ?? 0;
+  const need = info.data?.atLeast ?? 3;
+  return (
+    <div className="mt-4 w-full basis-full space-y-2 border-t border-line pt-4 text-center">
+      <p className="text-sm">Niemand bietet {category} an. Willst du?</p>
+      {info.data?.mine ? (
+        <p className="text-sm font-semibold text-friend">Du bist vorgemerkt. {count >= need ? `${count} Leute wollen das.` : `Ab ${need} Leuten sagen wir dir Bescheid.`}</p>
+      ) : (
+        <button type="button" className={face} onClick={wish}>Ich hätte Lust{count ? ` · ${count} schon` : ""}</button>
+      )}
+      {fail ? <p className="text-sm text-accent-deep">{fail}</p> : null}
+    </div>
   );
 }
 
@@ -126,6 +157,7 @@ function Feed() {
             <span className="inline-flex flex-wrap justify-center gap-2">
               {data.nextDay ? <button type="button" className={face} onClick={() => setDays([data.nextDay!])}>Diesen Tag zeigen</button> : null}
               <Link to="/create" search={{ community: "" }} className={face}>Selbst anlegen</Link>
+              {!data.nextDay ? <WishPrompt category={sub || LENS_WISH[filter] || "Treffen"} day={days[0] ?? ""} /> : null}
             </span>
           }
         />

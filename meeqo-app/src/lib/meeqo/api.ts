@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql, type Sql } from "@/lib/db";
 import { kmBetween, cityCoords, matchCities } from "@/lib/meeqo/geo";
+import { MOODS } from "@/lib/meeqo/labels";
+import { lookupPlace, plzChoices, plzPoint } from "@/lib/meeqo/places";
 import { categoryMatches, CATEGORIES, CATEGORY_TREE, MORE_SUGGESTIONS, PROMOTE_AT, splitCategory, areasFromOpen, berlinDay, cleanAreas, intentFromAreas, openFromAreas, seesByAreas } from "@/lib/meeqo/labels";
 import { localTheme, normalizeTheme } from "@/lib/meeqo/theme";
 import type {
@@ -10,6 +12,9 @@ import type {
   CategoryHit,
   ChatMessage,
   ChatPerson,
+  AdChat,
+  CircleMember,
+  SafetyView,
   ChatThread,
   Classified,
   CommunityCard,
@@ -68,6 +73,7 @@ type ActRow = {
   community_id: string | null;
   public_place: boolean;
   cancelled: boolean;
+  area: string;
   traits: string;
   host_traits: string;
   visibility: string;
@@ -163,8 +169,8 @@ function visible(openTo: string, intent: string) {
 
 function passesLens(filter: string, item: ActivityCard) {
   if (filter === "essen") return categoryMatches(item.category, "Essen");
-  if (filter === "business") return categoryMatches(item.category, "Business");
-  if (filter === "events") return item.hostOrganizer;
+  if (filter === "business") return item.area === "business";
+  if (filter === "events") return item.area === "event";
   if (filter === "classifieds") return false;
   return passesFilter(filter, item.intent);
 }
@@ -270,6 +276,7 @@ function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: nu
       num(row.matches),
     ),
     hostOrganizer: flag(row.is_organizer),
+    area: row.area === "business" ? "business" : row.area === "event" ? "event" : "meetup",
     title: row.title,
     description: row.description,
     category: row.category,
@@ -301,7 +308,7 @@ async function loadRows(sql: Sql, userId: string) {
   return sql<ActRow>`
     select a.id, a.host_id, a.title, a.description, a.category, a.intent,
       a.place_name, a.city, a.lat, a.lng, a.starts_at, a.spots, a.image_url,
-      a.booking_mode, a.community_id, a.public_place, a.cancelled, a.traits, a.visibility, a.audience_ids,
+      a.booking_mode, a.community_id, a.public_place, a.cancelled, a.area, a.traits, a.visibility, a.audience_ids,
       p.display_name, p.avatar_url, p.is_organizer, p.identity_confirmed, p.traits as host_traits, p.birth_year as host_birth_year,
       coalesce(r.n, 0) as rating_n, r.punctual, r.respectful, r.matches,
       coalesce(acc.taken, 0) as taken,
@@ -438,6 +445,11 @@ async function notify(sql: Sql, userId: string, kind: string, title: string, bod
     insert into notifications (id, user_id, kind, title, body, href, ref_id)
     values (${crypto.randomUUID()}, ${userId}, ${kind}, ${title}, ${body}, ${href}, ${refId})
   `;
+}
+
+function areaOf(category: string, organizer: boolean) {
+  if (category === "Business" || category.startsWith("Business · ")) return "business";
+  return organizer ? "event" : "meetup";
 }
 
 function clean(value: unknown, max: number) {
@@ -580,32 +592,6 @@ export const updateProfile = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-async function lookupPlace(city: string): Promise<{ lat: number; lng: number } | null> {
-  const known = cityCoords(city);
-  if (known) return known;
-  const q = city.trim();
-  if (q.length < 2) return null;
-  const code = q.match(/\b(\d{5})\b/)?.[1];
-  if (code) {
-    const point = await plzPoint(code);
-    if (point) return point;
-  }
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=de`,
-      { headers: { "User-Agent": "MeeQo/1.0 (activity meetup)", Accept: "application/json" } },
-    );
-    if (!res.ok) return null;
-    const body = (await res.json()) as { lat?: string; lon?: string }[];
-    const lat = Number(body[0]?.lat);
-    const lng = Number(body[0]?.lon);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 export const setLocation = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: { lat: number; lng: number; city?: string }) => input)
@@ -639,58 +625,6 @@ export const setLocation = createServerFn({ method: "POST" })
   });
 
 export type PlaceHit = { city: string; label: string; detail: string; lat: number; lng: number };
-
-async function plzPoint(code: string) {
-  try {
-    const res = await fetch(`https://api.zippopotam.us/de/${code}`, { headers: { Accept: "application/json" } });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { places?: { latitude?: string; longitude?: string }[] };
-    const lat = Number(body.places?.[0]?.latitude);
-    const lng = Number(body.places?.[0]?.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return { lat, lng };
-  } catch {
-    return null;
-  }
-}
-
-async function plzChoices(query: string) {
-  const q = query.trim();
-  const code = q.match(/\b(\d{5})\b/)?.[1] ?? "";
-  type Row = { postalCode: string; name: string; state: string };
-  const rows: Row[] = [];
-  const take = (body: { postalCode?: string; name?: string; federalState?: { name?: string } }[]) => {
-    for (const row of body) {
-      const postalCode = row.postalCode || "";
-      const name = row.name || "";
-      if (!/^\d{5}$/.test(postalCode) || name.length < 2) continue;
-      rows.push({ postalCode, name, state: row.federalState?.name || "" });
-    }
-  };
-  try {
-    if (code) {
-      const exact = await fetch(`https://openplzapi.org/de/Localities?postalCode=${code}`, { headers: { Accept: "application/json" } });
-      if (exact.ok) take((await exact.json()) as { postalCode?: string; name?: string; federalState?: { name?: string } }[]);
-      const city = rows[0]?.name;
-      if (city) {
-        const more = await fetch(`https://openplzapi.org/de/Localities?name=${encodeURIComponent(city)}`, { headers: { Accept: "application/json" } });
-        if (more.ok) take((await more.json()) as { postalCode?: string; name?: string; federalState?: { name?: string } }[]);
-      }
-    } else if (!/^\d+$/.test(q)) {
-      const byName = await fetch(`https://openplzapi.org/de/Localities?name=${encodeURIComponent(q)}`, { headers: { Accept: "application/json" } });
-      if (byName.ok) take((await byName.json()) as { postalCode?: string; name?: string; federalState?: { name?: string } }[]);
-    }
-  } catch {
-    return [];
-  }
-  const seen = new Set<string>();
-  return rows.filter((row) => {
-    const key = `${row.postalCode}|${row.name.toLowerCase()}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 12);
-}
 
 export const suggestPlaces = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -1080,11 +1014,12 @@ export const createActivity = createServerFn({ method: "POST" })
     await sql`
       insert into activities (
         id, host_id, title, description, category, intent, place_name, city, lat, lng,
-        starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids
+        starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
       ) values (
         ${id}, ${context.userId}, ${title}, ${description}, ${category}, ${intent}, ${placeName}, ${city},
         ${lat}, ${lng}, ${starts.toISOString()}, ${spots}, ${imageUrl}, ${booking},
-        nullif(${communityId}, ''), ${publicPlace}, ${JSON.stringify(activityTraits)}, ${visibility}, ${JSON.stringify(audienceIds)}
+        nullif(${communityId}, ''), ${publicPlace}, ${JSON.stringify(activityTraits)}, ${visibility}, ${JSON.stringify(audienceIds)},
+        ${areaOf(category, profile.isOrganizer)}
       )
     `;
     return { id };
@@ -1110,7 +1045,10 @@ export const cancelActivity = createServerFn({ method: "POST" })
 
 export const requestJoin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
+  .validator((input: { id: string; mood?: string }) => ({
+    id: clean(input.id, 80),
+    mood: (MOODS as readonly string[]).includes(input.mood ?? "") ? (input.mood as string) : "",
+  }))
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
     if (!profile.onboardingDone) throw new Error("Schließ zuerst das Onboarding ab.");
@@ -1130,9 +1068,9 @@ export const requestJoin = createServerFn({ method: "POST" })
     const status = activity.bookingMode === "instant" ? "accepted" : "pending";
     const id = crypto.randomUUID();
     await sql`
-      insert into join_requests (id, activity_id, requester_id, status)
-      values (${id}, ${activity.id}, ${context.userId}, ${status})
-      on conflict (activity_id, requester_id) do update set status = ${status}
+      insert into join_requests (id, activity_id, requester_id, status, mood)
+      values (${id}, ${activity.id}, ${context.userId}, ${status}, ${data.mood})
+      on conflict (activity_id, requester_id) do update set status = ${status}, mood = ${data.mood}
     `;
     if (status === "accepted") {
       await sql`
@@ -1184,16 +1122,16 @@ export const listRequests = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<RequestItem[]> => {
     const sql = await getSql();
-    const incoming = await sql<{ id: string; activity_id: string; title: string; display_name: string; status: string; created_at: unknown }>`
-      select j.id, j.activity_id, a.title, p.display_name, j.status, j.created_at
+    const incoming = await sql<{ id: string; activity_id: string; title: string; display_name: string; status: string; created_at: unknown; mood: string }>`
+      select j.id, j.activity_id, a.title, p.display_name, j.status, j.created_at, j.mood
       from join_requests j
       join activities a on a.id = j.activity_id
       join profiles p on p.user_id = j.requester_id
       where a.host_id = ${context.userId}
       order by j.created_at desc
     `;
-    const outgoing = await sql<{ id: string; activity_id: string; title: string; display_name: string; status: string; created_at: unknown }>`
-      select j.id, j.activity_id, a.title, p.display_name, j.status, j.created_at
+    const outgoing = await sql<{ id: string; activity_id: string; title: string; display_name: string; status: string; created_at: unknown; mood: string }>`
+      select j.id, j.activity_id, a.title, p.display_name, j.status, j.created_at, j.mood
       from join_requests j
       join activities a on a.id = j.activity_id
       join profiles p on p.user_id = a.host_id
@@ -1208,6 +1146,7 @@ export const listRequests = createServerFn({ method: "GET" })
         personName: row.display_name,
         status: row.status,
         createdAt: iso(row.created_at),
+        mood: row.mood,
         direction: "in" as const,
       })),
       ...outgoing.map((row) => ({
@@ -1217,6 +1156,7 @@ export const listRequests = createServerFn({ method: "GET" })
         personName: row.display_name,
         status: row.status,
         createdAt: iso(row.created_at),
+        mood: row.mood,
         direction: "out" as const,
       })),
     ];
@@ -1265,6 +1205,28 @@ export const listChats = createServerFn({ method: "GET" })
         peerName: peer,
         peerAvatar,
         group: names >= 3 || num(row.spots) > 2,
+        kind: "activity",
+      });
+    }
+    const adRows = await sql<{ id: string; title: string; buyer_id: string; seller_id: string; display_name: string | null; avatar_url: string | null; created_at: unknown }>`
+      select t.id, c.title, t.buyer_id, t.seller_id, p.display_name, p.avatar_url, t.created_at
+      from classified_threads t
+      join classifieds c on c.id = t.classified_id
+      left join profiles p on p.user_id = case when t.buyer_id = ${context.userId} then t.seller_id else t.buyer_id end
+      where t.buyer_id = ${context.userId} or t.seller_id = ${context.userId}
+      order by t.created_at desc
+    `;
+    for (const row of adRows) {
+      const last = await sql<{ body: string }>`select body from classified_messages where thread_id = ${row.id} order by created_at desc limit 1`;
+      threads.push({
+        activityId: row.id,
+        title: row.title,
+        startsAt: iso(row.created_at),
+        lastBody: last[0]?.body ?? "Noch keine Nachricht",
+        peerName: row.display_name || "Jemand",
+        peerAvatar: row.avatar_url || "",
+        group: false,
+        kind: "ad",
       });
     }
     return threads;
@@ -2000,11 +1962,9 @@ export const searchCategories = createServerFn({ method: "POST" })
     return { hits, promoted };
   });
 
-export const listClassifieds = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
-  .handler(async ({ context }): Promise<Classified[]> => {
-    const { sql, profile } = await ensureProfile(context.userId);
-    const audience = await audienceOf(sql, context.userId, profile.birthYear);
+async function loadClassifieds(userId: string): Promise<Classified[]> {
+    const { sql, profile } = await ensureProfile(userId);
+    const audience = await audienceOf(sql, userId, profile.birthYear);
     const rows = await sql<{
       id: string; author_id: string; title: string; body: string; category: string; city: string;
       price: string; traits: string; visibility: string; audience_ids: string; created_at: unknown; display_name: string; author_traits: string; birth_year: number | null;
@@ -2016,6 +1976,10 @@ export const listClassifieds = createServerFn({ method: "GET" })
       order by c.created_at desc
       limit 40
     `;
+    const mineThreads = await sql<{ classified_id: string; id: string }>`select classified_id, id from classified_threads where buyer_id = ${userId}`;
+    const threads = new Map(mineThreads.map((row) => [row.classified_id, row.id]));
+    const countRows = await sql<{ classified_id: string; n: number }>`select classified_id, count(*)::int as n from classified_threads where seller_id = ${userId} group by classified_id`;
+    const counts = new Map(countRows.map((row) => [row.classified_id, row.n]));
     return rows
       .map((row) => ({
         id: row.id,
@@ -2028,15 +1992,23 @@ export const listClassifieds = createServerFn({ method: "GET" })
         price: row.price,
         traits: parseList(row.traits),
         createdAt: iso(row.created_at),
-        mine: row.author_id === context.userId,
+        mine: row.author_id === userId,
         authorTraits: parseList(row.author_traits),
         visibility: cleanVisibility(row.visibility),
         audienceIds: parseList(row.audience_ids),
         authorYear: yearOf(row.birth_year),
       }))
       .filter((item) => covers([...item.traits, ...item.authorTraits], profile.requireTraits) && sees(item.visibility, item.authorId, null, item.authorYear, audience, item.mine, item.audienceIds))
-      .map(({ authorTraits: _authorTraits, authorYear: _year, visibility: _visibility, audienceIds: _ids, ...item }) => item);
-  });
+      .map(({ authorTraits: _authorTraits, authorYear: _year, visibility: _visibility, audienceIds: _ids, ...item }) => ({
+        ...item,
+        interested: item.mine ? num(counts.get(item.id)) : 0,
+        myThread: threads.get(item.id) ?? null,
+      }));
+}
+
+export const listClassifieds = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<Classified[]> => loadClassifieds(context.userId));
 
 export const createClassified = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -2199,3 +2171,234 @@ export const listPersonActivity = createServerFn({ method: "POST" })
   });
 
 
+
+// ---------------------------------------------------------------------------
+// Kleinanzeigen: Interesse melden und chatten
+
+export const expressInterest = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string; body?: string }) => ({ id: clean(input.id, 80), body: clean(input.body, 500) }))
+  .handler(async ({ data, context }) => {
+    const { sql, profile } = await ensureProfile(context.userId);
+    if (!profile.avatarUrl) throw new Error("Ohne Foto kannst du nicht anfragen. Lad eins im Profil hoch.");
+    const ad = (await loadClassifieds(context.userId)).find((item) => item.id === data.id);
+    if (!ad) throw new Error("Anzeige nicht gefunden.");
+    if (ad.mine) throw new Error("Das ist deine eigene Anzeige.");
+    const existing = await sql<{ id: string }>`select id from classified_threads where classified_id = ${ad.id} and buyer_id = ${context.userId}`;
+    let threadId = existing[0]?.id ?? "";
+    if (!threadId) {
+      threadId = crypto.randomUUID();
+      await sql`
+        insert into classified_threads (id, classified_id, buyer_id, seller_id)
+        values (${threadId}, ${ad.id}, ${context.userId}, ${ad.authorId})
+      `;
+    }
+    if (!existing.length || data.body) {
+      const body = data.body || `Hallo, ich interessiere mich für „${ad.title}“.`;
+      await sql`
+        insert into classified_messages (id, thread_id, sender_id, body)
+        values (${crypto.randomUUID()}, ${threadId}, ${context.userId}, ${body})
+      `;
+      await notify(sql, ad.authorId, "ad", "Interesse an deiner Anzeige", `${profile.displayName}: ${ad.title}`, `/chat/anzeige/${threadId}`, threadId);
+    }
+    return { threadId };
+  });
+
+async function assertAdThread(sql: Sql, threadId: string, userId: string) {
+  const rows = await sql<{ id: string; classified_id: string; buyer_id: string; seller_id: string; title: string; price: string; city: string; category: string }>`
+    select t.id, t.classified_id, t.buyer_id, t.seller_id, c.title, c.price, c.city, c.category
+    from classified_threads t join classifieds c on c.id = t.classified_id
+    where t.id = ${threadId}
+  `;
+  const row = rows[0];
+  if (!row || (row.buyer_id !== userId && row.seller_id !== userId)) throw new Error("Chat nicht gefunden.");
+  return row;
+}
+
+export const listAdMessages = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
+  .handler(async ({ data, context }): Promise<AdChat> => {
+    const sql = await getSql();
+    const thread = await assertAdThread(sql, data.id, context.userId);
+    const seller = thread.seller_id === context.userId;
+    const peerId = seller ? thread.buyer_id : thread.seller_id;
+    const peer = await sql<{ display_name: string | null; avatar_url: string | null }>`select display_name, avatar_url from profiles where user_id = ${peerId}`;
+    const rows = await sql<{ id: string; sender_id: string; body: string; created_at: unknown; display_name: string | null; avatar_url: string | null }>`
+      select m.id, m.sender_id, m.body, m.created_at, p.display_name, p.avatar_url
+      from classified_messages m left join profiles p on p.user_id = m.sender_id
+      where m.thread_id = ${data.id} order by m.created_at asc
+    `;
+    return {
+      title: thread.title,
+      price: thread.price,
+      city: thread.city,
+      category: thread.category,
+      seller,
+      peerName: peer[0]?.display_name || "Jemand",
+      peerAvatar: peer[0]?.avatar_url || "",
+      messages: rows.map((row) => ({
+        id: row.id,
+        senderId: row.sender_id,
+        senderName: row.display_name || "Jemand",
+        senderAvatar: row.avatar_url || "",
+        body: row.body,
+        createdAt: iso(row.created_at),
+        mine: row.sender_id === context.userId,
+      })),
+    };
+  });
+
+export const sendAdMessage = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string; body: string }) => ({ id: clean(input.id, 80), body: clean(input.body, 1000) }))
+  .handler(async ({ data, context }) => {
+    if (data.body.length < 1) throw new Error("Nachricht ist leer.");
+    const sql = await getSql();
+    const thread = await assertAdThread(sql, data.id, context.userId);
+    await sql`
+      insert into classified_messages (id, thread_id, sender_id, body)
+      values (${crypto.randomUUID()}, ${data.id}, ${context.userId}, ${data.body})
+    `;
+    const other = thread.seller_id === context.userId ? thread.buyer_id : thread.seller_id;
+    await notify(sql, other, "ad", thread.title, data.body, `/chat/anzeige/${data.id}`, data.id);
+    return { ok: true as const };
+  });
+
+// ---------------------------------------------------------------------------
+// Treffen wiederholen
+
+export const repeatActivity = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const found = await sql<{ starts_at: unknown; cancelled: boolean }>`select starts_at, cancelled from activities where id = ${data.id} and host_id = ${context.userId}`;
+    if (!found.length) throw new Error("Nur der Ersteller kann ein Treffen wiederholen.");
+    const week = 7 * 24 * 60 * 60 * 1000;
+    let next = new Date(iso(found[0].starts_at)).getTime() + week;
+    while (next < Date.now() + 60 * 60 * 1000) next += week;
+    const id = crypto.randomUUID();
+    await sql`
+      insert into activities (
+        id, host_id, title, description, category, intent, place_name, city, lat, lng,
+        starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
+      )
+      select ${id}, host_id, title, description, category, intent, place_name, city, lat, lng,
+        ${new Date(next).toISOString()}, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
+      from activities where id = ${data.id} and host_id = ${context.userId}
+    `;
+    return { id };
+  });
+
+// ---------------------------------------------------------------------------
+// Lust auf ein Treffen, das es noch nicht gibt
+
+const WISH_AT = 3;
+
+function wishCategory(value: unknown) {
+  return clean(value, 48) || "Treffen";
+}
+
+export const wishInfo = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { category: string }) => ({ category: wishCategory(input.category) }))
+  .handler(async ({ data, context }) => {
+    const { sql, profile } = await ensureProfile(context.userId);
+    const rows = await sql<{ n: number; mine: number }>`
+      select count(*)::int as n, count(*) filter (where user_id = ${context.userId})::int as mine
+      from wishes where category = ${data.category} and city = ${profile.city} and created_at >= now() - interval '14 days'
+    `;
+    return { count: num(rows[0]?.n), mine: num(rows[0]?.mine) > 0, atLeast: WISH_AT };
+  });
+
+export const makeWish = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { category: string; day?: string }) => ({ category: wishCategory(input.category), day: clean(input.day, 10) }))
+  .handler(async ({ data, context }) => {
+    const { sql, profile } = await ensureProfile(context.userId);
+    if (!profile.city) throw new Error("Stell zuerst deinen Ort ein.");
+    await sql`
+      insert into wishes (id, user_id, category, city, day)
+      values (${crypto.randomUUID()}, ${context.userId}, ${data.category}, ${profile.city}, ${data.day})
+      on conflict (user_id, category, city) do update set created_at = now(), day = ${data.day}
+    `;
+    const who = await sql<{ user_id: string }>`
+      select user_id from wishes
+      where category = ${data.category} and city = ${profile.city} and created_at >= now() - interval '14 days'
+      order by created_at asc
+    `;
+    if (who.length === WISH_AT) {
+      await notify(sql, who[0].user_id, "wish", `${WISH_AT} Leute wollen ${data.category}`, `In ${profile.city}. Leg ein Treffen an, die anderen finden es sofort.`, "/create", `wish:${data.category}:${profile.city}`);
+    }
+    return { count: who.length };
+  });
+
+// ---------------------------------------------------------------------------
+// Vertrauensperson: Link mit Zeit, Ort und Check-in-Status
+
+export const createSafetyLink = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const act = await sql<{ host_id: string }>`select host_id from activities where id = ${data.id} and cancelled = false`;
+    if (!act.length) throw new Error("Aktivität nicht gefunden.");
+    const belongs = act[0].host_id === context.userId
+      || (await sql`select 1 as ok from join_requests where activity_id = ${data.id} and requester_id = ${context.userId} and status = 'accepted'`).length > 0;
+    if (!belongs) throw new Error("Den Link gibt es erst nach der Zusage.");
+    const old = await sql<{ token: string }>`select token from safety_shares where user_id = ${context.userId} and activity_id = ${data.id} limit 1`;
+    if (old[0]) return { path: `/sicher/${old[0].token}` };
+    const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 40);
+    await sql`insert into safety_shares (token, user_id, activity_id) values (${token}, ${context.userId}, ${data.id})`;
+    return { path: `/sicher/${token}` };
+  });
+
+/** Public on purpose: the person who gets the link has no account. The token is the secret. */
+export const getSafetyView = createServerFn({ method: "POST" })
+  .validator((input: { token: string }) => ({ token: clean(input.token, 80) }))
+  .handler(async ({ data }): Promise<SafetyView> => {
+    const sql = await getSql();
+    const rows = await sql<{ title: string; starts_at: unknown; place_name: string; city: string; display_name: string | null; checked: unknown }>`
+      select a.title, a.starts_at, a.place_name, a.city, p.display_name,
+        (select c.created_at from checkins c where c.activity_id = a.id and c.user_id = s.user_id) as checked
+      from safety_shares s
+      join activities a on a.id = s.activity_id
+      left join profiles p on p.user_id = s.user_id
+      where s.token = ${data.token}
+    `;
+    const row = rows[0];
+    if (!row) throw new Error("Dieser Link gilt nicht mehr.");
+    const startsAt = iso(row.starts_at);
+    const late = Math.floor((Date.now() - new Date(startsAt).getTime()) / 60000) - 30;
+    const checkedInAt = row.checked ? iso(row.checked) : null;
+    return {
+      name: (row.display_name || "Jemand").split(" ")[0],
+      title: row.title,
+      startsAt,
+      placeName: row.place_name,
+      city: row.city,
+      checkedInAt,
+      state: checkedInAt ? "ok" : late > 0 ? "late" : "waiting",
+      minutesLate: checkedInAt ? 0 : Math.max(0, late),
+    };
+  });
+
+// ---------------------------------------------------------------------------
+// Wieder getroffen: nur gegenseitiges Ja
+
+export const listCircle = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<CircleMember[]> => {
+    const sql = await getSql();
+    const rows = await sql<{ user_id: string; display_name: string | null; avatar_url: string | null; n: number }>`
+      select r.ratee_id as user_id, p.display_name, p.avatar_url, count(*)::int as n
+      from ratings r
+      join ratings b on b.activity_id = r.activity_id and b.rater_id = r.ratee_id and b.ratee_id = r.rater_id
+      left join profiles p on p.user_id = r.ratee_id
+      where r.rater_id = ${context.userId} and r.want_again and b.want_again
+      group by r.ratee_id, p.display_name, p.avatar_url
+      order by count(*) desc, p.display_name asc
+    `;
+    return rows.map((row) => ({ id: row.user_id, name: row.display_name || "Jemand", avatar: row.avatar_url || "", meetings: num(row.n) }));
+  });

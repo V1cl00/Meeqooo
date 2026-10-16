@@ -29,11 +29,10 @@ export function joinCategory(parent: string, sub: string) {
 export type Sparte = "business" | "event" | "meetup";
 
 /** Business and Veranstaltungen are not ordinary meetups; the UI frames them differently. */
-export function sparteOf(category: string, organizer: boolean): { kind: Sparte; sub: string } {
+export function sparteOf(area: Sparte, category: string): { kind: Sparte; sub: string } {
   const { parent, sub } = splitCategory(category);
-  if (parent === "Business") return { kind: "business", sub };
-  if (organizer) return { kind: "event", sub: parent === "Veranstaltungen" ? sub : parent };
-  return { kind: "meetup", sub };
+  if (area === "event") return { kind: "event", sub: parent === "Veranstaltungen" ? sub : parent };
+  return { kind: area, sub };
 }
 
 export function categoryMatches(stored: string, selected: string) {
@@ -82,6 +81,10 @@ export const TRAITS = [
 ] as const;
 
 export const CLASSIFIED_CATS = ["Verkaufen", "Suchen", "Tauschen", "Verschenken", "Mitfahrgelegenheit"] as const;
+
+export const MOODS = ["Locker", "Gespräch", "Sport", "Nur Essen"] as const;
+
+export const HANDOVER_SPOTS = ["Bahnhof", "Rathaus", "Marktplatz", "Bibliothek"] as const;
 
 export const PROMOTE_AT = 3;
 

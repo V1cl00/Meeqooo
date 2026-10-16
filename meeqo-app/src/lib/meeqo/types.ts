@@ -36,6 +36,7 @@ export type ActivityCard = {
   hostAvatar: string;
   hostBadges: string[];
   hostOrganizer: boolean;
+  area: "meetup" | "business" | "event";
   title: string;
   description: string;
   category: string;
@@ -79,6 +80,7 @@ export type RequestItem = {
   personName: string;
   status: string;
   createdAt: string;
+  mood: string;
   direction: "in" | "out";
 };
 
@@ -90,6 +92,36 @@ export type ChatThread = {
   peerName: string;
   peerAvatar: string;
   group: boolean;
+  kind: "activity" | "ad";
+};
+
+export type AdChat = {
+  title: string;
+  price: string;
+  city: string;
+  category: string;
+  seller: boolean;
+  peerName: string;
+  peerAvatar: string;
+  messages: ChatMessage[];
+};
+
+export type CircleMember = {
+  id: string;
+  name: string;
+  avatar: string;
+  meetings: number;
+};
+
+export type SafetyView = {
+  name: string;
+  title: string;
+  startsAt: string;
+  placeName: string;
+  city: string;
+  checkedInAt: string | null;
+  state: "waiting" | "ok" | "late";
+  minutesLate: number;
 };
 
 export type ChatPerson = {
@@ -172,6 +204,9 @@ export type Classified = {
   traits: string[];
   createdAt: string;
   mine: boolean;
+  /** For the author: how many people wrote. For others: the open thread, if any. */
+  interested: number;
+  myThread: string | null;
 };
 
 export type CategoryHit = {

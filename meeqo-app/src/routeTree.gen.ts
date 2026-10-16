@@ -34,7 +34,9 @@ import { Route as OrganizerRegisterRouteImport } from './routes/organizer.regist
 import { Route as ProfileIdRouteImport } from './routes/profile.$id'
 import { Route as RatingIdRouteImport } from './routes/rating.$id'
 import { Route as RatingCompleteRouteImport } from './routes/rating.complete'
+import { Route as SicherTokenRouteImport } from './routes/sicher.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ChatAnzeigeIdRouteImport } from './routes/chat.anzeige.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -161,10 +163,20 @@ const RatingCompleteRoute = RatingCompleteRouteImport.update({
   path: '/rating/complete',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SicherTokenRoute = SicherTokenRouteImport.update({
+  id: '/sicher/$token',
+  path: '/sicher/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ChatAnzeigeIdRoute = ChatAnzeigeIdRouteImport.update({
+  id: '/anzeige/$id',
+  path: '/anzeige/$id',
+  getParentRoute: () => ChatRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -193,7 +205,9 @@ export interface FileRoutesByFullPath {
   '/profile/$id': typeof ProfileIdRoute
   '/rating/$id': typeof RatingIdRoute
   '/rating/complete': typeof RatingCompleteRoute
+  '/sicher/$token': typeof SicherTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -221,7 +235,9 @@ export interface FileRoutesByTo {
   '/profile/$id': typeof ProfileIdRoute
   '/rating/$id': typeof RatingIdRoute
   '/rating/complete': typeof RatingCompleteRoute
+  '/sicher/$token': typeof SicherTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -250,7 +266,9 @@ export interface FileRoutesById {
   '/profile/$id': typeof ProfileIdRoute
   '/rating/$id': typeof RatingIdRoute
   '/rating/complete': typeof RatingCompleteRoute
+  '/sicher/$token': typeof SicherTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -280,7 +298,9 @@ export interface FileRouteTypes {
     | '/profile/$id'
     | '/rating/$id'
     | '/rating/complete'
+    | '/sicher/$token'
     | '/api/auth/$'
+    | '/chat/anzeige/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -308,7 +328,9 @@ export interface FileRouteTypes {
     | '/profile/$id'
     | '/rating/$id'
     | '/rating/complete'
+    | '/sicher/$token'
     | '/api/auth/$'
+    | '/chat/anzeige/$id'
   id:
     | '__root__'
     | '/'
@@ -336,7 +358,9 @@ export interface FileRouteTypes {
     | '/profile/$id'
     | '/rating/$id'
     | '/rating/complete'
+    | '/sicher/$token'
     | '/api/auth/$'
+    | '/chat/anzeige/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -360,6 +384,7 @@ export interface RootRouteChildren {
   ActivityIdRoute: typeof ActivityIdRoute
   RatingIdRoute: typeof RatingIdRoute
   RatingCompleteRoute: typeof RatingCompleteRoute
+  SicherTokenRoute: typeof SicherTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -540,6 +565,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RatingCompleteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sicher/$token': {
+      id: '/sicher/$token'
+      path: '/sicher/$token'
+      fullPath: '/sicher/$token'
+      preLoaderRoute: typeof SicherTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -547,15 +579,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/anzeige/$id': {
+      id: '/chat/anzeige/$id'
+      path: '/anzeige/$id'
+      fullPath: '/chat/anzeige/$id'
+      preLoaderRoute: typeof ChatAnzeigeIdRouteImport
+      parentRoute: typeof ChatRoute
+    }
   }
 }
 
 interface ChatRouteChildren {
   ChatIdRoute: typeof ChatIdRoute
+  ChatAnzeigeIdRoute: typeof ChatAnzeigeIdRoute
 }
 
 const ChatRouteChildren: ChatRouteChildren = {
   ChatIdRoute: ChatIdRoute,
+  ChatAnzeigeIdRoute: ChatAnzeigeIdRoute,
 }
 
 const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
@@ -618,6 +659,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityIdRoute: ActivityIdRoute,
   RatingIdRoute: RatingIdRoute,
   RatingCompleteRoute: RatingCompleteRoute,
+  SicherTokenRoute: SicherTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

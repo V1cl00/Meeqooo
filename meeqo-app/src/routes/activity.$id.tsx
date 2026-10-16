@@ -3,8 +3,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BadgeRow, Button, IntentPill, Note, SparteStrip, StatusLine } from "@/components/bits";
 import { ShareSheet } from "@/components/share";
 import { Shell } from "@/components/shell";
-import { checkIn, getActivity, hideActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
-import { bookingLabel, errText, formatWhen, sparteOf } from "@/lib/meeqo/labels";
+import { checkIn, createSafetyLink, getActivity, hideActivity, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
+import { bookingLabel, errText, formatWhen, MOODS, sparteOf } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/activity/$id")({ component: Page });
@@ -25,6 +25,8 @@ function Detail({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [fail, setFail] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
+  const [mood, setMood] = useState<string>(MOODS[0]);
+  const [trust, setTrust] = useState<{ text: string } | null>(null);
   const item = data?.activity;
 
   async function join() {
@@ -32,9 +34,38 @@ function Detail({ id }: { id: string }) {
     setBusy(true);
     setFail("");
     try {
-      const result = await requestJoin({ data: { id: item.id } });
+      const result = await requestJoin({ data: { id: item.id, mood } });
       setInfo(result.status === "accepted" ? "Du bist dabei. Der Chat ist offen." : "Anfrage ist raus. Der Ersteller entscheidet.");
       reload();
+    } catch (err) {
+      setFail(errText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function again() {
+    if (!item) return;
+    setBusy(true);
+    setFail("");
+    try {
+      const result = await repeatActivity({ data: { id: item.id } });
+      await navigate({ to: "/activity/$id", params: { id: result.id } });
+    } catch (err) {
+      setFail(errText(err));
+      setBusy(false);
+    }
+  }
+
+  async function trustLink() {
+    if (!item) return;
+    setBusy(true);
+    setFail("");
+    try {
+      const result = await createSafetyLink({ data: { id: item.id } });
+      const url = `${window.location.origin}${result.path}`;
+      setTrust({ text: `Ich gehe zu „${item.title}“ (${formatWhen(item.startsAt)}, ${item.placeName}, ${item.city}). Hier siehst du, ob ich eingecheckt bin: ${url}` });
+      setShareOpen(true);
     } catch (err) {
       setFail(errText(err));
     } finally {
@@ -86,7 +117,7 @@ function Detail({ id }: { id: string }) {
 
   if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
   if (error || !item || !data) return <Note>{error || "Nicht gefunden."}</Note>;
-  const sparte = sparteOf(item.category, item.hostOrganizer);
+  const sparte = sparteOf(item.area, item.category);
   const business = sparte.kind === "business";
   const oneToOne = !business && item.intent === "date" && item.spots <= 2;
   const shareText = `MeeQo: ${item.title}\n${formatWhen(item.startsAt)}\n${item.placeName}, ${item.city}\nMit ${item.hostName}.\nLeute über eine Aktivität kennenlernen. Dating und Freundschaft bleiben getrennt.`;
@@ -128,6 +159,17 @@ function Detail({ id }: { id: string }) {
           <BadgeRow badges={item.hostBadges} />
         </div>
       </div>
+      {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" ? (
+        <div className="card space-y-3 p-4">
+          <h2 className="font-display text-2xl">Was erwartest du heute?</h2>
+          <div className="flex flex-wrap gap-2">
+            {MOODS.map((item) => (
+              <button key={item} type="button" onClick={() => setMood(item)} className={`inline-flex h-10 items-center rounded-full border-2 px-4 text-sm font-semibold ${mood === item ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`}>{item}</button>
+            ))}
+          </div>
+          <p className="text-sm text-muted">Der Ersteller sieht das bei deiner Anfrage.</p>
+        </div>
+      ) : null}
       <div className="card space-y-2 p-4">
         <h2 className="font-display text-2xl">{oneToOne ? "Vor dem Treffen" : "Weitergeben"}</h2>
         <p className="text-sm text-muted">
@@ -135,12 +177,18 @@ function Detail({ id }: { id: string }) {
             ? "Erstes Date nur an diesem öffentlichen Ort. Die Vertrauensperson bekommt Zeit und Ort, wenn du den Text weiterleitest."
             : "Schick das Treffen an jemanden, der dazugehört."}
         </p>
-        <Button type="button" tone="ghost" className="w-full" onClick={() => setShareOpen(true)}>Teilen</Button>
+        <Button type="button" tone="ghost" className="w-full" onClick={() => { setTrust(null); setShareOpen(true); }}>Teilen</Button>
+        {item.myStatus === "accepted" || item.isHost ? (
+          <Button type="button" tone="ghost" className="w-full" disabled={busy} onClick={trustLink}>Vertrauensperson informieren</Button>
+        ) : null}
+        {item.isHost && !item.cancelled ? (
+          <Button type="button" tone="ghost" className="w-full" disabled={busy} onClick={again}>Nächste Woche nochmal</Button>
+        ) : null}
         {oneToOne ? (
           <a className="inline-flex h-12 items-center justify-center rounded-full border-2 border-ink bg-card px-4 text-sm font-semibold" href="tel:112">Notfall 112</a>
         ) : null}
       </div>
-      <ShareSheet open={shareOpen} title={item.title} text={shareText} onClose={() => setShareOpen(false)} />
+      <ShareSheet open={shareOpen} title={trust ? "Mein Treffen" : item.title} text={trust ? trust.text : shareText} onClose={() => setShareOpen(false)} />
       <StatusLine error={fail} info={info} />
       {data.hidden ? <Note>Diese Aktivität ist für dich ausgeblendet. Feed, Suche und Vorschläge überspringen sie.</Note> : null}
       {data.mutual ? <Note>Ihr möchtet euch beide wiedersehen.</Note> : null}

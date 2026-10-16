@@ -138,7 +138,7 @@ export function SparteStrip({ kind, sub }: { kind: Sparte; sub: string }) {
 }
 
 export function ActivityCard({ item, onHide }: { item: Activity; onHide?: () => void }) {
-  const sparte = sparteOf(item.category, item.hostOrganizer);
+  const sparte = sparteOf(item.area, item.category);
   return (
     <article className={`card overflow-hidden ${sparte.kind === "business" ? "!border-2 !border-ink" : sparte.kind === "event" ? "!border-2 !border-accent-deep" : ""}`}>
       <Link to="/activity/$id" params={{ id: item.id }} className="block">

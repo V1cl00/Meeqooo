@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ActivityCard, Button, Empty, Note } from "@/components/bits";
 import { Shell } from "@/components/shell";
-import { friendOverview, listFavorites, removeFriend, respondFriend } from "@/lib/meeqo/api";
+import { friendOverview, listCircle, listFavorites, removeFriend, respondFriend } from "@/lib/meeqo/api";
 import { errText, formatWhen } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { useState } from "react";
@@ -19,6 +19,7 @@ function Page() {
 function Friends() {
   const { data, error, loading, reload } = useLoad(() => friendOverview(), []);
   const favorites = useLoad(() => listFavorites(), []);
+  const circle = useLoad(() => listCircle(), []);
   const [fail, setFail] = useState("");
 
   async function act(kind: "accept" | "decline" | "remove", userId: string) {
@@ -41,6 +42,24 @@ function Friends() {
       {error ? <Note>{error}</Note> : null}
       {fail ? <Note>{fail}</Note> : null}
       {loading ? <p className="text-sm text-muted">Wird geladen…</p> : null}
+      <section className="space-y-2">
+        <h2 className="font-display text-2xl">Wieder getroffen</h2>
+        <p className="text-sm text-muted">Nur Leute, bei denen ihr beide Ja gesagt habt. Sie entstehen nach einem echten Treffen, nicht durch Suchen.</p>
+        <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+          {(circle.data ?? []).map((person) => (
+            <Link key={person.id} to="/profile/$id" params={{ id: person.id }} className="w-20 shrink-0 text-center">
+              {person.avatar ? (
+                <img src={person.avatar} alt="" className="mx-auto h-16 w-16 rounded-2xl object-cover" />
+              ) : (
+                <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-card font-display text-xl">{person.name.slice(0, 1)}</span>
+              )}
+              <span className="mt-1 block truncate text-xs font-bold">{person.name.split(" ")[0]}</span>
+              <span className="block text-[10px] text-muted">{person.meetings}× zusammen</span>
+            </Link>
+          ))}
+        </div>
+        {!circle.loading && (circle.data ?? []).length === 0 ? <p className="text-sm text-muted">Noch niemand. Nach dem Check-in fragt dich die App: wieder treffen?</p> : null}
+      </section>
       <section className="space-y-2">
         <h2 className="font-display text-2xl">Favoriten</h2>
         <p className="text-sm text-muted">Leute, die du wieder einladen willst. Merken geht auf dem Profil.</p>

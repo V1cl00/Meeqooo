@@ -105,6 +105,17 @@ Liste und einzelne Nachrichten zeigen das Profilfoto, sonst den Anfangsbuchstabe
 - Zweites Namensfeld im Onboarding.
 - Drei Dating-Absichten im Onboarding statt Dating / Freunde / Business / Kleinanzeigen.
 
+## Dichte-Runde (Migration 0014)
+
+- `activities.area` (`meetup`, `business`, `event`) statt Textmuster. Setzt `createActivity` über `areaOf`. Linsen Business und Veranstaltungen filtern darauf.
+- Kleinanzeigen: „Interesse melden“ legt einen Thread an (`classified_threads`, `classified_messages`), Route `/chat/anzeige/$id`, in der Chat-Liste mit Badge ANZEIGE. Ohne Profilfoto keine Anfrage. Übergabe-Vorschläge nur öffentliche Orte.
+- „Nächste Woche nochmal“ für Gastgeber (`repeatActivity`).
+- Leerer Feed: „Ich hätte Lust“ (`wishes`). Ab drei Leuten pro Kategorie und Stadt bekommt die erste Person einen Hinweis.
+- Tempo: Anfrage trägt `join_requests.mood` (Locker, Gespräch, Sport, Nur Essen), der Ersteller sieht es unter Anfragen.
+- Vertrauensperson: `safety_shares`, öffentliche Seite `/sicher/$token` ohne Login. Schlägt an, wenn 30 Minuten nach Beginn der Check-in fehlt. Kein Push, die Seite lädt sich selbst neu.
+- Wieder getroffen: `listCircle`, nur gegenseitiges Ja, steht auf `/friends`.
+- Ortslogik liegt in `src/lib/meeqo/places.ts` mit Tests (`places.test.ts`, gemocktes fetch).
+
 ## Noch schwach, nicht anfassen ohne Auftrag
 
 - Menschen ohne Foto bleiben Buchstaben. Foto ist Pflicht zum Anfragen und zum Veröffentlichen, nicht zum Reinschauen.

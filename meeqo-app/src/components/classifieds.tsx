@@ -1,0 +1,77 @@
+import { useState, type FormEvent } from "react";
+import { Button, Field, Note, TextArea, TextInput } from "@/components/bits";
+import { TraitPicker } from "@/components/traits";
+import { VisibilityPicker } from "@/components/visibility";
+import { useMe } from "@/components/shell";
+import { createClassified, listClassifieds } from "@/lib/meeqo/api";
+import { CLASSIFIED_CATS, errText, formatWhen } from "@/lib/meeqo/labels";
+import { useLoad } from "@/lib/meeqo/use-load";
+
+function chip(active: boolean) {
+  return `inline-flex h-10 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`;
+}
+
+export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
+  const { profile } = useMe();
+  const { data, error, loading, reload } = useLoad(() => listClassifieds(), []);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [category, setCategory] = useState<string>(sub || "Verkaufen");
+  const [price, setPrice] = useState("");
+  const [traits, setTraits] = useState<string[]>([]);
+  const [visibility, setVisibility] = useState<string>(profile?.defaultVisibility ?? "all");
+  const [communityIds, setCommunityIds] = useState<string[]>(profile?.audienceIds ?? []);
+  const [fail, setFail] = useState("");
+  const [open, setOpen] = useState(false);
+  const items = (data ?? []).filter((item) => !sub || item.category === sub);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setFail("");
+    try {
+      await createClassified({ data: { title, body, category: sub || category, city, price, traits, visibility, communityIds: visibility === "community" ? communityIds : [] } });
+      setTitle("");
+      setBody("");
+      setPrice("");
+      setOpen(false);
+      reload();
+    } catch (err) {
+      setFail(errText(err));
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <button type="button" className={chip(open)} onClick={() => setOpen((value) => !value)}>Anzeige aufgeben</button>
+      {open ? (
+        <form onSubmit={submit} className="card space-y-3 p-4">
+          <Field label="Titel"><TextInput value={title} onChange={(event) => setTitle(event.target.value)} required /></Field>
+          <Field label="Worum geht's?"><TextArea value={body} onChange={(event) => setBody(event.target.value)} /></Field>
+          <div className="flex flex-wrap gap-2">
+            {CLASSIFIED_CATS.map((item) => (
+              <button key={item} type="button" className={chip((sub || category) === item)} onClick={() => setCategory(item)}>{item}</button>
+            ))}
+          </div>
+          <Field label="Preis, optional"><TextInput value={price} onChange={(event) => setPrice(event.target.value)} placeholder="12 €" /></Field>
+          <TraitPicker label="Eigenschaften" hint="Zum Beispiel vegan oder queerfreundlich. Ohne Haken sieht sie jeder, den die Sichtbarkeit durchlässt." selected={traits} onChange={setTraits} />
+          <VisibilityPicker value={visibility} onChange={setVisibility} communityIds={communityIds} onCommunityIds={setCommunityIds} />
+          {fail ? <Note>{fail}</Note> : null}
+          <Button type="submit">Veröffentlichen</Button>
+        </form>
+      ) : null}
+      {error ? <Note>{error}</Note> : null}
+      {loading ? <p className="text-sm text-muted">Anzeigen werden geladen…</p> : null}
+      {items.map((item) => (
+        <article key={item.id} className="card space-y-2 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="font-display text-2xl leading-none">{item.title}</h2>
+            <span className="rounded-full border border-line bg-card px-2.5 py-1 text-xs font-semibold">{item.category}</span>
+          </div>
+          <p className="text-sm">{item.body}</p>
+          <p className="text-sm text-muted">{item.city}{item.price ? ` · ${item.price}` : ""} · {item.authorName} · {formatWhen(item.createdAt)}</p>
+        </article>
+      ))}
+      {!loading && items.length === 0 ? <p className="text-sm text-muted">In diesem Filter ist noch nichts eingestellt.</p> : null}
+    </div>
+  );
+}

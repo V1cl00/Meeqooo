@@ -1,0 +1,55 @@
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Literata:opsz,wght@7..72,560;7..72,650&family=Newsreader:opsz,wght@6..72,560;6..72,650&family=Nunito+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-sand: #f6f1eb;
+  --color-sand-deep: #efe6db;
+  --color-card: #fffcf9;
+  --color-ink: #241c18;
+  --color-muted: #8a7b72;
+  --color-line: #eadfd4;
+  --color-accent: #e07a5f;
+  --color-accent-deep: #c45d45;
+  --color-friend: #3f6b58;
+  --color-onaccent: #fff8f4;
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+  --radius-card: 1.5rem;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background: var(--color-sand);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body { min-height: 100dvh; }
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; letter-spacing: -0.03em; }
+  p { text-wrap: pretty; }
+  button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  ::selection { background: color-mix(in srgb, var(--color-accent) 28%, white); }
+}
+
+/* Page titles share one size. The login line sets its own. */
+h1.font-display.text-4xl {
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+@utility card {
+  background: var(--color-card);
+  border: 1px solid color-mix(in srgb, var(--color-line) 80%, white);
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 0 color-mix(in srgb, white 70%, transparent), 0 10px 28px color-mix(in srgb, var(--color-ink) 5%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

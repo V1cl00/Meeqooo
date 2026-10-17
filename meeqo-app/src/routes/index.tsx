@@ -109,9 +109,9 @@ function Feed() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-sm text-muted">{profile?.city || "In der Nähe"}</p>
+      <div className="space-y-3">
         <h1 className="font-display text-4xl leading-none">Treffen in der Nähe</h1>
+        <PlaceBar onChange={reloadFeed} />
       </div>
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {lenses.map(([id, label]) => (
@@ -165,6 +165,7 @@ function Feed() {
       {filter !== "classifieds" && data && data.items.length === 0 ? (
         data.nextDay ? (
           <Empty
+            art="calendar"
             title="An diesem Tag ist nichts"
             body={`Am ${new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Berlin" }).format(new Date(`${data.nextDay}T12:00:00`))} ${data.nextCount === 1 ? "ist ein Treffen" : `sind ${data.nextCount} Treffen`} in der Nähe.`}
             action={
@@ -176,6 +177,7 @@ function Feed() {
           />
         ) : (
           <Empty
+            art="meet"
             title="Das ändern wir"
             body={`Gerade bietet niemand ${sub || LENS_WISH[filter] || "etwas"} an. Sag, dass du Lust hast. Wenn genug Leute dasselbe wollen, melden wir uns, und du kannst es anlegen.`}
             action={<WishPrompt category={sub || LENS_WISH[filter] || "Treffen"} day={days[0] ?? ""} />}
@@ -199,7 +201,6 @@ function Feed() {
           </div>
         </div>
       ) : null}
-      <PlaceBar onChange={reloadFeed} />
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <Link to="/search" className={face}>Suche</Link>
         <button type="button" className={face} onClick={() => setTraitsOpen((value) => !value)}>Mindestens</button>

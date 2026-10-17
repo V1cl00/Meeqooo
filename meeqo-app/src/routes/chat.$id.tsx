@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Button, Note, TextInput } from "@/components/bits";
+import { Button, Note, Skeleton, TextInput } from "@/components/bits";
 import { Shell } from "@/components/shell";
 import { listMessages, sendMessage } from "@/lib/meeqo/api";
 import { errText, formatWhen } from "@/lib/meeqo/labels";
+import { buzz } from "@/lib/meeqo/feel";
+import type { ChatMessage } from "@/lib/meeqo/types";
 import { useLoad, usePolling } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/chat/$id")({ component: Page });
@@ -22,27 +24,41 @@ function Thread({ id }: { id: string }) {
   const [body, setBody] = useState("");
   const [fail, setFail] = useState("");
   const seen = useRef(0);
+  const [pending, setPending] = useState<ChatMessage[]>([]);
   usePolling(refresh);
 
   useEffect(() => {
-    const count = data?.messages.length ?? 0;
+    const count = (data?.messages.length ?? 0) + pending.length;
     if (count > seen.current) window.scrollTo({ top: document.body.scrollHeight, behavior: seen.current === 0 ? "auto" : "smooth" });
     seen.current = count;
-  }, [data?.messages.length]);
+  }, [data?.messages.length, pending.length]);
+
+  useEffect(() => {
+    if (!data) return;
+    // A message shows at once and is dropped from the waiting list as soon as the server returns it.
+    setPending((list) => list.filter((temp) => !data.messages.some((item) => item.mine && item.body === temp.body && Math.abs(new Date(item.createdAt).getTime() - new Date(temp.createdAt).getTime()) < 120_000)));
+  }, [data]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    const text = body.trim();
+    if (!text) return;
     setFail("");
+    const temp: ChatMessage = { id: `tmp-${Date.now()}`, senderId: "", senderName: "Du", senderAvatar: "", body: text, createdAt: new Date().toISOString(), mine: true };
+    setPending((list) => [...list, temp]);
+    setBody("");
     try {
-      await sendMessage({ data: { id, body } });
-      setBody("");
+      await sendMessage({ data: { id, body: text } });
+      buzz(8);
       refresh();
     } catch (err) {
+      setPending((list) => list.filter((item) => item.id !== temp.id));
+      setBody(text);
       setFail(errText(err));
     }
   }
 
-  if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
+  if (loading) return <Skeleton lines={5} />;
   if (error || !data) return <Note>{error || "Chat nicht da."}</Note>;
 
   return (
@@ -75,8 +91,8 @@ function Thread({ id }: { id: string }) {
         </div>
       ) : null}
       <div className="mt-4 flex flex-1 flex-col gap-2">
-        {data.messages.map((message) => (
-          <div key={message.id} className={`flex max-w-[85%] items-end gap-2 ${message.mine ? "ml-auto" : ""}`}>
+        {[...data.messages, ...pending].map((message) => (
+          <div key={message.id} className={`flex max-w-[85%] items-end gap-2 ${message.mine ? "ml-auto" : ""} ${message.id.startsWith("tmp-") ? "opacity-70" : ""}`}>
             {message.mine ? null : message.senderAvatar ? (
               <img src={message.senderAvatar} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
             ) : (

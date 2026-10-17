@@ -5,7 +5,10 @@ import { Shell, useMe } from "@/components/shell";
 import { confirmAge } from "@/lib/meeqo/api";
 import { errText } from "@/lib/meeqo/labels";
 
-export const Route = createFileRoute("/alter")({ component: Page });
+export const Route = createFileRoute("/alter")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
+  component: Page,
+});
 
 function Page() {
   return (

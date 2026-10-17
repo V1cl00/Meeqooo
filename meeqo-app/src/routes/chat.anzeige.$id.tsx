@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Button, Note, TextInput } from "@/components/bits";
+import { Button, Note, Skeleton, TextInput } from "@/components/bits";
 import { SafetyMenu } from "@/components/safety";
 import { Shell } from "@/components/shell";
 import { listAdMessages, sendAdMessage } from "@/lib/meeqo/api";
 import { errText, formatWhen, HANDOVER_SPOTS } from "@/lib/meeqo/labels";
+import { buzz } from "@/lib/meeqo/feel";
+import type { ChatMessage } from "@/lib/meeqo/types";
 import { useLoad, usePolling } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/chat/anzeige/$id")({ component: Page });
@@ -23,21 +25,35 @@ function Thread({ id }: { id: string }) {
   const [body, setBody] = useState("");
   const [fail, setFail] = useState("");
   const seen = useRef(0);
+  const [pending, setPending] = useState<ChatMessage[]>([]);
   usePolling(refresh);
 
   useEffect(() => {
-    const count = data?.messages.length ?? 0;
+    const count = (data?.messages.length ?? 0) + pending.length;
     if (count > seen.current) window.scrollTo({ top: document.body.scrollHeight, behavior: seen.current === 0 ? "auto" : "smooth" });
     seen.current = count;
-  }, [data?.messages.length]);
+  }, [data?.messages.length, pending.length]);
+
+  useEffect(() => {
+    if (!data) return;
+    setPending((list) => list.filter((temp) => !data.messages.some((item) => item.mine && item.body === temp.body && Math.abs(new Date(item.createdAt).getTime() - new Date(temp.createdAt).getTime()) < 120_000)));
+  }, [data]);
 
   async function send(text: string) {
+    const clean = text.trim();
+    if (!clean) return;
     setFail("");
+    const fromInput = clean === body.trim();
+    const temp: ChatMessage = { id: `tmp-${Date.now()}`, senderId: "", senderName: "Du", senderAvatar: "", body: clean, createdAt: new Date().toISOString(), mine: true };
+    setPending((list) => [...list, temp]);
+    if (fromInput) setBody("");
     try {
-      await sendAdMessage({ data: { id, body: text } });
-      setBody("");
+      await sendAdMessage({ data: { id, body: clean } });
+      buzz(8);
       refresh();
     } catch (err) {
+      setPending((list) => list.filter((item) => item.id !== temp.id));
+      if (fromInput) setBody(clean);
       setFail(errText(err));
     }
   }
@@ -47,7 +63,7 @@ function Thread({ id }: { id: string }) {
     void send(body);
   }
 
-  if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
+  if (loading) return <Skeleton lines={5} />;
   if (error || !data) return <Note>{error || "Chat nicht da."}</Note>;
   const handover = data.category !== "Mitfahrgelegenheit";
 
@@ -62,8 +78,8 @@ function Thread({ id }: { id: string }) {
         {data.price ? ` · ${data.price}` : ""} · {data.city}
       </p>
       <div className="mt-4 flex flex-1 flex-col gap-2">
-        {data.messages.map((message) => (
-          <div key={message.id} className={`flex max-w-[85%] items-end gap-2 ${message.mine ? "ml-auto" : ""}`}>
+        {[...data.messages, ...pending].map((message) => (
+          <div key={message.id} className={`flex max-w-[85%] items-end gap-2 ${message.mine ? "ml-auto" : ""} ${message.id.startsWith("tmp-") ? "opacity-70" : ""}`}>
             {message.mine ? null : message.senderAvatar ? (
               <img src={message.senderAvatar} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
             ) : (

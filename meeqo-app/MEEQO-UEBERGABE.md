@@ -169,6 +169,16 @@ Liste und einzelne Nachrichten zeigen das Profilfoto, sonst den Anfangsbuchstabe
 - Barrierefreiheit mit axe geprüft: keine Befunde auf den geprüften Seiten. Das ersetzt keine Prüfung mit Screenreader.
 - Sicherheit: Review der Serverfunktionen. Behoben: Bewertungsabfrage nur für Beteiligte, Weiterleitung nach Login lässt `/\` nicht mehr durch, gesperrte Konten überall draußen.
 
+## Qualitätsrunde (Migration 0020)
+
+- Behoben: Check-in nur von 2 Stunden vor bis 12 Stunden nach Beginn. Zusagen können das Treffen nicht überbuchen (Gegenprüfung nach dem Eintragen, `overbooked`). Serien bleiben über die Sommerzeit auf derselben Uhrzeit (`addDaysBerlin` in `time.ts`, getestet). Chat-Benachrichtigungen werden je Chat zusammengefasst.
+- Ungelesen: `chat_reads`, Punkt in Chat-Liste, Zahl an „Chats“ in der Navigation (`chatUnread`, alle 30 Sekunden). Öffnen eines Chats markiert gelesen.
+- Karte: „Mira und 2 weitere sind dabei“ (nur Freunde, die zugesagt haben) oder „Passt zu deinen Interessen“. Nicht personalisiert sortiert, weiterhin nach Zeit.
+- Einstellungen: „Daten herunterladen“ (`exportMyData`, JSON).
+- Einladungsseite liefert beim Laden auf dem Server `og:`-Tags, damit WhatsApp eine Vorschau zeigt. Private Seiten sind `noindex`, `public/robots.txt` sperrt sie zusätzlich. Sicherheits-Header über `routeRules` in `vite.config.ts` (bewusst ohne X-Frame-Options, die Grok-Vorschau läuft in einem Rahmen).
+- Design: folgt dem Dunkelmodus des Handys (ein eigenes Design aus den Einstellungen gewinnt), Illustrationen in leeren Zuständen (`Illustration`, `Empty art=`), ruhige Bestätigungen oben (`notice` aus `feel.ts`, sonner), eigene Nachrichten erscheinen sofort, weiche Seitenwechsel (View Transitions), Skelette beim Laden, Ort und Radius stehen oben im Feed, Offline-Leiste. Overlays über Fotos bleiben schwarz (`bg-black/…`), nicht `ink`, sonst kippen sie im Dunkelmodus.
+- Barrierefreiheit hell und dunkel mit axe geprüft: keine Befunde.
+
 ## Noch schwach, nicht anfassen ohne Auftrag
 
 - Menschen ohne Foto bleiben Buchstaben. Foto ist Pflicht zum Anfragen und zum Veröffentlichen, nicht zum Reinschauen.

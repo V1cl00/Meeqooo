@@ -3,23 +3,26 @@ import { Link, Navigate, useRouterState } from "@tanstack/react-router";
 import { Bell, CalendarDays, Compass, MessageCircle, Plus, UserRound } from "lucide-react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { getProfile, listNotifications } from "@/lib/meeqo/api";
+import { chatUnread, getProfile, listNotifications } from "@/lib/meeqo/api";
 import { takeProfile } from "@/lib/meeqo/warm";
 import { errText, isUnauthorized } from "@/lib/meeqo/labels";
 import type { Profile } from "@/lib/meeqo/types";
 import { themeStyle } from "@/lib/meeqo/theme";
 import { WelcomeHero, Wordmark } from "@/components/bits";
+import { Toaster } from "@/components/toaster";
 
 type Ctx = {
   profile: Profile | null;
   reload: () => Promise<void>;
   unread: number;
+  unreadChats: number;
 };
 
 const ProfileContext = createContext<Ctx>({
   profile: null,
   reload: async () => {},
   unread: 0,
+  unreadChats: 0,
 });
 
 export function useMe() {
@@ -51,6 +54,8 @@ export function Shell({
   const [error, setError] = useState("");
   const [stalled, setStalled] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [unreadChats, setUnreadChats] = useState(0);
+  const [online, setOnline] = useState(true);
   const seen = useRef<Set<string>>(new Set());
   const primed = useRef(false);
 
@@ -83,6 +88,17 @@ export function Shell({
   }, [user?.id]);
 
   useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isPending) return;
     const timer = window.setTimeout(() => setStalled(true), 4000);
     return () => window.clearTimeout(timer);
@@ -92,6 +108,7 @@ export function Shell({
     if (!user) return;
     let live = true;
     const pull = () => {
+      chatUnread().then((result) => live && setUnreadChats(result.count)).catch(() => {});
       listNotifications()
         .then((rows) => {
           if (!live) return;
@@ -158,7 +175,7 @@ export function Shell({
     return <Navigate to="/onboarding" />;
   }
 
-  const value = { profile, reload, unread };
+  const value = { profile, reload, unread, unreadChats };
 
   if (bare) {
     return (
@@ -166,12 +183,14 @@ export function Shell({
         <div className="min-h-dvh bg-sand text-ink" style={themeStyle(profile.theme)}>
           <div className="mx-auto w-full max-w-lg px-5 py-8">{children}</div>
         </div>
+        <Toaster />
       </ProfileContext.Provider>
     );
   }
 
   return (
     <ProfileContext.Provider value={value}>
+      <Toaster />
       <div className="min-h-dvh bg-sand text-ink" style={themeStyle(profile.theme)}>
         <div className="mx-auto flex w-full max-w-5xl">
           <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-6 border-r border-line px-5 py-7 md:flex">
@@ -180,7 +199,7 @@ export function Shell({
             </Link>
             <nav className="flex flex-col gap-1">
               {NAV.map((item) => (
-                <NavLink key={item.to} to={item.to} label={item.label} icon={item.icon} path={path} />
+                <NavLink key={item.to} to={item.to} label={item.label} icon={item.icon} path={path} badge={item.to === "/chat" ? unreadChats : 0} />
               ))}
             </nav>
             {profile?.city ? (
@@ -193,6 +212,9 @@ export function Shell({
             )}
           </aside>
           <div className="min-w-0 flex-1">
+            {online ? null : (
+              <p role="status" className="bg-ink px-4 py-2 text-center text-sm font-semibold text-onaccent">Du bist offline. Zum Senden und Anfragen braucht MeeQo Netz.</p>
+            )}
             <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line/70 bg-sand/80 px-4 py-3 backdrop-blur-xl md:px-8">
               <Link to="/" className="md:hidden">
                 <Wordmark className="text-[1.65rem]" />
@@ -207,13 +229,13 @@ export function Shell({
                 ) : null}
               </Link>
             </header>
-            <main className="px-4 pb-32 md:px-8 md:pb-16">{children}</main>
+            <main className="px-4 pb-32 pt-5 md:px-8 md:pb-16">{children}</main>
           </div>
         </div>
         <nav className="fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.6rem,env(safe-area-inset-bottom))] md:hidden">
           <div className="mx-auto grid max-w-lg grid-cols-5 rounded-[1.6rem] border border-line bg-card/95 px-1 py-1 shadow-[0_10px_40px_rgba(36,28,24,0.12)] backdrop-blur-xl">
             {NAV.map((item) => (
-              <NavLink key={item.to} to={item.to} label={item.label} icon={item.icon} path={path} compact />
+              <NavLink key={item.to} to={item.to} label={item.label} icon={item.icon} path={path} compact badge={item.to === "/chat" ? unreadChats : 0} />
             ))}
           </div>
         </nav>
@@ -228,20 +250,23 @@ function NavLink({
   icon: Icon,
   path,
   compact = false,
+  badge = 0,
 }: {
   to: string;
   label: string;
   icon: typeof Compass;
   path: string;
   compact?: boolean;
+  badge?: number;
 }) {
   const active = to === "/" ? path === "/" : path.startsWith(to);
   if (compact) {
     const create = to === "/create";
     return (
       <Link to={to} search={create ? { community: "" } : undefined} className="relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold">
-        <span className={create ? "-mt-6 grid h-14 w-14 place-items-center rounded-full bg-accent text-onfill shadow-[0_10px_20px_color-mix(in_srgb,var(--color-accent)_40%,transparent)]" : active ? "grid h-9 w-9 place-items-center text-accent-deep" : "grid h-9 w-9 place-items-center text-muted"}>
+        <span className={create ? "-mt-6 grid h-14 w-14 place-items-center rounded-full bg-accent text-onfill shadow-[0_10px_20px_color-mix(in_srgb,var(--color-accent)_40%,transparent)]" : active ? "relative grid h-9 w-9 place-items-center text-accent-deep" : "relative grid h-9 w-9 place-items-center text-muted"}>
           <Icon className={create ? "h-6 w-6" : "h-5 w-5"} />
+          {badge > 0 ? <span className="absolute right-[1.1rem] top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-onfill" aria-label={`${badge} ungelesen`}>{badge}</span> : null}
         </span>
         <span className={create ? "text-ink" : active ? "text-accent-deep" : "text-muted"}>{label}</span>
       </Link>
@@ -255,6 +280,7 @@ function NavLink({
     >
       <Icon className="h-5 w-5" />
       {label}
+      {badge > 0 ? <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-onfill" aria-label={`${badge} ungelesen`}>{badge}</span> : null}
     </Link>
   );
 }

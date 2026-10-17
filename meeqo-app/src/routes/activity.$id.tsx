@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { BadgeRow, Button, IntentPill, Note, SparteStrip, StatusLine } from "@/components/bits";
+import { BadgeRow, Button, IntentPill, Note, Skeleton, SparteStrip, StatusLine } from "@/components/bits";
 import { SafetyMenu } from "@/components/safety";
 import { icsFor, mapUrl } from "@/lib/meeqo/ics";
 import { ShareSheet } from "@/components/share";
 import { Shell } from "@/components/shell";
 import { checkIn, confirmAttendance, createInvite, createSafetyLink, getActivity, hideActivity, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
 import { bookingLabel, countdownLabel, errText, formatWhen, MOODS, replyLabel, sparteOf } from "@/lib/meeqo/labels";
+import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/activity/$id")({ component: Page });
@@ -23,7 +24,6 @@ function Page() {
 function Detail({ id }: { id: string }) {
   const navigate = useNavigate();
   const { data, error, loading, reload } = useLoad(() => getActivity({ data: { id } }), [id]);
-  const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
   const [fail, setFail] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
@@ -39,7 +39,7 @@ function Detail({ id }: { id: string }) {
     try {
       const result = await requestJoin({ data: { id: item.id, mood } });
       const reply = data?.hostReplyHours != null ? ` ${item.hostName.split(" ")[0]} antwortet meist in ${replyLabel(data.hostReplyHours)}.` : "";
-      setInfo(result.status === "accepted" ? "Du bist dabei. Der Chat ist offen." : `Anfrage ist raus.${reply} Du bekommst eine Mitteilung, sobald es eine Antwort gibt.`);
+      notice(result.status === "accepted" ? "Du bist dabei. Der Chat ist offen." : `Anfrage ist raus.${reply} Du bekommst eine Mitteilung, sobald es eine Antwort gibt.`);
       reload();
     } catch (err) {
       setFail(errText(err));
@@ -109,7 +109,7 @@ function Detail({ id }: { id: string }) {
     setFail("");
     try {
       const result = await confirmAttendance({ data: { id: item.id, coming } });
-      setInfo(result.status === "confirmed" ? "Gut, bis dann." : "Schade. Dein Platz ist wieder frei.");
+      notice(result.status === "confirmed" ? "Gut, bis dann." : "Schade. Dein Platz ist wieder frei.");
       reload();
     } catch (err) {
       setFail(errText(err));
@@ -123,7 +123,7 @@ function Detail({ id }: { id: string }) {
     setBusy(true);
     try {
       await checkIn({ data: { id: item.id } });
-      setInfo("Check-in gespeichert. Bewertung ist frei.");
+      notice("Check-in gespeichert. Bewertung ist frei.");
       reload();
     } catch (err) {
       setFail(errText(err));
@@ -151,7 +151,7 @@ function Detail({ id }: { id: string }) {
     setFail("");
     try {
       await unhideActivity({ data: { id: item.id } });
-      setInfo("Wieder im Feed.");
+      notice("Wieder im Feed.");
       reload();
     } catch (err) {
       setFail(errText(err));
@@ -160,7 +160,7 @@ function Detail({ id }: { id: string }) {
     }
   }
 
-  if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
+  if (loading) return <Skeleton photo lines={4} />;
   if (error || !item || !data) return <Note>{error || "Nicht gefunden."}</Note>;
   const sparte = sparteOf(item.area, item.category);
   const business = sparte.kind === "business";
@@ -282,7 +282,7 @@ function Detail({ id }: { id: string }) {
       </div>
       {!item.isHost ? <SafetyMenu kind="activity" targetId={item.id} personId={item.hostId} personName={item.hostName.split(" ")[0]} onBlocked={() => navigate({ to: "/" })} /> : null}
       <ShareSheet open={shareOpen} title={trust ? trust.title : item.title} text={trust ? trust.text : shareText} onClose={() => setShareOpen(false)} />
-      <StatusLine error={fail} info={info} />
+      <StatusLine error={fail} />
       {data.hidden ? <Note>Diese Aktivität ist für dich ausgeblendet. Feed, Suche und Vorschläge überspringen sie.</Note> : null}
       {data.mutual ? <Note>Ihr möchtet euch beide wiedersehen.</Note> : null}
       <div className="flex flex-wrap gap-2 pb-16">

@@ -17,8 +17,8 @@ export async function text(page) {
 }
 
 /** Signs up a fresh account, confirms age, finishes onboarding. Pass `email` for a fixed address (the admin). */
-export async function newUser(browser, name, { email, photo = true } = {}) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+export async function newUser(browser, name, { email, photo = true, scheme } = {}) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...(scheme ? { colorScheme: scheme } : {}) });
   const page = await context.newPage();
   await page.goto(`${base}/login`);
   await page.getByPlaceholder("Wie du heißt").fill(name);

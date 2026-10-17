@@ -175,6 +175,17 @@ export default defineConfig(({ command, isPreview }) => ({
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.
             serverDir: "./server",
+            // No X-Frame-Options: the Grok live preview embeds the app in a frame.
+            routeRules: {
+              "/**": {
+                headers: {
+                  "X-Content-Type-Options": "nosniff",
+                  "Referrer-Policy": "strict-origin-when-cross-origin",
+                  "Permissions-Policy": "camera=(), microphone=(), geolocation=(self), payment=()",
+                  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+                },
+              },
+            },
           }),
         ]
       : []),

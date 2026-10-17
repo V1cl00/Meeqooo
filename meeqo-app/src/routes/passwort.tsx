@@ -5,6 +5,8 @@ import { resetPassword } from "@/lib/meeqo/api";
 import { errText } from "@/lib/meeqo/labels";
 
 export const Route = createFileRoute("/passwort")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
+
   validateSearch: (search: Record<string, unknown>) => ({ token: typeof search.token === "string" ? search.token : "" }),
   component: Page,
 });

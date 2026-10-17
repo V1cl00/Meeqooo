@@ -87,7 +87,7 @@ function Friends() {
       ) : null}
       <section className="space-y-2">
         <h2 className="font-display text-2xl">Befreundet</h2>
-        {(data?.friends.length ?? 0) === 0 && !loading ? <Empty title="Noch niemand" body="Auf einem Profil kannst du eine Freundschaft anfragen." /> : null}
+        {(data?.friends.length ?? 0) === 0 && !loading ? <Empty art="people" title="Noch niemand" body="Auf einem Profil kannst du eine Freundschaft anfragen." /> : null}
         {data?.friends.map((person) => (
           <div key={person.userId} className="card flex items-center justify-between gap-3 px-4 py-3">
             <div>

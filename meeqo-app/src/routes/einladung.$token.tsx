@@ -2,20 +2,43 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Note, Wordmark } from "@/components/bits";
 import { getInvite } from "@/lib/meeqo/api";
 import { formatWhen } from "@/lib/meeqo/labels";
-import { useLoad } from "@/lib/meeqo/use-load";
 
-export const Route = createFileRoute("/einladung/$token")({ component: Page });
+/** Public: opened by someone who got the link and may not have an account yet. The head is filled on the server so WhatsApp and others show a preview. */
+export const Route = createFileRoute("/einladung/$token")({
+  loader: async ({ params }) => {
+    try {
+      return await getInvite({ data: { token: params.token } });
+    } catch {
+      return null;
+    }
+  },
+  head: ({ loaderData }) => {
+    if (!loaderData) return { meta: [{ title: "MeeQo" }, { name: "robots", content: "noindex, nofollow" }] };
+    const title = `${loaderData.hostName} lädt dich ein: ${loaderData.title}`;
+    const description = `${formatWhen(loaderData.startsAt)} · ${loaderData.placeName}, ${loaderData.city}`;
+    const image = loaderData.imageUrl ? (loaderData.imageUrl.startsWith("http") ? loaderData.imageUrl : `${loaderData.origin}${loaderData.imageUrl}`) : "";
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { name: "robots", content: "noindex, nofollow" },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        ...(image ? [{ property: "og:image", content: image }] : []),
+        { name: "twitter:card", content: image ? "summary_large_image" : "summary" },
+      ],
+    };
+  },
+  component: Page,
+});
 
-/** Public: opened by someone who got the link and may not have an account yet. */
 function Page() {
-  const { token } = Route.useParams();
-  const { data, error, loading } = useLoad(() => getInvite({ data: { token } }), [token]);
+  const data = Route.useLoaderData();
 
   return (
     <main className="mx-auto min-h-dvh max-w-lg space-y-4 px-4 py-8">
       <Wordmark className="text-2xl" />
-      {loading ? <p className="text-sm text-muted">Wird geladen…</p> : null}
-      {error ? <Note>{error}</Note> : null}
+      {!data ? <Note>Diese Einladung gilt nicht mehr.</Note> : null}
       {data ? (
         <>
           <h1 className="font-display text-3xl leading-none">{data.hostName} lädt dich ein</h1>

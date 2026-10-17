@@ -57,7 +57,7 @@ function Requests() {
           </div>
         ))}
       </div>
-      {!loading && rows.length === 0 ? <Empty title={tab === "in" ? "Keine eingehenden Anfragen" : "Du hast noch niemanden angefragt"} body="Im Feed sind Aktivitäten, bei denen der Ersteller entscheidet." /> : null}
+      {!loading && rows.length === 0 ? <Empty art="people" title={tab === "in" ? "Keine eingehenden Anfragen" : "Du hast noch niemanden angefragt"} body="Im Feed sind Aktivitäten, bei denen der Ersteller entscheidet." /> : null}
     </div>
   );
 }

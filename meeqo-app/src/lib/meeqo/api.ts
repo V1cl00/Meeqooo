@@ -3,6 +3,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql, type Sql } from "@/lib/db";
 import { kmBetween, cityCoords, matchCities } from "@/lib/meeqo/geo";
 import { MOODS, REPORT_REASONS } from "@/lib/meeqo/labels";
+import { addDaysBerlin } from "@/lib/meeqo/time";
 import { lookupPlace, plzChoices, plzPoint } from "@/lib/meeqo/places";
 import { categoryMatches, CATEGORIES, CATEGORY_TREE, MORE_SUGGESTIONS, PROMOTE_AT, splitCategory, areasFromOpen, berlinDay, cleanAreas, intentFromAreas, openFromAreas, seesByAreas } from "@/lib/meeqo/labels";
 import { localTheme, normalizeTheme } from "@/lib/meeqo/theme";
@@ -18,6 +19,7 @@ import type {
   BlockedUser,
   AdminReport,
   AdminStats,
+  MyData,
   InviteView,
   ChatThread,
   Classified,
@@ -242,6 +244,18 @@ function validImage(value: string) {
     : head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
 }
 
+/**
+ * Spots are checked after taking one, not only before: two people answering at the same moment would both
+ * pass a plain "is there room" check. If the count went over, this request steps back.
+ */
+async function overbooked(sql: Sql, activityId: string) {
+  const rows = await sql<{ taken: number; spots: number }>`
+    select (select count(*)::int from join_requests j where j.activity_id = a.id and j.status = 'accepted') as taken, a.spots
+    from activities a where a.id = ${activityId}
+  `;
+  return num(rows[0]?.taken) > num(rows[0]?.spots);
+}
+
 async function blockedWith(sql: Sql, userId: string) {
   const rows = await sql<{ other: string }>`
     select case when blocker_id = ${userId} then blocked_id else blocker_id end as other
@@ -364,6 +378,8 @@ function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: nu
     ),
     hostOrganizer: flag(row.is_organizer),
     area: row.area === "business" ? "business" : row.area === "event" ? "event" : "meetup",
+    friendsGoing: [],
+    matchesInterest: false,
     title: row.title,
     description: row.description,
     category: row.category,
@@ -532,6 +548,15 @@ async function friendState(sql: Sql, me: string, them: string): Promise<"none" |
 
 async function notify(sql: Sql, userId: string, kind: string, title: string, body: string, href: string, refId: string) {
   if (!userId || userId.startsWith("seed:")) return;
+  if (kind === "message" || kind === "ad") {
+    // One open line per chat instead of one per message.
+    const merged = await sql<{ id: string }>`
+      update notifications set body = ${body}, title = ${title}, created_at = now()
+      where user_id = ${userId} and kind = ${kind} and ref_id = ${refId} and read = false
+      returning id
+    `;
+    if (merged.length) return;
+  }
   await sql`
     insert into notifications (id, user_id, kind, title, body, href, ref_id)
     values (${crypto.randomUUID()}, ${userId}, ${kind}, ${title}, ${body}, ${href}, ${refId})
@@ -949,7 +974,7 @@ export const getFeed = createServerFn({ method: "POST" })
     const limit = Math.min(200, Math.max(1, Math.round(Number(data.limit)) || 30));
     const place = searchPlace(data);
     const cutoff = Date.now() - 2 * 60 * 60 * 1000;
-    const [hidden, blocked, audience, rows, looked, againRows] = await Promise.all([
+    const [hidden, blocked, audience, rows, looked, againRows, friendRows] = await Promise.all([
       hiddenSet(sql, context.userId),
       blockedWith(sql, context.userId),
       audienceOf(sql, context.userId, profile.birthYear),
@@ -964,7 +989,23 @@ export const getFeed = createServerFn({ method: "POST" })
         order by c.created_at desc
         limit 1
       `,
+      sql<{ activity_id: string; display_name: string }>`
+        select j.activity_id, p.display_name
+        from join_requests j
+        join friendships f on f.status = 'accepted'
+          and ((f.requester_id = ${context.userId} and f.addressee_id = j.requester_id) or (f.addressee_id = ${context.userId} and f.requester_id = j.requester_id))
+        join profiles p on p.user_id = j.requester_id
+        where j.status = 'accepted'
+        order by j.created_at asc
+      `,
     ]);
+    const going = new Map<string, string[]>();
+    for (const row of friendRows) {
+      const list = going.get(row.activity_id) ?? [];
+      const first = (row.display_name || "").split(" ")[0];
+      if (first && !list.includes(first)) list.push(first);
+      going.set(row.activity_id, list);
+    }
     const home = profile.lat != null && profile.lng != null ? { lat: profile.lat, lng: profile.lng } : null;
     const origin = looked ?? home;
     const radius = Number(data.radiusKm ?? profile.radiusKm) || 25;
@@ -977,7 +1018,15 @@ export const getFeed = createServerFn({ method: "POST" })
       ? [...new Set(data.days.map((day) => clean(String(day), 10)).filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day)))].slice(0, 62)
       : [];
     const now = Date.now() - 2 * 60 * 60 * 1000;
-    const mapped = rows.map((row) => mapActivity(row, context.userId, origin));
+    const mapped = rows.map((row) => {
+      const item = mapActivity(row, context.userId, origin);
+      const names = [...(going.get(item.id) ?? [])];
+      const hostFirst = item.hostName.split(" ")[0];
+      if (audience.friends.has(item.hostId) && hostFirst && !names.includes(hostFirst)) names.unshift(hostFirst);
+      item.friendsGoing = names;
+      item.matchesInterest = profile.seeking.includes(splitCategory(item.category).parent);
+      return item;
+    });
     const pool = mapped.filter((item) => {
       if (item.cancelled) return false;
       if (!item.isHost && blocked.has(item.hostId)) return false;
@@ -1263,6 +1312,10 @@ export const requestJoin = createServerFn({ method: "POST" })
       values (${id}, ${activity.id}, ${context.userId}, ${status}, ${data.mood})
       on conflict (activity_id, requester_id) do update set status = ${status}, mood = ${data.mood}
     `;
+    if (status === "accepted" && (await overbooked(sql, activity.id))) {
+      await sql`delete from join_requests where activity_id = ${activity.id} and requester_id = ${context.userId} and status = 'accepted'`;
+      throw new Error("Keine Plätze mehr frei.");
+    }
     if (status === "accepted") {
       await sql`
         insert into messages (id, activity_id, sender_id, body)
@@ -1297,6 +1350,10 @@ export const respondRequest = createServerFn({ method: "POST" })
     }
     const status = data.accept ? "accepted" : "declined";
     await sql`update join_requests set status = ${status}, responded_at = now() where id = ${data.id}`;
+    if (data.accept && (await overbooked(sql, row.activity_id))) {
+      await sql`update join_requests set status = 'pending', responded_at = null where id = ${data.id}`;
+      throw new Error("Keine Plätze mehr frei.");
+    }
     if (data.accept) {
       await sql`
         insert into messages (id, activity_id, sender_id, body)
@@ -1360,7 +1417,7 @@ export const listChats = createServerFn({ method: "GET" })
     const blocked = await blockedWith(sql, context.userId);
     const rows = await sql<{
       id: string; title: string; starts_at: unknown; host_id: string; host_name: string; host_avatar: string; spots: number;
-      last_body: string | null; accepted: number; guest_names: string | null; guest_avatar: string | null;
+      last_body: string | null; accepted: number; guest_names: string | null; guest_avatar: string | null; unread: boolean;
     }>`
       select a.id, a.title, a.starts_at, a.host_id, a.spots, p.display_name as host_name, p.avatar_url as host_avatar,
         (select m.body from messages m where m.activity_id = a.id order by m.created_at desc limit 1) as last_body,
@@ -1368,7 +1425,9 @@ export const listChats = createServerFn({ method: "GET" })
         (select string_agg(g.display_name, ', ' order by g.display_name) from join_requests j
            join profiles g on g.user_id = j.requester_id where j.activity_id = a.id and j.status = 'accepted') as guest_names,
         (select g.avatar_url from join_requests j join profiles g on g.user_id = j.requester_id
-           where j.activity_id = a.id and j.status = 'accepted' and g.avatar_url <> '' limit 1) as guest_avatar
+           where j.activity_id = a.id and j.status = 'accepted' and g.avatar_url <> '' limit 1) as guest_avatar,
+        exists (select 1 from messages m where m.activity_id = a.id and m.sender_id <> ${context.userId}
+           and m.created_at > coalesce((select r.read_at from chat_reads r where r.user_id = ${context.userId} and r.thread_id = a.id), 'epoch'::timestamptz)) as unread
       from activities a
       join profiles p on p.user_id = a.host_id
       where a.cancelled = false and (
@@ -1389,11 +1448,14 @@ export const listChats = createServerFn({ method: "GET" })
         peerAvatar: hosting ? row.guest_avatar || "" : row.host_avatar || "",
         group: names >= 3 || num(row.spots) > 2,
         kind: "activity" as const,
+        unread: flag(row.unread),
       };
     });
-    const adRows = await sql<{ id: string; title: string; peer_id: string; display_name: string | null; avatar_url: string | null; created_at: unknown; last_body: string | null }>`
+    const adRows = await sql<{ id: string; title: string; peer_id: string; display_name: string | null; avatar_url: string | null; created_at: unknown; last_body: string | null; unread: boolean }>`
       select t.id, c.title, p.user_id as peer_id, p.display_name, p.avatar_url, t.created_at,
-        (select m.body from classified_messages m where m.thread_id = t.id order by m.created_at desc limit 1) as last_body
+        (select m.body from classified_messages m where m.thread_id = t.id order by m.created_at desc limit 1) as last_body,
+        exists (select 1 from classified_messages m where m.thread_id = t.id and m.sender_id <> ${context.userId}
+           and m.created_at > coalesce((select r.read_at from chat_reads r where r.user_id = ${context.userId} and r.thread_id = t.id), 'epoch'::timestamptz)) as unread
       from classified_threads t
       join classifieds c on c.id = t.classified_id
       left join profiles p on p.user_id = case when t.buyer_id = ${context.userId} then t.seller_id else t.buyer_id end
@@ -1411,9 +1473,39 @@ export const listChats = createServerFn({ method: "GET" })
         peerAvatar: row.avatar_url || "",
         group: false,
         kind: "ad",
+        unread: flag(row.unread),
       });
     }
     return threads;
+  });
+
+async function markRead(sql: Sql, userId: string, threadId: string) {
+  await sql`
+    insert into chat_reads (user_id, thread_id, read_at) values (${userId}, ${threadId}, now())
+    on conflict (user_id, thread_id) do update set read_at = now()
+  `;
+}
+
+export const chatUnread = createServerFn({ method: "GET" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const rows = await sql<{ n: number }>`
+      select (
+        (select count(*)::int from activities a
+          where a.cancelled = false
+            and (exists (select 1 from join_requests j where j.activity_id = a.id and j.requester_id = ${context.userId} and j.status = 'accepted')
+              or (a.host_id = ${context.userId} and exists (select 1 from join_requests j where j.activity_id = a.id and j.status = 'accepted')))
+            and exists (select 1 from messages m where m.activity_id = a.id and m.sender_id <> ${context.userId}
+              and m.created_at > coalesce((select r.read_at from chat_reads r where r.user_id = ${context.userId} and r.thread_id = a.id), 'epoch'::timestamptz)))
+        +
+        (select count(*)::int from classified_threads t
+          where (t.buyer_id = ${context.userId} or t.seller_id = ${context.userId})
+            and exists (select 1 from classified_messages m where m.thread_id = t.id and m.sender_id <> ${context.userId}
+              and m.created_at > coalesce((select r.read_at from chat_reads r where r.user_id = ${context.userId} and r.thread_id = t.id), 'epoch'::timestamptz)))
+      ) as n
+    `;
+    return { count: num(rows[0]?.n) };
   });
 
 async function assertChat(sql: Sql, activityId: string, userId: string) {
@@ -1438,6 +1530,7 @@ export const listMessages = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ title: string; group: boolean; people: ChatPerson[]; messages: ChatMessage[] }> => {
     const sql = await getSql();
     const activity = await assertChat(sql, data.id, context.userId);
+    await markRead(sql, context.userId, data.id);
     const rows = await sql<{ id: string; sender_id: string; body: string; created_at: unknown; display_name: string | null; avatar_url: string | null }>`
       select * from (
         select m.id, m.sender_id, m.body, m.created_at, p.display_name, p.avatar_url
@@ -1511,9 +1604,12 @@ export const checkIn = createServerFn({ method: "POST" })
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
-    const rows = await sql<{ host_id: string; title: string }>`select host_id, title from activities where id = ${data.id}`;
+    const rows = await sql<{ host_id: string; title: string; starts_at: unknown }>`select host_id, title, starts_at from activities where id = ${data.id}`;
     const row = rows[0];
     if (!row) throw new Error("Aktivität nicht gefunden.");
+    const untilStart = (new Date(iso(row.starts_at)).getTime() - Date.now()) / 3_600_000;
+    if (untilStart > 2) throw new Error("Einchecken geht ab zwei Stunden vor Beginn.");
+    if (untilStart < -12) throw new Error("Das Treffen ist schon zu lange her zum Einchecken.");
     const allowed = row.host_id === context.userId
       ? true
       : (await sql`select 1 as ok from join_requests where activity_id = ${data.id} and requester_id = ${context.userId} and status = 'accepted'`).length > 0;
@@ -2421,6 +2517,7 @@ export const listAdMessages = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<AdChat> => {
     const sql = await getSql();
     const thread = await assertAdThread(sql, data.id, context.userId);
+    await markRead(sql, context.userId, data.id);
     const seller = thread.seller_id === context.userId;
     const peerId = seller ? thread.buyer_id : thread.seller_id;
     const peer = await sql<{ display_name: string | null; avatar_url: string | null }>`select display_name, avatar_url from profiles where user_id = ${peerId}`;
@@ -2483,9 +2580,9 @@ export const repeatActivity = createServerFn({ method: "POST" })
     const sql = await getSql();
     const found = await sql<{ starts_at: unknown }>`select starts_at from activities where id = ${data.id} and host_id = ${context.userId}`;
     if (!found.length) throw new Error("Nur der Ersteller kann ein Treffen wiederholen.");
-    const week = 7 * 24 * 60 * 60 * 1000;
-    let next = new Date(iso(found[0].starts_at)).getTime() + week;
-    while (next < Date.now() + 60 * 60 * 1000) next += week;
+    const base = iso(found[0].starts_at);
+    let offset = 1;
+    while (new Date(addDaysBerlin(base, 7 * offset)).getTime() < Date.now() + 60 * 60 * 1000) offset += 1;
     let first = "";
     for (let index = 0; index < data.weeks; index += 1) {
       const id = crypto.randomUUID();
@@ -2496,7 +2593,7 @@ export const repeatActivity = createServerFn({ method: "POST" })
           starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
         )
         select ${id}, host_id, title, description, category, intent, place_name, city, lat, lng,
-          ${new Date(next + index * week).toISOString()}, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
+          ${addDaysBerlin(base, 7 * (offset + index))}, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
         from activities where id = ${data.id} and host_id = ${context.userId}
       `;
     }
@@ -2760,7 +2857,9 @@ export const getInvite = createServerFn({ method: "POST" })
     `;
     const row = rows[0];
     if (!row || flag(row.cancelled)) throw new Error("Diese Einladung gilt nicht mehr.");
+    const { getRequestUrl } = await import("@tanstack/react-start/server");
     return {
+      origin: getRequestUrl().origin,
       activityId: row.id,
       title: row.title,
       startsAt: iso(row.starts_at),
@@ -3065,4 +3164,55 @@ export const adminStats = createServerFn({ method: "GET" })
       errors24,
       errorList: errorList.map((row) => ({ path: row.path, message: row.message, createdAt: iso(row.created_at) })),
     };
+  });
+
+// ---------------------------------------------------------------------------
+// Meine Daten herunterladen (Art. 20 DSGVO)
+
+export const exportMyData = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }): Promise<MyData> => {
+    const sql = await getSql();
+    const me = context.userId;
+    const [account, profile, activities, requests, messages, adMessages, ratingsGiven, ratingsReceived, classifieds, posts, friends, favorites, blocks, wishes, reports, checkins, communities] = await Promise.all([
+      sql`select name, email, "createdAt" as created_at from "user" where id = ${me}`,
+      sql`select * from profiles where user_id = ${me}`,
+      sql`select id, title, description, category, intent, place_name, city, starts_at, spots, cancelled, created_at from activities where host_id = ${me} order by starts_at`,
+      sql`select j.activity_id, a.title, j.status, j.mood, j.created_at from join_requests j join activities a on a.id = j.activity_id where j.requester_id = ${me} order by j.created_at`,
+      sql`select activity_id, body, created_at from messages where sender_id = ${me} order by created_at`,
+      sql`select thread_id, body, created_at from classified_messages where sender_id = ${me} order by created_at`,
+      sql`select activity_id, ratee_id, want_again, punctual, respectful, matches_profile, created_at from ratings where rater_id = ${me}`,
+      sql`select count(*)::int as total, count(*) filter (where want_again)::int as yes from ratings where ratee_id = ${me}`,
+      sql`select id, title, body, category, city, price, created_at from classifieds where author_id = ${me}`,
+      sql`select id, body, created_at from posts where author_id = ${me}`,
+      sql`select requester_id, addressee_id, status, created_at from friendships where requester_id = ${me} or addressee_id = ${me}`,
+      sql`select target_id, created_at from favorites where user_id = ${me}`,
+      sql`select blocked_id, created_at from blocks where blocker_id = ${me}`,
+      sql`select category, city, created_at from wishes where user_id = ${me}`,
+      sql`select kind, target_id, reason, note, created_at from reports where reporter_id = ${me}`,
+      sql`select activity_id, created_at from checkins where user_id = ${me}`,
+      sql`select c.name from community_members m join communities c on c.id = m.community_id where m.user_id = ${me}`,
+    ]);
+    const data = {
+      exportedAt: new Date().toISOString(),
+      konto: account[0] ?? null,
+      profil: profile[0] ?? null,
+      eigeneTreffen: activities,
+      meineAnfragen: requests,
+      nachrichtenInTreffen: messages,
+      nachrichtenBeiAnzeigen: adMessages,
+      bewertungenDieIchGegebenHabe: ratingsGiven,
+      bewertungenFuerMich: ratingsReceived[0] ?? null,
+      eigeneAnzeigen: classifieds,
+      beitraege: posts,
+      freundschaften: friends,
+      favoriten: favorites,
+      blockiert: blocks,
+      wuensche: wishes,
+      meldungenDieIchGemacht: reports,
+      checkIns: checkins,
+      communities,
+      hinweis: "Nachrichten anderer Personen und deren Profile sind nicht enthalten.",
+    };
+    return { filename: `meeqo-daten-${new Date().toISOString().slice(0, 10)}.json`, json: JSON.stringify(data, null, 2) };
   });

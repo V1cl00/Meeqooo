@@ -8,5 +8,7 @@ export function getRouter() {
     routeTree,
     rewrite: previewPathRewrite(),
     defaultErrorComponent: AppErrorComponent,
+    defaultViewTransition: true,
+    scrollRestoration: true,
   });
 }

@@ -34,7 +34,7 @@ export function ShareSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-3" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-3" onClick={onClose}>
       <div className="card w-full max-w-lg space-y-3 p-4" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-display text-2xl">Teilen</h2>

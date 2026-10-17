@@ -5,7 +5,10 @@ import { adminStats } from "@/lib/meeqo/api";
 import { formatWhen } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 
-export const Route = createFileRoute("/admin/zahlen")({ component: Page });
+export const Route = createFileRoute("/admin/zahlen")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
+  component: Page,
+});
 
 function Page() {
   return (

@@ -81,25 +81,37 @@ describe("Kleinanzeigen", () => {
   });
 });
 
+async function createMeetup(page, title, hoursAhead) {
+  await page.goto(`${base}/create`);
+  await page.getByPlaceholder("Zum Beispiel: Laufen, acht Kilometer").fill(title);
+  await page.getByRole("button", { name: "Weiter" }).click();
+  assert.match(await text(page), /Ohne Foto wird nichts veröffentlicht/);
+  await page.locator("input[type=file]").setInputFiles({ name: "p.jpg", mimeType: "image/jpeg", buffer: jpeg });
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: "Weiter" }).click();
+  await page.getByLabel("Ort", { exact: true }).fill("Schlossgarten");
+  const when = new Date(Date.now() + hoursAhead * 3600 * 1000);
+  const pad = (n) => String(n).padStart(2, "0");
+  await page.getByLabel("Beginn").fill(`${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`);
+  await page.getByRole("button", { name: "Weiter" }).click();
+  assert.match(await text(page), /Schritt 3 von 3/, "Schritt 3 darf nicht sofort veroeffentlichen");
+  await page.getByRole("button", { name: "Veröffentlichen" }).click();
+  await page.waitForURL(/\/activity\//, { timeout: 20000 });
+  return page.url();
+}
+
+async function shareLink(page) {
+  await page.evaluate(() => { window.open = (u) => { window.__opened = String(u); return null; }; });
+  await page.getByRole("button", { name: "WhatsApp" }).click();
+  const opened = await page.evaluate(() => window.__opened || "");
+  return decodeURIComponent(opened.split("text=")[1] ?? "").match(/http\S+/)?.[0];
+}
+
 describe("Treffen", () => {
-  test("Anlegen, Anfragen mit Tempo, Zusage, Bestaetigung, Vertrauens- und Einladungslink, Melden, Blockieren, Loeschen", async () => {
+  test("Anlegen, Anfragen mit Tempo, Zusage, Bestaetigung, Check-in-Fenster, Vertrauens- und Einladungslink, Serie, Ungelesen, Daten, Melden, Blockieren, Loeschen", async () => {
     const anna = await newUser(browser, "Anna");
-    await anna.page.goto(`${base}/create`);
-    await anna.page.getByPlaceholder("Zum Beispiel: Laufen, acht Kilometer").fill("Lauftreff Schlossgarten");
-    await anna.page.getByRole("button", { name: "Weiter" }).click();
-    assert.match(await text(anna.page), /Ohne Foto wird nichts veröffentlicht/);
-    await anna.page.locator("input[type=file]").setInputFiles({ name: "p.jpg", mimeType: "image/jpeg", buffer: jpeg });
-    await anna.page.waitForTimeout(1500);
-    await anna.page.getByRole("button", { name: "Weiter" }).click();
-    await anna.page.getByLabel("Ort", { exact: true }).fill("Schlossgarten");
-    const when = new Date(Date.now() + 26 * 3600 * 1000);
-    const pad = (n) => String(n).padStart(2, "0");
-    await anna.page.getByLabel("Beginn").fill(`${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T10:00`);
-    await anna.page.getByRole("button", { name: "Weiter" }).click();
-    assert.match(await text(anna.page), /Schritt 3 von 3/, "Schritt 3 darf nicht sofort veroeffentlichen");
-    await anna.page.getByRole("button", { name: "Veröffentlichen" }).click();
-    await anna.page.waitForURL(/\/activity\//, { timeout: 20000 });
-    const url = anna.page.url();
+    const url = await createMeetup(anna.page, "Lauftreff Schlossgarten", 26);
+    const soon = await createMeetup(anna.page, "Frühtreff Schlossgarten", 1);
 
     const ben = await newUser(browser, "Ben");
     await ben.page.goto(url);
@@ -107,13 +119,20 @@ describe("Treffen", () => {
     await ben.page.getByRole("button", { name: "Gespräch" }).click();
     await ben.page.getByRole("button", { name: "Anfragen" }).click();
     await ben.page.waitForTimeout(1500);
+    await ben.page.goto(soon);
+    await ben.page.waitForTimeout(1500);
+    await ben.page.getByRole("button", { name: "Anfragen" }).click();
+    await ben.page.waitForTimeout(1500);
 
     await anna.page.goto(`${base}/requests`);
     await anna.page.waitForTimeout(1500);
     assert.match(await text(anna.page), /Erwartet: Gespräch/);
-    await anna.page.getByRole("button", { name: "Annehmen" }).click();
-    await anna.page.waitForTimeout(1000);
+    while (await anna.page.getByRole("button", { name: "Annehmen" }).count()) {
+      await anna.page.getByRole("button", { name: "Annehmen" }).first().click();
+      await anna.page.waitForTimeout(900);
+    }
 
+    // Bestaetigung am Vortag und zu frueher Check-in
     await ben.page.goto(url);
     await ben.page.waitForTimeout(1500);
     const bt = await text(ben.page);
@@ -122,33 +141,36 @@ describe("Treffen", () => {
     await ben.page.getByRole("button", { name: "Ja, ich komme" }).click();
     await ben.page.waitForTimeout(1200);
     assert.match(await text(ben.page), /Gut, bis dann/);
+    await ben.page.getByRole("button", { name: "Check-in" }).click();
+    await ben.page.waitForTimeout(1200);
+    assert.match(await text(ben.page), /Einchecken geht ab zwei Stunden vor Beginn/);
 
-    // Vertrauensperson
+    // Vertrauensperson und Check-in kurz vor Beginn
+    await ben.page.goto(soon);
+    await ben.page.waitForTimeout(1500);
     await ben.page.getByRole("button", { name: "Vertrauensperson informieren" }).click();
-    await ben.page.evaluate(() => { window.open = (u) => { window.__opened = String(u); return null; }; });
-    await ben.page.getByRole("button", { name: "WhatsApp" }).click();
-    const opened = await ben.page.evaluate(() => window.__opened || "");
-    const link = decodeURIComponent(opened.split("text=")[1] ?? "").match(/http\S+/)?.[0];
+    const link = await shareLink(ben.page);
     assert.ok(link, "Link fuer die Vertrauensperson fehlt");
     const guest = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const pub = await guest.newPage();
     await pub.goto(link);
     await pub.waitForTimeout(2500);
     assert.match(await text(pub), /Noch nicht losgegangen/);
-    await ben.page.goto(url);
+    await ben.page.goto(soon);
     await ben.page.getByRole("button", { name: "Check-in" }).click();
     await ben.page.waitForTimeout(1500);
     await pub.reload();
     await pub.waitForTimeout(2000);
     assert.match(await text(pub), /Eingecheckt/);
 
-    // Einladung
+    // Einladung mit Link-Vorschau
     await ben.page.goto(url);
     await ben.page.waitForTimeout(1200);
     await ben.page.getByRole("button", { name: "Mit Link einladen" }).click();
-    await ben.page.evaluate(() => { window.open = (u) => { window.__opened = String(u); return null; }; });
-    await ben.page.getByRole("button", { name: "WhatsApp" }).click();
-    const invite = decodeURIComponent((await ben.page.evaluate(() => window.__opened || "")).split("text=")[1] ?? "").match(/http\S+/)?.[0];
+    const invite = await shareLink(ben.page);
+    const html = await (await pub.request.get(invite)).text();
+    assert.match(html, /og:title/, "Einladung braucht eine Vorschau fuer WhatsApp");
+    assert.match(html, /Anna lädt dich ein|Anna l&#228;dt dich ein|lädt dich ein: Lauftreff/);
     await pub.goto(invite);
     await pub.waitForTimeout(2000);
     assert.match(await text(pub), /Anna lädt dich ein/);
@@ -162,6 +184,30 @@ describe("Treffen", () => {
     await anna.page.goto(`${base}/my-activities`);
     await anna.page.waitForTimeout(1500);
     assert.equal(((await text(anna.page)).match(/Lauftreff Schlossgarten/g) || []).length, 5);
+
+    // Ungelesen
+    const id = url.split("/").pop();
+    await ben.page.goto(`${base}/chat/${id}`);
+    await ben.page.getByPlaceholder("Nachricht").fill("Bin pünktlich da");
+    await ben.page.getByRole("button", { name: "Senden" }).click();
+    await ben.page.waitForTimeout(1500);
+    await anna.page.goto(`${base}/chat`);
+    await anna.page.waitForTimeout(2000);
+    assert.ok(await anna.page.getByRole("img", { name: "Ungelesen" }).count(), "ungelesener Chat braucht einen Punkt");
+    await anna.page.goto(`${base}/chat/${id}`);
+    await anna.page.waitForTimeout(1500);
+    await anna.page.goto(`${base}/chat`);
+    await anna.page.waitForTimeout(2000);
+    assert.equal(await anna.page.getByRole("img", { name: "Ungelesen" }).count(), 0, "nach dem Lesen ist der Punkt weg");
+
+    // Daten herunterladen
+    await ben.page.goto(`${base}/settings`);
+    await ben.page.waitForTimeout(1500);
+    const [download] = await Promise.all([ben.page.waitForEvent("download"), ben.page.getByRole("button", { name: "Daten herunterladen" }).click()]);
+    const stream = await download.createReadStream();
+    let raw = "";
+    for await (const chunk of stream) raw += chunk;
+    assert.ok(JSON.parse(raw).konto?.email, "Datei enthaelt das Konto");
 
     // Melden, Blockieren, Loeschen
     await ben.page.goto(url);

@@ -51,6 +51,7 @@ function Chats() {
           </div>
         </div>
       ) : null}
+      {threads.length ? (
       <section className="card overflow-hidden rounded-[1.6rem] px-4">
         <h2 className="pt-4 text-base font-semibold">Nachrichten</h2>
         {threads.map((thread) => (
@@ -62,15 +63,17 @@ function Chats() {
             )}
             <span className="min-w-0 flex-1">
               <span className="block truncate text-base font-bold">{thread.peerName.split(",")[0]}{thread.kind === "ad" ? ` · ${thread.title}` : ""}</span>
-              <span className="block truncate text-sm text-muted">{thread.lastBody}</span>
+              <span className={`block truncate text-sm ${thread.unread ? "font-semibold text-ink" : "text-muted"}`}>{thread.lastBody}</span>
             </span>
+            {thread.unread ? <span className="h-3 w-3 shrink-0 rounded-full bg-accent" role="img" aria-label="Ungelesen" /> : null}
             {thread.group ? <span className="shrink-0 rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold tracking-wide text-onaccent">GRUPPE</span> : null}
             {thread.kind === "ad" ? <span className="shrink-0 rounded-full border border-ink/40 px-2.5 py-1 text-[10px] font-bold tracking-wide">ANZEIGE</span> : null}
           </ThreadLink>
         ))}
       </section>
+      ) : null}
       {loading ? <p className="text-sm text-muted">Wird geladen…</p> : null}
-      {data && threads.length === 0 ? <Empty title="Noch kein Chat" body="Frag eine Aktivität an. Der Chat öffnet sich erst nach der Zusage." /> : null}
+      {data && threads.length === 0 ? <Empty art="chat" title="Noch kein Chat" body="Frag eine Aktivität an. Der Chat öffnet sich erst nach der Zusage." /> : null}
     </div>
   );
 }

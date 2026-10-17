@@ -6,7 +6,10 @@ import { handleReport, listReports } from "@/lib/meeqo/api";
 import { errText, formatWhen } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 
-export const Route = createFileRoute("/admin/meldungen")({ component: Page });
+export const Route = createFileRoute("/admin/meldungen")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
+  component: Page,
+});
 
 const KIND: Record<string, string> = { person: "Person", activity: "Treffen", ad: "Anzeige", message: "Nachricht" };
 const DONE: Record<string, string> = { dismiss: "abgewiesen", remove: "Inhalt entfernt", suspend: "Konto gesperrt" };

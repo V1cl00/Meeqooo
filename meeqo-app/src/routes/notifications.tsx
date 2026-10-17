@@ -32,7 +32,7 @@ function Inbox() {
           <p className="mt-1 text-xs text-muted">{formatWhen(item.createdAt)}</p>
         </a>
       ))}
-      {data && data.length === 0 ? <Empty title="Noch still" body="Anfragen, Zusagen und Erinnerungen landen hier." /> : null}
+      {data && data.length === 0 ? <Empty art="bell" title="Noch still" body="Anfragen, Zusagen und Erinnerungen landen hier." /> : null}
     </div>
   );
 }

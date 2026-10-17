@@ -55,7 +55,7 @@ function Mine() {
           ) : null}
         </div>
       ))}
-      {!loading && rows.length === 0 ? <Empty title="Noch leer" body="Leg eine Aktivität an oder frag im Feed an." /> : null}
+      {!loading && rows.length === 0 ? <Empty art="plant" title="Noch leer" body="Leg eine Aktivität an oder frag im Feed an." /> : null}
     </div>
   );
 }

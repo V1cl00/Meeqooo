@@ -24,8 +24,24 @@
   --radius-card: 1.5rem;
 }
 
+/* Follows the phone's dark mode. A personal theme from Settings sets these variables on the app shell and wins. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-sand: #171412;
+    --color-sand-deep: #26201c;
+    --color-card: #201b18;
+    --color-ink: #f4efe8;
+    --color-muted: #b9ada3;
+    --color-line: #3b322d;
+    --color-accent-deep: #f1a690;
+    --color-friend: #9dceb8;
+    --color-onaccent: #171412;
+  }
+}
+
 @layer base {
   html {
+    color-scheme: light dark;
     font-family: var(--font-sans);
     background: var(--color-sand);
     color: var(--color-ink);
@@ -49,12 +65,21 @@ h1.font-display.text-4xl {
 
 @utility card {
   background: var(--color-card);
-  border: 1px solid color-mix(in srgb, var(--color-line) 80%, white);
+  border: 1px solid color-mix(in srgb, var(--color-line) 85%, var(--color-card));
   border-radius: var(--radius-card);
   box-shadow: 0 1px 0 color-mix(in srgb, white 70%, transparent), 0 10px 28px color-mix(in srgb, var(--color-ink) 5%, transparent);
 }
 
+/* Soft page changes, one short cross-fade. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 160ms;
+}
+
+a, button { transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease, opacity 120ms ease; }
+
 @media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;

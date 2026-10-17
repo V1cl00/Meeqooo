@@ -39,6 +39,9 @@ export type ActivityCard = {
   hostBadges: string[];
   hostOrganizer: boolean;
   area: "meetup" | "business" | "event";
+  /** First names of the viewer's friends who are going. Filled by the feed only. */
+  friendsGoing: string[];
+  matchesInterest: boolean;
   title: string;
   description: string;
   category: string;
@@ -96,6 +99,7 @@ export type ChatThread = {
   peerAvatar: string;
   group: boolean;
   kind: "activity" | "ad";
+  unread: boolean;
 };
 
 export type AdChat = {
@@ -259,6 +263,7 @@ export type InviteView = {
   hostName: string;
   spotsLeft: number;
   imageUrl: string;
+  origin: string;
 };
 
 export type AdminReport = {
@@ -291,4 +296,9 @@ export type AdminStats = {
   openReports: number;
   errors24: number;
   errorList: { path: string; message: string; createdAt: string }[];
+};
+
+export type MyData = {
+  filename: string;
+  json: string;
 };

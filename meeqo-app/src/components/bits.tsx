@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import { Link } from "@tanstack/react-router";
-import { Briefcase, Calendar, MapPin, Ticket } from "lucide-react";
+import { Briefcase, Calendar, MapPin, Ticket, Users } from "lucide-react";
 import { activityIntentLabel, formatWhen, sparteOf, type Sparte } from "@/lib/meeqo/labels";
 import type { ActivityCard as Activity } from "@/lib/meeqo/types";
 
@@ -137,6 +137,12 @@ export function SparteStrip({ kind, sub }: { kind: Sparte; sub: string }) {
   );
 }
 
+function friendsLine(names: string[]) {
+  if (names.length === 1) return `${names[0]} ist dabei`;
+  if (names.length === 2) return `${names[0]} und ${names[1]} sind dabei`;
+  return `${names[0]}, ${names[1]} und ${names.length - 2} weitere sind dabei`;
+}
+
 export function ActivityCard({ item, onHide }: { item: Activity; onHide?: () => void }) {
   const sparte = sparteOf(item.area, item.category);
   return (
@@ -145,7 +151,7 @@ export function ActivityCard({ item, onHide }: { item: Activity; onHide?: () => 
         <SparteStrip kind={sparte.kind} sub={sparte.sub} />
         <div className="relative aspect-[16/11] bg-sand-deep">
           {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : null}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent px-3 pb-3 pt-12">
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-3 pt-12">
             <h2 className="font-display text-[1.45rem] leading-tight text-white">{item.title}</h2>
           </div>
           <div className="absolute left-3 top-3 flex gap-1.5">
@@ -155,6 +161,11 @@ export function ActivityCard({ item, onHide }: { item: Activity; onHide?: () => 
         <div className="space-y-1.5 px-4 py-3">
           <p className="flex items-center gap-2 text-sm"><Calendar className="h-4 w-4 shrink-0 text-muted" />{formatWhen(item.startsAt)}</p>
           <p className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4 shrink-0 text-muted" />{item.placeName}, {item.city}</p>
+          {item.friendsGoing.length ? (
+            <p className="flex items-center gap-2 text-sm font-semibold text-friend"><Users className="h-4 w-4 shrink-0" />{friendsLine(item.friendsGoing)}</p>
+          ) : item.matchesInterest ? (
+            <p className="text-sm font-semibold text-accent-deep">Passt zu deinen Interessen</p>
+          ) : null}
           <div className="flex items-center gap-2 pt-1">
             {item.hostAvatar ? (
               <img src={item.hostAvatar} alt="" className="h-8 w-8 rounded-full object-cover" />
@@ -180,13 +191,108 @@ export function ActivityCard({ item, onHide }: { item: Activity; onHide?: () => 
   );
 }
 
-export function Empty({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
+export type Art = "meet" | "chat" | "calendar" | "bell" | "people" | "plant";
+
+/** Small scenes in the brand colours. They read on light and dark because they only use theme variables. */
+export function Illustration({ art, className = "h-28 w-auto" }: { art: Art; className?: string }) {
+  const accent = "var(--color-accent)";
+  const soft = "var(--color-sand-deep)";
+  const green = "var(--color-friend)";
+  const ink = "var(--color-ink)";
+  const card = "var(--color-card)";
+  const scenes: Record<Art, ReactNode> = {
+    meet: (
+      <>
+        <ellipse cx="80" cy="104" rx="64" ry="8" fill={soft} />
+        <rect x="52" y="74" width="56" height="6" rx="3" fill={ink} opacity="0.85" />
+        <rect x="76" y="80" width="8" height="22" rx="3" fill={ink} opacity="0.85" />
+        <rect x="64" y="62" width="14" height="12" rx="3" fill={card} stroke={ink} strokeWidth="2" />
+        <circle cx="40" cy="48" r="11" fill={accent} />
+        <path d="M24 90c0-16 7-26 16-26s16 10 16 26z" fill={accent} />
+        <circle cx="120" cy="48" r="11" fill={green} />
+        <path d="M104 90c0-16 7-26 16-26s16 10 16 26z" fill={green} />
+        <path d="M78 40c0-6 8-6 8 0 0 5-8 9-8 9s-8-4-8-9c0-6 8-6 8 0z" fill={accent} opacity="0.9" transform="translate(2 -8)" />
+      </>
+    ),
+    chat: (
+      <>
+        <ellipse cx="80" cy="106" rx="60" ry="7" fill={soft} />
+        <path d="M30 28h70a10 10 0 0 1 10 10v26a10 10 0 0 1-10 10H62l-16 14v-14H30a10 10 0 0 1-10-10V38a10 10 0 0 1 10-10z" fill={accent} />
+        <rect x="34" y="42" width="44" height="5" rx="2.5" fill={card} opacity="0.9" />
+        <rect x="34" y="53" width="30" height="5" rx="2.5" fill={card} opacity="0.7" />
+        <path d="M70 62h56a10 10 0 0 1 10 10v20a10 10 0 0 1-10 10h-8v12l-14-12H70a10 10 0 0 1-10-10V72a10 10 0 0 1 10-10z" fill={green} opacity="0.95" transform="translate(0 -4)" />
+      </>
+    ),
+    calendar: (
+      <>
+        <ellipse cx="80" cy="108" rx="58" ry="7" fill={soft} />
+        <rect x="32" y="24" width="96" height="78" rx="14" fill={card} stroke={ink} strokeWidth="2.5" />
+        <path d="M32 40a14 14 0 0 1 14-14h68a14 14 0 0 1 14 14v10H32z" fill={accent} />
+        <rect x="52" y="16" width="6" height="18" rx="3" fill={ink} />
+        <rect x="102" y="16" width="6" height="18" rx="3" fill={ink} />
+        {[0, 1, 2, 3].map((col) => [0, 1].map((row) => <circle key={`${col}${row}`} cx={52 + col * 19} cy={66 + row * 19} r="4" fill={ink} opacity="0.18" />))}
+        <circle cx="90" cy="85" r="9" fill={accent} />
+      </>
+    ),
+    bell: (
+      <>
+        <ellipse cx="80" cy="108" rx="48" ry="6" fill={soft} />
+        <path d="M80 22c-18 0-30 13-30 32v14l-8 14h76l-8-14V54c0-19-12-32-30-32z" fill={accent} />
+        <circle cx="80" cy="96" r="8" fill={ink} opacity="0.85" />
+        <rect x="76" y="14" width="8" height="10" rx="4" fill={ink} opacity="0.85" />
+        <path d="M118 36c6 4 10 10 12 18M42 36c-6 4-10 10-12 18" stroke={green} strokeWidth="4" strokeLinecap="round" fill="none" />
+      </>
+    ),
+    people: (
+      <>
+        <ellipse cx="80" cy="106" rx="62" ry="7" fill={soft} />
+        <circle cx="46" cy="50" r="12" fill={accent} />
+        <path d="M28 96c0-18 8-30 18-30s18 12 18 30z" fill={accent} />
+        <circle cx="114" cy="50" r="12" fill={green} />
+        <path d="M96 96c0-18 8-30 18-30s18 12 18 30z" fill={green} />
+        <circle cx="80" cy="42" r="14" fill={ink} opacity="0.85" />
+        <path d="M60 98c0-20 9-34 20-34s20 14 20 34z" fill={ink} opacity="0.85" />
+      </>
+    ),
+    plant: (
+      <>
+        <ellipse cx="80" cy="108" rx="40" ry="6" fill={soft} />
+        <path d="M60 80h40l-5 24H65z" fill={accent} />
+        <path d="M80 80V44" stroke={green} strokeWidth="4" strokeLinecap="round" />
+        <path d="M80 62c-16 0-24-10-24-22 16 0 24 8 24 22z" fill={green} />
+        <path d="M80 54c14 0 22-9 22-20-14 0-22 7-22 20z" fill={green} opacity="0.8" />
+      </>
+    ),
+  };
   return (
-    <div className="card px-5 py-10 text-center">
-      <Mark className="mx-auto h-12 w-12" />
-      <h2 className="mt-4 font-display text-2xl">{title}</h2>
+    <svg viewBox="0 0 160 120" className={className} role="img" aria-hidden="true">
+      {scenes[art]}
+    </svg>
+  );
+}
+
+export function Empty({ title, body, action, art = "meet" }: { title: string; body: string; action?: ReactNode; art?: Art }) {
+  return (
+    <div className="card px-5 py-8 text-center">
+      <Illustration art={art} className="mx-auto h-28 w-auto" />
+      <h2 className="mt-3 font-display text-2xl">{title}</h2>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">{body}</p>
       {action ? <div className="mt-5">{action}</div> : null}
+    </div>
+  );
+}
+
+/** Grey blocks in the shape of the page, so loading feels like arriving instead of waiting. */
+export function Skeleton({ lines = 3, photo = false }: { lines?: number; photo?: boolean }) {
+  return (
+    <div className="card animate-pulse overflow-hidden" aria-hidden="true">
+      {photo ? <div className="aspect-[3/2] bg-sand-deep" /> : null}
+      <div className="space-y-3 p-4">
+        <div className="h-6 w-2/3 rounded-full bg-sand-deep" />
+        {Array.from({ length: lines }, (_, index) => (
+          <div key={index} className={`h-4 rounded-full bg-sand-deep ${index === lines - 1 ? "w-1/2" : "w-full"}`} />
+        ))}
+      </div>
     </div>
   );
 }

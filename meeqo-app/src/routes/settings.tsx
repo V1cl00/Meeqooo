@@ -2,9 +2,10 @@ import { useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea } from "@/components/bits";
 import { Shell, useMe } from "@/components/shell";
-import { adminStatus, deleteAccount, setNotifyEmail, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
+import { adminStatus, deleteAccount, exportMyData, setNotifyEmail, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
 import { signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
+import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/settings")({ component: Page });
@@ -19,7 +20,6 @@ function Page() {
 
 function Settings() {
   const { profile, reload } = useMe();
-  const [info, setInfo] = useState("");
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
@@ -36,7 +36,7 @@ function Settings() {
         try {
           const result = await setLocation({ data: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
           await reload();
-          setInfo(result.city ? `Standort: ${result.city}` : "Standort gespeichert.");
+          notice(result.city ? `Standort: ${result.city}` : "Standort gespeichert.");
         } catch (err) {
           setError(errText(err));
         }
@@ -72,7 +72,7 @@ function Settings() {
       }
     }
     await reload();
-    setInfo(enabled ? (background ? "Mitteilungen an, auch wenn MeeQo zu ist." : "Mitteilungen an, solange MeeQo offen ist.") : "Mitteilungen bleiben aus.");
+    notice(enabled ? (background ? "Mitteilungen an, auch wenn MeeQo zu ist." : "Mitteilungen an, solange MeeQo offen ist.") : "Mitteilungen bleiben aus.");
     if (!enabled) setError("Der Browser hat nicht zugestimmt.");
   }
 
@@ -93,7 +93,7 @@ function Settings() {
     try {
       const result = await designTheme({ data: { note } });
       await reload();
-      setInfo(result.source === "ai" ? `„${result.theme.name}“ ist an.` : `„${result.theme.name}“ ist an. Die KI war gerade nicht da, die Farben kommen aus deinen Worten.`);
+      notice(result.source === "ai" ? `„${result.theme.name}“ ist an.` : `„${result.theme.name}“ ist an. Die KI war gerade nicht da, die Farben kommen aus deinen Worten.`);
     } catch (err) {
       setError(errText(err));
     } finally {
@@ -129,7 +129,7 @@ function Settings() {
               onClick={async () => {
                 await resetTheme();
                 await reload();
-                setInfo("Wieder das MeeQo-Design.");
+                notice("Wieder das MeeQo-Design.");
               }}
             >
               Zurück zu MeeQo
@@ -167,7 +167,7 @@ function Settings() {
           onClick={async () => {
             await setNotifyEmail({ data: { enabled: !profile.notifyEmail } });
             await reload();
-            setInfo(profile.notifyEmail ? "Keine Mails mehr zu Anfragen und Zusagen." : "Mails zu Anfragen und Zusagen sind an.");
+            notice(profile.notifyEmail ? "Keine Mails mehr zu Anfragen und Zusagen." : "Mails zu Anfragen und Zusagen sind an.");
           }}
         >
           {profile.notifyEmail ? "Mails zu Anfragen: an" : "Mails zu Anfragen: aus"}
@@ -191,7 +191,7 @@ function Settings() {
                 try {
                   await unhideActivity({ data: { id: item.id } });
                   hidden.reload();
-                  setInfo("Wieder sichtbar.");
+                  notice("Wieder sichtbar.");
                   setError("");
                 } catch (err) {
                   setError(errText(err));
@@ -217,7 +217,7 @@ function Settings() {
                 try {
                   await unblockUser({ data: { userId: person.id } });
                   blocked.reload();
-                  setInfo("Nicht mehr blockiert.");
+                  notice("Nicht mehr blockiert.");
                 } catch (err) {
                   setError(errText(err));
                 }
@@ -228,6 +228,29 @@ function Settings() {
           </div>
         ))}
         {!blocked.loading && (blocked.data ?? []).length === 0 ? <p className="text-sm text-muted">Niemand blockiert.</p> : null}
+      </div>
+      <div className="card space-y-3 p-4">
+        <h2 className="font-display text-2xl">Meine Daten</h2>
+        <p className="text-sm text-muted">Lade alles herunter, was MeeQo über dich gespeichert hat, als Datei. Nachrichten anderer Personen sind nicht dabei.</p>
+        <Button
+          type="button"
+          tone="ghost"
+          onClick={async () => {
+            try {
+              const file = await exportMyData();
+              const link = document.createElement("a");
+              link.href = URL.createObjectURL(new Blob([file.json], { type: "application/json" }));
+              link.download = file.filename;
+              link.click();
+              URL.revokeObjectURL(link.href);
+              notice("Datei ist heruntergeladen.");
+            } catch (err) {
+              setError(errText(err));
+            }
+          }}
+        >
+          Daten herunterladen
+        </Button>
       </div>
       <div className="card space-y-3 border-2 !border-ink p-4">
         <h2 className="font-display text-2xl">Konto löschen</h2>
@@ -247,7 +270,6 @@ function Settings() {
         {admin.data?.admin ? <Link to="/admin/zahlen" className="font-semibold text-ink underline">Zahlen</Link> : null}
       </p>
       {error ? <Note>{error}</Note> : null}
-      {info ? <p className="text-sm text-friend">{info}</p> : null}
     </div>
   );
 }

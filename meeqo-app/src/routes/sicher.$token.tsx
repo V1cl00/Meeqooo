@@ -5,7 +5,10 @@ import { getSafetyView } from "@/lib/meeqo/api";
 import { formatWhen } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 
-export const Route = createFileRoute("/sicher/$token")({ component: Page });
+export const Route = createFileRoute("/sicher/$token")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
+  component: Page,
+});
 
 /** Public: opened by someone who got the link, usually without an account. */
 function Page() {

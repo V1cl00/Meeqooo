@@ -6,6 +6,7 @@ import { MOODS, REPORT_REASONS } from "@/lib/meeqo/labels";
 import { addDaysBerlin } from "@/lib/meeqo/time";
 import { fitOf } from "@/lib/meeqo/fit";
 import { bump, waitBump } from "@/lib/meeqo/live";
+import { berlinHour, pickWeather, type Weather } from "@/lib/meeqo/weather";
 import { lookupPlace, plzChoices, plzPoint, venuesNear } from "@/lib/meeqo/places";
 import { categoryMatches, CATEGORIES, CATEGORY_TREE, MORE_SUGGESTIONS, PROMOTE_AT, splitCategory, areasFromOpen, berlinDay, cleanAreas, intentFromAreas, openFromAreas, seesByAreas } from "@/lib/meeqo/labels";
 import { localTheme, normalizeTheme } from "@/lib/meeqo/theme";
@@ -242,6 +243,19 @@ async function throttle(sql: Sql, userId: string, kind: string, max: number, sec
 }
 
 /** A real image, not a text that merely starts like one: right type, right magic bytes, sane size. */
+const ATTACHMENT_TYPES = ["image/jpeg", "image/png", "application/pdf"] as const;
+const ATTACHMENT_MAX_BASE64 = 2_800_000;
+
+/** A chat file: JPEG, PNG or PDF, base64, at most about 2 MB, and the first bytes must match the type. */
+function validAttachment(file: { name: string; type: string; data: string }) {
+  if (!(ATTACHMENT_TYPES as readonly string[]).includes(file.type)) return false;
+  if (!/^[A-Za-z0-9+/=]+$/.test(file.data) || file.data.length > ATTACHMENT_MAX_BASE64 || file.data.length < 8) return false;
+  const head = Buffer.from(file.data.slice(0, 24), "base64");
+  if (file.type === "image/jpeg") return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+  if (file.type === "image/png") return head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+  return head.subarray(0, 4).toString("latin1") === "%PDF";
+}
+
 function validImage(value: string) {
   const match = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/.exec(value);
   if (!match || value.length > 450_000) return false;
@@ -1700,13 +1714,14 @@ async function assertChat(sql: Sql, activityId: string, userId: string) {
 export const listMessages = createServerFn({ method: "POST" })
   .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
-  .handler(async ({ data, context }): Promise<{ title: string; group: boolean; people: ChatPerson[]; messages: ChatMessage[]; polls: PollView[]; startsAt: string; dayOf: boolean }> => {
+  .handler(async ({ data, context }): Promise<{ title: string; group: boolean; people: ChatPerson[]; messages: ChatMessage[]; polls: PollView[]; startsAt: string; dayOf: boolean; category: string; intent: string }> => {
     const sql = await getSql();
     const activity = await assertChat(sql, data.id, context.userId);
     await markRead(sql, context.userId, data.id);
-    const rows = await sql<{ id: string; sender_id: string; body: string; created_at: unknown; display_name: string | null; avatar_url: string | null }>`
+    const rows = await sql<{ id: string; sender_id: string; body: string; created_at: unknown; display_name: string | null; avatar_url: string | null; attachment_name: string | null; attachment_type: string | null; attachment_size: number | null }>`
       select * from (
-        select m.id, m.sender_id, m.body, m.created_at, p.display_name, p.avatar_url
+        select m.id, m.sender_id, m.body, m.created_at, p.display_name, p.avatar_url,
+          m.attachment_name, m.attachment_type, length(m.attachment_data) as attachment_size
         from messages m
         left join profiles p on p.user_id = m.sender_id
         where m.activity_id = ${data.id}
@@ -1727,13 +1742,15 @@ export const listMessages = createServerFn({ method: "POST" })
       order by is_host desc, display_name asc
     `;
     const spots = await sql<{ spots: number }>`select spots from activities where id = ${data.id}`;
-    const meta = await sql<{ starts_at: unknown; duration_min: number; host_id: string }>`select starts_at, duration_min, host_id from activities where id = ${data.id}`;
+    const meta = await sql<{ starts_at: unknown; duration_min: number; host_id: string; category: string; intent: string }>`select starts_at, duration_min, host_id, category, intent from activities where id = ${data.id}`;
     const startsAt = iso(meta[0]?.starts_at);
     const hoursTo = (new Date(startsAt).getTime() - Date.now()) / 3_600_000;
     const polls = await loadPolls(sql, data.id, context.userId, meta[0]?.host_id === context.userId);
     return {
       polls,
       startsAt,
+      category: meta[0]?.category ?? "",
+      intent: meta[0]?.intent ?? "",
       dayOf: hoursTo <= 3 && hoursTo >= -(num(meta[0]?.duration_min) / 60 || 2) - 3,
       title: activity.title,
       group: members.length >= 3 || num(spots[0]?.spots) > 2,
@@ -1752,21 +1769,44 @@ export const listMessages = createServerFn({ method: "POST" })
         body: row.body,
         createdAt: iso(row.created_at),
         mine: row.sender_id === context.userId,
+        attachment: row.attachment_type ? { name: row.attachment_name || "Datei", type: row.attachment_type, size: Math.round((num(row.attachment_size) * 3) / 4) } : null,
       })),
     };
   });
 
+/** Loads the file of one message, only for people who are in that chat. */
+export const getAttachment = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
+  .handler(async ({ data, context }): Promise<{ name: string; type: string; data: string }> => {
+    const sql = await getSql();
+    const rows = await sql<{ activity_id: string; attachment_name: string | null; attachment_type: string | null; attachment_data: string | null }>`
+      select activity_id, attachment_name, attachment_type, attachment_data from messages where id = ${data.id}
+    `;
+    const row = rows[0];
+    if (!row || !row.attachment_data || !row.attachment_type) throw new Error("Nicht gefunden.");
+    await assertChat(sql, row.activity_id, context.userId);
+    return { name: row.attachment_name || "Datei", type: row.attachment_type, data: row.attachment_data };
+  });
+
 export const sendMessage = createServerFn({ method: "POST" })
   .middleware([memberMiddleware])
-  .validator((input: { id: string; body: string }) => ({ id: clean(input.id, 80), body: clean(input.body, 1000) }))
+  .validator((input: { id: string; body: string; attachment?: { name: string; type: string; data: string } | null }) => ({
+    id: clean(input.id, 80),
+    body: clean(input.body, 1000),
+    attachment: input.attachment ? { name: clean(input.attachment.name, 80).replace(/[\\/<>"]/g, "_") || "Datei", type: String(input.attachment.type), data: String(input.attachment.data) } : null,
+  }))
   .handler(async ({ data, context }) => {
-    if (data.body.length < 1) throw new Error("Nachricht ist leer.");
+    if (data.body.length < 1 && !data.attachment) throw new Error("Nachricht ist leer.");
+    if (data.attachment && !validAttachment(data.attachment)) throw new Error("Die Datei muss ein Bild (JPEG, PNG) oder PDF sein, höchstens etwa 2 MB.");
     const sql = await getSql();
     const activity = await assertChat(sql, data.id, context.userId);
     await throttle(sql, context.userId, "message", 40, 60);
+    if (data.attachment) await throttle(sql, context.userId, "attachment", 12, 600);
+    const text = data.body || `📎 ${data.attachment?.name ?? ""}`;
     await sql`
-      insert into messages (id, activity_id, sender_id, body)
-      values (${crypto.randomUUID()}, ${data.id}, ${context.userId}, ${data.body})
+      insert into messages (id, activity_id, sender_id, body, attachment_name, attachment_type, attachment_data)
+      values (${crypto.randomUUID()}, ${data.id}, ${context.userId}, ${text}, ${data.attachment?.name ?? null}, ${data.attachment?.type ?? null}, ${data.attachment?.data ?? null})
     `;
     bump(data.id);
     const others = await sql<{ user_id: string }>`
@@ -1775,7 +1815,7 @@ export const sendMessage = createServerFn({ method: "POST" })
       select host_id as user_id from activities where id = ${data.id} and host_id <> ${context.userId}
     `;
     for (const other of others) {
-      await notify(sql, other.user_id, "message", activity.title, data.body, `/chat/${data.id}`, data.id);
+      await notify(sql, other.user_id, "message", activity.title, data.body || "Hat eine Datei geschickt.", `/chat/${data.id}`, data.id);
     }
     return { ok: true as const };
   });
@@ -3519,6 +3559,45 @@ export const suggestVenues = createServerFn({ method: "POST" })
     const sql = await getSql();
     await throttle(sql, context.userId, "venues", 60, 3600);
     return venuesNear(data.lat, data.lng);
+  });
+
+// --- Wetter
+
+const weatherCache = new Map<string, { at: number; hourly: unknown }>();
+
+/** Forecast for a meetup in the next two weeks. Open-Meteo needs no key; results are kept for 30 minutes per area. */
+export const getWeather = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
+  .handler(async ({ data, context }): Promise<Weather | null> => {
+    const sql = await getSql();
+    const rows = await sql<{ lat: number; lng: number; starts_at: unknown; category: string; cancelled: boolean }>`
+      select lat, lng, starts_at, category, cancelled from activities where id = ${data.id}
+    `;
+    const row = rows[0];
+    if (!row || flag(row.cancelled)) return null;
+    const startsAt = iso(row.starts_at);
+    const ahead = new Date(startsAt).getTime() - Date.now();
+    if (ahead < -3_600_000 || ahead > 14 * 86_400_000) return null;
+    const lat = Math.round(num(row.lat) * 10) / 10;
+    const lng = Math.round(num(row.lng) * 10) / 10;
+    const key = `${lat},${lng}`;
+    let hourly = weatherCache.get(key);
+    if (!hourly || Date.now() - hourly.at > 30 * 60_000) {
+      await throttle(sql, context.userId, "weather", 120, 3600);
+      try {
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,precipitation_probability,weathercode&timezone=Europe%2FBerlin&forecast_days=16`, { headers: { Accept: "application/json" } });
+        if (!res.ok) return null;
+        const body = (await res.json()) as { hourly?: unknown };
+        if (!body.hourly) return null;
+        hourly = { at: Date.now(), hourly: body.hourly };
+        weatherCache.set(key, hourly);
+        if (weatherCache.size > 200) weatherCache.delete(weatherCache.keys().next().value as string);
+      } catch {
+        return null;
+      }
+    }
+    return pickWeather(hourly.hourly as Parameters<typeof pickWeather>[0], berlinHour(startsAt), row.category);
   });
 
 // --- Terminabstimmung

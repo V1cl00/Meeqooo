@@ -156,6 +156,7 @@ export type ChatMessage = {
   body: string;
   createdAt: string;
   mine: boolean;
+  attachment?: { name: string; type: string; size: number } | null;
 };
 
 export type Notice = {

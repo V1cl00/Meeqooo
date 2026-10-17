@@ -225,3 +225,10 @@ Deutsch, kurz, konkret. Er testet auf dem Handy und vergleicht mit Hinge, Tinder
 - `t()` in `src/lib/meeqo/i18n.ts`, deutscher Text als Schlüssel, Wörterbuch `en.ts` (erzeugt aus `tools/en/part*.json`, `node tools/i18n-merge.mjs`).
 - Prüfen: `node tools/i18n-missing.mjs`, `node tools/i18n-leftovers.mjs`, `node --test e2e/english.test.mjs` (läuft die Hauptseiten auf Englisch durch und schlägt bei deutschen oder fehlenden Texten an).
 - Grenzen: Rechtsseiten, Mitteilungen, Mails und Link-Vorschauen bleiben deutsch. Nutzereigene Kategorien und Titel werden nicht übersetzt. Datenbank-Werte (Kategorien, Eigenschaften) bleiben deutsch gespeichert und werden nur angezeigt übersetzt.
+
+## Wetter, Eisbrecher, Sprache und Dateien im Chat
+
+- **Wetter:** `getWeather` (api.ts) holt die Stunde des Treffens bei Open-Meteo (kein Schlüssel, 30 Minuten im Speicher, nur bis 14 Tage voraus). Auswertung in `weather.ts` (getestet). Bei Ausfall zeigt die Seite einfach nichts.
+- **Eisbrecher:** `icebreakers.ts`, Fragen nach Kategorie. Im Chat tippbar, füllen nur das Feld, solange man noch nichts geschrieben hat.
+- **Sprache:** `voice.ts` nutzt die Spracherkennung des Browsers (Chrome, Edge, Safari). Ohne Unterstützung fehlt der Knopf. Der Ton läuft über den Dienst des Browsers, nicht über MeeQo; das gehört in die Datenschutzerklärung.
+- **Dateien:** Migration 0023. JPEG/PNG (vorher verkleinert) oder PDF bis etwa 2 MB, Typ und Dateianfang werden serverseitig geprüft, 12 Dateien je 10 Minuten. Der Inhalt liegt in der Datenbank und wird nur über `getAttachment` an Chat-Mitglieder ausgeliefert. Für viel Verkehr gehört das in einen Objektspeicher. Noch nicht in Kleinanzeigen-Chats.

@@ -74,7 +74,7 @@ describe("Kleinanzeigen", () => {
 
     // live: Ben schreibt, Anna sieht es ohne Neuladen
     await ben.page.getByPlaceholder("Nachricht").fill("Bin gleich da");
-    await ben.page.getByRole("button", { name: "Senden" }).click();
+    await ben.page.getByRole("button", { name: "Senden", exact: true }).click();
     await anna.page.waitForFunction(() => document.body.innerText.includes("Bin gleich da"), null, { timeout: 15000 });
     await anna.context.close();
     await ben.context.close();
@@ -196,7 +196,7 @@ describe("Treffen", () => {
     const id = url.split("/").pop();
     await ben.page.goto(`${base}/chat/${id}`);
     await ben.page.getByPlaceholder("Nachricht").fill("Bin pünktlich da");
-    await ben.page.getByRole("button", { name: "Senden" }).click();
+    await ben.page.getByRole("button", { name: "Senden", exact: true }).click();
     await ben.page.waitForTimeout(1500);
     await anna.page.goto(`${base}/chat`);
     await anna.page.waitForTimeout(2000);
@@ -302,8 +302,22 @@ describe("Bedienung", () => {
     await anna.page.waitForTimeout(1500);
     await ben.page.goto(`${base}/chat/${id}`);
     await ben.page.waitForTimeout(1500);
+    // Eisbrecher fuellen das Feld, Dateien kommen an, falsche Typen nicht
+    assert.match(await text(ben.page), /Zum Anfangen/i);
+    await ben.page.locator("button.border-dashed").first().click();
+    assert.ok((await ben.page.getByPlaceholder("Nachricht").inputValue()).length > 5);
+    await ben.page.getByPlaceholder("Nachricht").fill("");
     await ben.page.getByRole("button", { name: "Bin unterwegs" }).click();
     await anna.page.waitForFunction(() => document.body.innerText.includes("Bin unterwegs"), null, { timeout: 15000 });
+
+    const pdf = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF");
+    await ben.page.locator("input[type=file]").setInputFiles({ name: "Plan.pdf", mimeType: "application/pdf", buffer: pdf });
+    await anna.page.waitForFunction(() => document.body.innerText.includes("Plan.pdf"), null, { timeout: 15000 });
+    await ben.page.locator("input[type=file]").setInputFiles({ name: "foto.jpg", mimeType: "image/jpeg", buffer: jpeg });
+    await anna.page.waitForFunction(() => document.querySelectorAll("img[alt='foto.jpg']").length > 0, null, { timeout: 15000 });
+    await ben.page.locator("input[type=file]").setInputFiles({ name: "x.txt", mimeType: "text/plain", buffer: Buffer.from("hi") });
+    await ben.page.waitForFunction(() => document.body.innerText.includes("Nur Bilder und PDF"), null, { timeout: 8000 });
+
 
     // Mitfahren
     await anna.page.goto(soon);

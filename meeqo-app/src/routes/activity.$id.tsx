@@ -11,6 +11,7 @@ import { bookingLabel, countdownLabel, errText, formatWhen, MOODS, replyLabel, s
 import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
+import { WeatherChip } from "@/components/weather-chip";
 
 export const Route = createFileRoute("/activity/$id")({ component: Page });
 
@@ -250,6 +251,7 @@ function Detail({ id }: { id: string }) {
           {(item.isHost || item.myStatus === "accepted") && countdownLabel(item.startsAt) ? (
             <p className="inline-flex rounded-full bg-accent px-3 py-1 text-sm font-semibold text-onfill">{countdownLabel(item.startsAt)}</p>
           ) : null}
+          {item.cancelled ? null : <WeatherChip id={item.id} />}
           <p className="text-sm">{item.description}</p>
           <p className="text-sm text-muted">{t("{0} von {1} Plätzen frei · {2} · {3} Min.", item.spotsLeft, item.spots, item.category, item.durationMin)}</p>
           {item.cancelled ? <Note>{t("Diese Aktivität ist abgesagt.")}</Note> : null}

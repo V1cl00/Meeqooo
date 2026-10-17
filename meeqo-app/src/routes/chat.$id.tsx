@@ -3,6 +3,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, Note, Skeleton, TextInput } from "@/components/bits";
 import { Shell } from "@/components/shell";
 import { listMessages, sendMessage } from "@/lib/meeqo/api";
+import { Attachment } from "@/components/attachment";
+import { compress } from "@/lib/meeqo/image";
+import { icebreakersFor } from "@/lib/meeqo/icebreakers";
+import { useVoice } from "@/lib/meeqo/voice";
 import { PollCard, PollForm } from "@/components/poll";
 import { announce } from "@/lib/meeqo/api";
 import { ARRIVAL_REPLIES, errText, formatWhen } from "@/lib/meeqo/labels";
@@ -30,6 +34,9 @@ function Thread({ id }: { id: string }) {
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const [pollOpen, setPollOpen] = useState(false);
   const [announceOpen, setAnnounceOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const voice = useVoice((text) => setBody((current) => (current ? `${current} ${text}` : text)));
   useLiveChat(id, "activity", refresh);
   usePolling(refresh, 30);
 
@@ -61,6 +68,39 @@ function Thread({ id }: { id: string }) {
       setPending((list) => list.filter((item) => item.id !== temp.id));
       if (fromInput) setBody(clean);
       setFail(errText(err));
+    }
+  }
+
+  /** Images are shrunk first; PDFs go as they are, up to about 2 MB. */
+  async function sendFile(file: File) {
+    setFail("");
+    setSending(true);
+    try {
+      let type = file.type;
+      let dataUrl: string;
+      if (type === "application/pdf") {
+        if (file.size > 2_000_000) throw new Error("Die Datei ist zu groß. Höchstens etwa 2 MB.");
+        dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error("Datei konnte nicht gelesen werden."));
+          reader.readAsDataURL(file);
+        });
+      } else if (type.startsWith("image/")) {
+        dataUrl = await compress(file);
+        type = "image/jpeg";
+      } else {
+        throw new Error("Nur Bilder und PDF-Dateien.");
+      }
+      const name = type === "image/jpeg" ? file.name.replace(/\.\w+$/, "") + ".jpg" : file.name;
+      await sendMessage({ data: { id, body: "", attachment: { name, type, data: dataUrl.slice(dataUrl.indexOf(",") + 1) } } });
+      buzz(8);
+      refresh();
+    } catch (err) {
+      setFail(errText(err));
+    } finally {
+      setSending(false);
+      if (fileInput.current) fileInput.current.value = "";
     }
   }
 
@@ -128,7 +168,8 @@ function Thread({ id }: { id: string }) {
             )}
             <div className={`rounded-3xl px-4 py-2 text-sm ${message.mine ? "bg-ink text-onaccent" : "bg-card"}`}>
               {message.mine ? null : <p className="text-xs text-muted">{message.senderName}</p>}
-              <p>{message.body}</p>
+              {message.attachment && message.body.startsWith("📎 ") ? null : <p>{message.body}</p>}
+              {message.attachment ? <Attachment id={message.id} file={message.attachment} mine={message.mine} /> : null}
               <p className={`mt-1 text-[11px] ${message.mine ? "text-onaccent/80" : "text-muted"}`}>{formatWhen(message.createdAt)}</p>
             </div>
           </div>
@@ -137,6 +178,16 @@ function Thread({ id }: { id: string }) {
       {pollOpen ? (
         <div className="mt-4">
           <PollForm activityId={id} onDone={() => { setPollOpen(false); refresh(); }} />
+        </div>
+      ) : null}
+      {!data.messages.some((message) => message.mine) && data.messages.length < 6 && !announceOpen ? (
+        <div className="-mx-4 mt-4 px-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Zum Anfangen")}</p>
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+            {icebreakersFor(data.category, data.intent, data.people.length).map((line) => (
+              <button key={line} type="button" onClick={() => setBody(t(line))} className="inline-flex h-11 shrink-0 items-center rounded-full border border-dashed border-line bg-card px-4 text-sm">{t(line)}</button>
+            ))}
+          </div>
         </div>
       ) : null}
       <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -150,10 +201,19 @@ function Thread({ id }: { id: string }) {
         ) : null}
         <button type="button" onClick={() => setPollOpen((value) => !value)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t("Termin abstimmen")}</button>
       </div>
-      {fail ? <Note>{fail}</Note> : null}
+      {fail || voice.problem ? <Note>{t(fail || voice.problem)}</Note> : null}
       {announceOpen ? <p className="mt-3 text-sm text-muted">{t("Die Ansage geht als Mitteilung an alle, die dabei sind. Schreib sie unten und tippe auf „Ansage senden“.")}</p> : null}
       <form onSubmit={(event) => { if (announceOpen) { event.preventDefault(); void sendAnnouncement(); } else submit(event); }} className="mt-3 flex gap-2">
-        <TextInput value={body} onChange={(event) => setBody(event.target.value)} placeholder={announceOpen ? "Ansage an alle" : "Nachricht"} />
+        <input ref={fileInput} type="file" accept="image/jpeg,image/png,application/pdf,image/*" className="sr-only" tabIndex={-1} onChange={(event) => { const file = event.target.files?.[0]; if (file) void sendFile(file); }} />
+        <button type="button" aria-label={t("Datei senden")} disabled={sending || announceOpen} onClick={() => fileInput.current?.click()} className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-line bg-card disabled:opacity-50">
+          <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.5l-8.6 8.6a5.5 5.5 0 01-7.8-7.8l9.2-9.2a3.7 3.7 0 015.2 5.2l-9.2 9.2a1.8 1.8 0 01-2.6-2.6l8.3-8.3" /></svg>
+        </button>
+        <TextInput value={body} onChange={(event) => setBody(event.target.value)} placeholder={announceOpen ? t("Ansage an alle") : t("Nachricht")} />
+        {voice.supported ? (
+          <button type="button" aria-label={voice.listening ? t("Aufnahme beenden") : t("Sprechen")} aria-pressed={voice.listening} onClick={voice.toggle} className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${voice.listening ? "animate-pulse border-accent bg-accent text-onfill" : "border-line bg-card"}`}>
+            <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0014 0M12 18v3" /></svg>
+          </button>
+        ) : null}
         <Button type="submit">{announceOpen ? t("Ansage senden") : t("Senden")}</Button>
       </form>
     </div>

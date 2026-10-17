@@ -1,14 +1,18 @@
+import { useMe } from "@/components/shell";
 import { t } from "@/lib/meeqo/i18n";
 import { AREAS } from "@/lib/meeqo/labels";
 
 export function AreaPicker({ selected, onChange }: { selected: string[]; onChange: (next: string[]) => void }) {
+  const { profile } = useMe();
+  const on = profile?.flags;
+  const visible = AREAS.filter((item) => item.id === "friends" || on?.[item.id as "dating" | "business" | "classifieds"]);
   function toggle(id: string) {
     onChange(selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id]);
   }
 
   return (
     <div className="space-y-2">
-      {AREAS.map((item) => {
+      {visible.map((item) => {
         const on = selected.includes(item.id);
         return (
           <button

@@ -23,6 +23,7 @@ function Page() {
 function Onboarding() {
   const { profile, reload } = useMe();
   const navigate = useNavigate();
+  const onlyFriends = !profile?.flags.dating && !profile?.flags.business && !profile?.flags.classifieds;
   const [areas, setAreas] = useState<string[]>(profile?.areas ?? []);
   const [seeking, setSeeking] = useState<string[]>(profile?.seeking ?? []);
   const [city, setCity] = useState(profile?.city ?? "");
@@ -37,12 +38,13 @@ function Onboarding() {
     setPending(true);
     setError("");
     try {
-      if (!areas.length) {
+      const chosen = onlyFriends ? ["friends"] : areas;
+      if (!chosen.length) {
         setError(t("Wähl mindestens eins."));
         setPending(false);
         return;
       }
-      await saveOnboarding({ data: { areas, seeking, city, lat: coords?.lat, lng: coords?.lng } });
+      await saveOnboarding({ data: { areas: chosen, seeking, city, lat: coords?.lat, lng: coords?.lng } });
       await reload();
       await navigate({ to: "/" });
     } catch (err) {
@@ -79,16 +81,10 @@ function Onboarding() {
     <form onSubmit={submit} className="space-y-5">
       <section className="card space-y-3 p-5">
         <Wordmark />
-        <h1 className="font-display text-[2rem] leading-none">{t("Wofür bist du hier?")}</h1>
-        <p className="text-sm text-muted">{t("Mehrere gehen. Das siehst du im Feed, und du kannst es später ändern.")}</p>
+        <h1 className="font-display text-[2rem] leading-none">{onlyFriends ? t("Wo bist du?") : t("Wofür bist du hier?")}</h1>
+        <p className="text-sm text-muted">{onlyFriends ? t("Triff Leute bei dem, was du eh gern machst. Sag uns nur, wo.") : t("Mehrere gehen. Das siehst du im Feed, und du kannst es später ändern.")}</p>
       </section>
-      <AreaPicker selected={areas} onChange={setAreas} />
-      <div>
-        <p className="text-sm font-medium text-muted">{t("Ich suche aktiv neue Leute für")}</p>
-        <div className="mt-2">
-          <SeekingPicker selected={seeking} onChange={setSeeking} custom={cats.data ?? []} />
-        </div>
-      </div>
+      {onlyFriends ? null : <AreaPicker selected={areas} onChange={setAreas} />}
       <Field label={t("Stadt")}>
         <PlaceSuggest
           value={city}
@@ -105,6 +101,12 @@ function Onboarding() {
       </Field>
       <button type="button" className="inline-flex h-12 w-full items-center justify-center rounded-full border border-line bg-card text-sm font-semibold text-ink shadow-sm" onClick={locate}>{coords ? t("Standort übernommen") : t("Standort nutzen")}</button>
       {locNote ? <p className="text-sm text-muted">{locNote}</p> : null}
+      <details className="card p-4">
+        <summary className="cursor-pointer text-sm font-semibold">{t("Was suchst du? (optional, geht auch später)")}</summary>
+        <div className="mt-3">
+          <SeekingPicker selected={seeking} onChange={setSeeking} custom={cats.data ?? []} />
+        </div>
+      </details>
       {error ? <Note>{error}</Note> : null}
       <Button type="submit" disabled={pending} className="w-full">{pending ? t("Speichern…") : t("Weiter zum Feed")}</Button>
     </form>

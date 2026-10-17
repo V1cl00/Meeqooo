@@ -26,6 +26,8 @@ import type {
   AdminStats,
   NextUp,
   WeekSummary,
+  Funnel,
+  Flags,
   PollView,
   RideView,
   VenueHit,
@@ -49,6 +51,43 @@ import type {
  */
 const suspendedCache = new Map<string, { at: number; value: boolean }>();
 
+const DEFAULT_FLAGS: Flags = { dating: false, business: false, classifieds: false, communities: true };
+let flagCache: { at: number; value: Flags } = { at: 0, value: DEFAULT_FLAGS };
+
+/** Which areas are switched on. Read from app_flags, kept for 15 seconds; until it is loaded the launch setting applies. */
+async function loadFlags(sql: Sql): Promise<Flags> {
+  if (Date.now() - flagCache.at < 15_000) return flagCache.value;
+  try {
+    const rows = await sql<{ key: string; enabled: boolean }>`select key, enabled from app_flags`;
+    const value = { ...DEFAULT_FLAGS };
+    for (const row of rows) if (row.key in value) value[row.key as keyof Flags] = flag(row.enabled);
+    flagCache = { at: Date.now(), value };
+  } catch {
+    flagCache = { at: Date.now(), value: flagCache.value };
+  }
+  return flagCache.value;
+}
+
+/** Areas a person can actually use right now. Friends and activities are always on. */
+function allowedAreas(areas: string[]) {
+  if (!areas.length) return areas;
+  const on = flagCache.value;
+  const list = areas.filter((item) => item === "friends" || on[item as keyof Flags] === true);
+  return list.length ? list : ["friends"];
+}
+
+const seenToday = new Set<string>();
+
+/** One row per account and day, only for return numbers. Kept in memory so most requests write nothing. */
+async function touchDay(sql: Sql, userId: string) {
+  const day = berlinDay();
+  const key = `${userId}:${day}`;
+  if (seenToday.has(key)) return;
+  if (seenToday.size > 50_000) seenToday.clear();
+  seenToday.add(key);
+  await sql`insert into activity_days (user_id, day) values (${userId}, ${day}) on conflict do nothing`.catch(() => seenToday.delete(key));
+}
+
 const memberMiddleware = createMiddleware({ type: "function" })
   .middleware([authMiddleware])
   .server(async ({ next, context }) => {
@@ -63,6 +102,8 @@ const memberMiddleware = createMiddleware({ type: "function" })
       suspendedCache.set(context.userId, { at: Date.now(), value: suspended });
     }
     if (suspended) throw new Error("Dein Konto ist gesperrt. Schreib dem Support.");
+    void getSql().then((sql) => touchDay(sql, context.userId)).catch(() => {});
+    await loadFlags(await getSql());
     return next();
   });
 
@@ -313,7 +354,8 @@ function mapProfile(row: ProfileRow, stats: { n: number; yes: number; hosted: nu
     bio: row.bio,
     intent: row.intent,
     openTo: row.open_to,
-    areas: parseList(row.areas).length ? cleanAreas(parseList(row.areas)) : areasFromOpen(row.open_to),
+    areas: allowedAreas(parseList(row.areas).length ? cleanAreas(parseList(row.areas)) : areasFromOpen(row.open_to)),
+    flags: flagCache.value,
     seeking: parseSeeking(row.seeking),
     traits: parseList(row.traits),
     requireTraits: parseList(row.require_traits),
@@ -679,8 +721,9 @@ export const saveOnboarding = createServerFn({ method: "POST" })
     const { profile } = await ensureProfile(context.userId);
     const sent = clean(data.displayName, 40);
     const name = sent.length >= 2 ? sent : profile.displayName;
-    const areas = cleanAreas(data.areas);
-    if (!areas.length) throw new Error("Wähl mindestens eins.");
+    const picked = cleanAreas(data.areas);
+    if (!picked.length) throw new Error("Wähl mindestens eins.");
+    const areas = allowedAreas(picked);
     const intent = intentFromAreas(areas);
     const city = clean(data.city, 60);
     const openTo = openFromAreas(areas);
@@ -727,7 +770,7 @@ export const updateProfile = createServerFn({ method: "POST" })
     const { profile } = await ensureProfile(context.userId);
     const name = clean(data.displayName ?? profile.displayName, 40);
     const bio = clean(data.bio ?? profile.bio, 280);
-    const areas = Array.isArray(data.areas) ? cleanAreas(data.areas) : profile.areas;
+    const areas = Array.isArray(data.areas) ? allowedAreas(cleanAreas(data.areas)) : profile.areas;
     if (Array.isArray(data.areas) && !areas.length) throw new Error("Wähl mindestens eins.");
     const intent = Array.isArray(data.areas) ? intentFromAreas(areas) : clean(data.intent ?? profile.intent, 20);
     const city = clean(data.city ?? profile.city, 60);
@@ -1306,7 +1349,11 @@ export const createActivity = createServerFn({ method: "POST" })
     const title = clean(data.title, 80);
     const description = clean(data.description, 800);
     const category = assertCategory(clean(data.category, 48));
-    const intent = data.intent === "date" || data.intent === "friends" || data.intent === "both" ? data.intent : "";
+    let intent = data.intent === "date" || data.intent === "friends" || data.intent === "both" ? data.intent : "";
+    const on = await loadFlags(sql);
+    if (intent === "date" && !on.dating) throw new Error("Dating ist noch nicht freigeschaltet.");
+    if (intent === "both" && !on.dating) intent = "friends";
+    if (areaOf(category, profile.isOrganizer) === "business" && !on.business) throw new Error("Business ist noch nicht freigeschaltet.");
     const placeName = clean(data.placeName, 80);
     const city = clean(data.city, 60);
     const spots = Math.round(Number(data.spots));
@@ -2560,6 +2607,7 @@ export const searchCategories = createServerFn({ method: "POST" })
 
 async function loadClassifieds(userId: string): Promise<Classified[]> {
     const { sql, profile } = await ensureProfile(userId);
+    if (!(await loadFlags(sql)).classifieds) return [];
     const audience = await audienceOf(sql, userId, profile.birthYear);
     const rows = await sql<{
       id: string; author_id: string; title: string; body: string; category: string; city: string;
@@ -2613,6 +2661,7 @@ export const createClassified = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
     assertAdult(profile);
+    if (!(await loadFlags(sql)).classifieds) throw new Error("Kleinanzeigen sind noch nicht freigeschaltet.");
     await throttle(sql, context.userId, "classified", 10, 86_400);
     const title = clean(data.title, 80);
     const body = clean(data.body, 400);
@@ -3126,6 +3175,7 @@ export const deleteAccount = createServerFn({ method: "POST" })
     const sql = await getSql();
     const me = context.userId;
     await sql`delete from join_requests where requester_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from activity_days where user_id = ${me}`;
     await sql`delete from messages where sender_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from checkins where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from ratings where rater_id = ${me} or ratee_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
@@ -3469,6 +3519,59 @@ export const logClientError = createServerFn({ method: "POST" })
     await sql`insert into error_log (path, message) values (${data.path}, ${data.message})`;
     if (Math.random() < 0.02) await sql`delete from error_log where created_at < now() - interval '30 days'`;
     return { ok: true as const };
+  });
+
+/** Switches areas on or off without a new version. Only admins. */
+export const setFlag = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { key: string; enabled: boolean }) => ({ key: clean(input.key, 20), enabled: Boolean(input.enabled) }))
+  .handler(async ({ data, context }): Promise<Flags> => {
+    const sql = await getSql();
+    await requireAdmin(sql, context.userId);
+    if (!(data.key in DEFAULT_FLAGS)) throw new Error("Unbekannte Aktion.");
+    await sql`
+      insert into app_flags (key, enabled) values (${data.key}, ${data.enabled})
+      on conflict (key) do update set enabled = ${data.enabled}, updated_at = now()
+    `;
+    flagCache = { at: 0, value: flagCache.value };
+    return loadFlags(sql);
+  });
+
+export const adminFunnel = createServerFn({ method: "GET" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }): Promise<Funnel> => {
+    const sql = await getSql();
+    await requireAdmin(sql, context.userId);
+    const one = async (query: Promise<{ n: number }[]>) => num((await query)[0]?.n);
+    const [signups, onboarded, requested, accepted, came, again, dau, wau, mau, d1, d1base, d7, d7base] = await Promise.all([
+      one(sql<{ n: number }>`select count(*)::int as n from (select u.id from "user" u where u."createdAt" > now() - interval '30 days' and u.id not like 'seed:%') c`),
+      one(sql<{ n: number }>`select count(*)::int as n from profiles p where p.onboarding_done and p.user_id in (select c.id from (select u.id from "user" u where u."createdAt" > now() - interval '30 days' and u.id not like 'seed:%') c)`),
+      one(sql<{ n: number }>`select count(distinct j.requester_id)::int as n from join_requests j where j.requester_id in (select c.id from (select u.id from "user" u where u."createdAt" > now() - interval '30 days' and u.id not like 'seed:%') c)`),
+      one(sql<{ n: number }>`select count(distinct j.requester_id)::int as n from join_requests j where j.status = 'accepted' and j.requester_id in (select c.id from (select u.id from "user" u where u."createdAt" > now() - interval '30 days' and u.id not like 'seed:%') c)`),
+      one(sql<{ n: number }>`select count(distinct k.user_id)::int as n from checkins k where k.user_id in (select c.id from (select u.id from "user" u where u."createdAt" > now() - interval '30 days' and u.id not like 'seed:%') c)`),
+      one(sql<{ n: number }>`select count(*)::int as n from (select k.user_id from checkins k where k.user_id in (select c.id from (select u.id from "user" u where u."createdAt" > now() - interval '30 days' and u.id not like 'seed:%') c) group by k.user_id having count(distinct k.activity_id) >= 2) t`),
+      one(sql<{ n: number }>`select count(distinct user_id)::int as n from activity_days where day = ${berlinDay()}`),
+      one(sql<{ n: number }>`select count(distinct user_id)::int as n from activity_days where day > current_date - 7`),
+      one(sql<{ n: number }>`select count(distinct user_id)::int as n from activity_days where day > current_date - 30`),
+      one(sql<{ n: number }>`select count(*)::int as n from "user" u where u."createdAt" < now() - interval '1 day' and u."createdAt" > now() - interval '60 days' and u.id not like 'seed:%' and exists (select 1 from activity_days d where d.user_id = u.id and d.day >= (u."createdAt"::date + 1))`),
+      one(sql<{ n: number }>`select count(*)::int as n from "user" u where u."createdAt" < now() - interval '1 day' and u."createdAt" > now() - interval '60 days' and u.id not like 'seed:%'`),
+      one(sql<{ n: number }>`select count(*)::int as n from "user" u where u."createdAt" < now() - interval '7 days' and u."createdAt" > now() - interval '60 days' and u.id not like 'seed:%' and exists (select 1 from activity_days d where d.user_id = u.id and d.day >= (u."createdAt"::date + 7))`),
+      one(sql<{ n: number }>`select count(*)::int as n from "user" u where u."createdAt" < now() - interval '7 days' and u."createdAt" > now() - interval '60 days' and u.id not like 'seed:%'`),
+    ]);
+    const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : null);
+    return {
+      steps: [
+        { key: "Angemeldet", count: signups },
+        { key: "Onboarding fertig", count: onboarded },
+        { key: "Erste Anfrage", count: requested },
+        { key: "Zugesagt", count: accepted },
+        { key: "Eingecheckt", count: came },
+        { key: "Zweites Treffen", count: again },
+      ],
+      dau, wau, mau,
+      returnD1: pct(d1, d1base),
+      returnD7: pct(d7, d7base),
+    };
   });
 
 export const adminStats = createServerFn({ method: "GET" })

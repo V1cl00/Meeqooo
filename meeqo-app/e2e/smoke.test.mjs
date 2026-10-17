@@ -2,11 +2,13 @@
 // gestartet mit ADMIN_EMAILS=admin@test.de. Start: npm run test:e2e
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { addPhoto, base, jpeg, launch, newUser, text } from "./helpers.mjs";
+import { addPhoto, base, jpeg, launch, newUser, setAreas, text } from "./helpers.mjs";
 
 let browser;
 before(async () => {
   browser = await launch();
+  // Die Läufe prüfen alle Bereiche; beim echten Start sind Dating, Business und Kleinanzeigen aus.
+  await setAreas(browser, { Dating: true, Business: true, Kleinanzeigen: true });
 });
 after(async () => {
   await browser?.close();

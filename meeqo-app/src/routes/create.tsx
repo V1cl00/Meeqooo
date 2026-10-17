@@ -274,7 +274,7 @@ function Create({ communityId }: { communityId: string }) {
         <div className="space-y-4">
           <p className="text-sm text-muted">{t("Wer sie sieht, hängt an der Absicht. Teilnehmen geht nur über Anfrage, außer du bist Veranstalter mit Sofortbuchung.")}</p>
           <div className="flex flex-wrap gap-2">
-            {(["friends", "date", "both"] as const).map((item) => (
+            {(profile?.flags.dating ? (["friends", "date", "both"] as const) : (["friends"] as const)).map((item) => (
               <button key={item} type="button" onClick={() => setIntent(item)} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${intent === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>
                 {item === "friends" ? t("Nur Freundschaft") : item === "date" ? t("Nur Dates") : t("Alle")}
               </button>

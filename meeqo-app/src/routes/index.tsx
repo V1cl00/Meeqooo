@@ -114,7 +114,8 @@ function Feed() {
     }
   }
 
-  const lenses = [
+  const on = profile?.flags;
+  const lenses = ([
     ["all", "Alles"],
     ["date", "Dating"],
     ["friends", "Freunde"],
@@ -122,7 +123,7 @@ function Feed() {
     ["business", "Business"],
     ["classifieds", "Kleinanzeigen"],
     ["events", "Veranstaltungen"],
-  ] as const;
+  ] as const).filter(([id]) => id === "date" ? on?.dating : id === "business" ? on?.business : id === "classifieds" ? on?.classifieds : true);
   const subs = lensSubs(filter);
 
   const hosts = (data?.items ?? []).filter((item, index, list) => list.findIndex((other) => other.hostId === item.hostId) === index).slice(0, 12);

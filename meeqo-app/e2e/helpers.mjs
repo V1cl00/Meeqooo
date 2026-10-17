@@ -36,8 +36,12 @@ export async function newUser(browser, name, { email, photo = true, scheme, city
   await page.getByLabel(/Ich stimme den/).check();
   await page.getByRole("button", { name: "Weiter" }).click();
   await page.waitForURL(`${base}/onboarding`, { timeout: 20000 });
+  // Beim Start sind nur Freunde und Aktivitaeten an (Schalter in /admin/zahlen); die Bereichswahl entfaellt dann.
+  await page.getByPlaceholder("Postleitzahl, Stadt oder Dorf").waitFor({ timeout: 20000 });
+  await page.waitForTimeout(1200);
   for (const title of ["Dating", "Freunde", "Business", "Kleinanzeigen"]) {
-    await page.getByRole("button", { name: new RegExp(`^${title}`) }).first().click();
+    const button = page.getByRole("button", { name: new RegExp(`^${title}`) }).first();
+    if (await button.count()) await button.click();
   }
   await page.getByPlaceholder("Postleitzahl, Stadt oder Dorf").fill(city);
   await page.getByRole("button", { name: "Weiter zum Feed" }).click();
@@ -50,4 +54,45 @@ export async function addPhoto(page) {
   await page.goto(`${base}/profile`);
   await page.locator("input[type=file]").first().setInputFiles({ name: "p.jpg", mimeType: "image/jpeg", buffer: jpeg });
   await page.waitForTimeout(2500);
+}
+
+/** Logs in as the admin (creating the account on a fresh database) and returns its page. */
+export async function adminPage(browser) {
+  const admin = await newUser(browser, "Admin", { email: "admin@test.de", photo: false }).catch(async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    await page.goto(`${base}/login`);
+    await page.getByRole("button", { name: "Einloggen" }).first().click();
+    await page.getByPlaceholder("du@mail.de").fill("admin@test.de");
+    await page.getByPlaceholder("Mindestens 8 Zeichen").fill("passwort123");
+    await page.locator("form button[type=submit]").click();
+    await page.waitForTimeout(3000);
+    if (page.url().includes("/onboarding")) {
+      await page.getByPlaceholder("Postleitzahl, Stadt oder Dorf").fill("Karlsruhe");
+      await page.getByRole("button", { name: "Weiter zum Feed" }).click();
+      await page.waitForURL(`${base}/`, { timeout: 20000 });
+    }
+    return { context, page };
+  });
+  return admin;
+}
+
+/** Switches areas on or off through the admin page. `wanted` maps label to on/off, e.g. { Dating: true }. */
+export async function setAreas(browser, wanted) {
+  const admin = await adminPage(browser);
+  await admin.page.goto(`${base}/admin/zahlen`);
+  await admin.page.waitForSelector("text=Bereiche", { timeout: 20000 });
+  for (const [label, on] of Object.entries(wanted)) {
+    const toggle = admin.page.locator("label", { hasText: label }).getByRole("switch");
+    if ((await toggle.isChecked()) !== on) {
+      await toggle.click();
+      await admin.page.waitForFunction(({ label, on }) => {
+        const node = [...document.querySelectorAll("label")].find((item) => item.textContent?.includes(label))?.querySelector("input");
+        return node?.checked === on;
+      }, { label, on }, { timeout: 10000 });
+    }
+  }
+  await admin.page.waitForTimeout(1000);
+  await admin.context.close();
+  await new Promise((resolve) => setTimeout(resolve, 500));
 }

@@ -45,7 +45,10 @@ describe("English", () => {
     await page.waitForURL(`${base}/onboarding`, { timeout: 20000 });
     await page.waitForTimeout(1200);
     seen["/onboarding"] = { body: await text(page), missing: await missing(page) };
-    await page.getByRole("button", { name: /^Friends/ }).first().click();
+    await page.getByPlaceholder(/Postcode|postal/i).waitFor({ timeout: 20000 });
+    await page.waitForTimeout(1200);
+    const friends = page.getByRole("button", { name: /^Friends/ }).first();
+    if (await friends.count()) await friends.click();
     await page.getByPlaceholder(/Postcode|postal/i).fill("Karlsruhe");
     await page.getByRole("button", { name: "On to the feed" }).click();
     await page.waitForURL(`${base}/`, { timeout: 20000 });

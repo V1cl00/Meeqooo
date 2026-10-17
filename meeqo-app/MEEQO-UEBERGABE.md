@@ -251,3 +251,10 @@ Deutsch, kurz, konkret. Er testet auf dem Handy und vergleicht mit Hinge, Tinder
 - Neue Profile starten mit 60 km Umkreis statt 25 (Migration 0027), weil die Dichte anfangs gering ist.
 - Gebiet ändern: nur `LAUNCH` und die Chips in `geo.ts`.
 - E2E laufen jetzt nacheinander (`--test-concurrency=1`), parallel waren sie unter Last unzuverlässig.
+
+## Start-Schalter, Zahlen und kurzes Onboarding
+
+- **Schalter:** Tabelle `app_flags` (Migration 0028), umstellbar unter `/admin/zahlen` → „Bereiche“. Beim Start: Dating, Business und Kleinanzeigen aus, Communities an. Freunde und Aktivitäten sind immer an. Was aus ist, fehlt in Feed-Filtern und Bereichswahl, und der Server lehnt das Anlegen ab (`createActivity`, `createClassified`). Wirkt nach etwa 15 Sekunden auf allen Instanzen (sofort auf der, die den Schalter setzt). Grenze: Die Kategorie „Business“ steht in Auswahllisten noch zur Wahl und wird erst beim Veröffentlichen abgelehnt.
+- **Zahlen:** `/admin/zahlen` zeigt den Weg der Konten der letzten 30 Tage (Angemeldet → Onboarding → erste Anfrage → Zusage → Eingecheckt → zweites Treffen) sowie aktive Konten heute, in 7 und 30 Tagen und die Rückkehr am nächsten Tag und nach 7 Tagen. Grundlage ist `activity_days`: eine Zeile pro Konto und Tag, ohne Dritt-Dienst, wird mit dem Konto gelöscht.
+- **Onboarding:** Ist nur „Freunde“ an, entfällt die Bereichswahl; es fragt nur nach dem Ort. Interessen sind aufklappbar und optional.
+- **E2E:** `setAreas` in `e2e/helpers.mjs` schaltet Bereiche über die Admin-Seite; die Hauptläufe schalten alles an, `region.test.mjs` prüft den Startzustand.

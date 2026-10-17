@@ -11,6 +11,8 @@ export type Profile = {
   intent: string;
   openTo: string;
   areas: string[];
+  /** Which areas are switched on for everyone. */
+  flags: Flags;
   seeking: string[];
   traits: string[];
   requireTraits: string[];
@@ -314,6 +316,19 @@ export type AdminStats = {
   errors24: number;
   errorList: { path: string; message: string; createdAt: string }[];
 };
+
+export type Funnel = {
+  /** Accounts of the last 30 days and how far they got. */
+  steps: { key: string; count: number }[];
+  dau: number;
+  wau: number;
+  mau: number;
+  /** Share of accounts (1 to 60 days old) that came back on a later day, in percent. */
+  returnD1: number | null;
+  returnD7: number | null;
+};
+
+export type Flags = { dating: boolean; business: boolean; classifieds: boolean; communities: boolean };
 
 export type MyData = {
   filename: string;

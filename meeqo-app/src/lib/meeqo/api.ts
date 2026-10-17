@@ -655,6 +655,7 @@ async function sendEmail(sql: Sql, userId: string, title: string, body: string, 
 
 /** Needs VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT. Without them nothing is sent and nothing breaks. */
 async function sendPush(sql: Sql, userId: string, title: string, body: string, href: string) {
+  await sendNativePush(sql, userId, title, body, href);
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   if (!publicKey || !privateKey) return;
@@ -677,6 +678,40 @@ async function sendPush(sql: Sql, userId: string, title: string, body: string, h
     /* push is a bonus; the notification row is already saved */
   }
 }
+
+/** The Android and iOS apps: one message per registered phone, dead tokens are removed. */
+async function sendNativePush(sql: Sql, userId: string, title: string, body: string, href: string) {
+  if (!process.env.FCM_SERVICE_ACCOUNT) return;
+  try {
+    const { sendFcm } = await import("@/lib/fcm.server");
+    const tokens = await sql<{ token: string }>`select token from native_push where user_id = ${userId}`;
+    await Promise.all(
+      tokens.map(async (row) => {
+        const result = await sendFcm(row.token, { title, body, href });
+        if (result === "gone") await sql`delete from native_push where token = ${row.token}`;
+      }),
+    );
+  } catch {
+    /* push is a bonus; the notification row is already saved */
+  }
+}
+
+export const saveNativeToken = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { token: string; platform: string }) => ({
+    token: clean(input.token, 4096),
+    platform: input.platform === "ios" ? "ios" : "android",
+  }))
+  .handler(async ({ data, context }) => {
+    if (data.token.length < 20) throw new Error("Abo ungültig.");
+    const sql = await getSql();
+    await sql`
+      insert into native_push (token, user_id, platform) values (${data.token}, ${context.userId}, ${data.platform})
+      on conflict (token) do update set user_id = ${context.userId}, platform = ${data.platform}, updated_at = now()
+    `;
+    await sql`update profiles set notify_push = true where user_id = ${context.userId}`;
+    return { ok: true as const };
+  });
 
 function areaOf(category: string, organizer: boolean) {
   if (category === "Business" || category.startsWith("Business · ")) return "business";
@@ -3209,6 +3244,7 @@ export const deleteAccount = createServerFn({ method: "POST" })
     await sql`delete from reports where reporter_id = ${me}`;
     await sql`delete from notifications where user_id = ${me}`;
     await sql`delete from push_subscriptions where user_id = ${me}`;
+    await sql`delete from native_push where user_id = ${me}`;
     await sql`delete from profiles where user_id = ${me}`;
     await sql`delete from "user" where id = ${me}`;
     return { ok: true as const };

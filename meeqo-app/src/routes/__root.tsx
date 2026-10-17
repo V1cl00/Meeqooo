@@ -1,9 +1,10 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { logClientError } from "@/lib/meeqo/api";
 import { warmStart } from "@/lib/meeqo/warm";
 import { useEffect } from "react";
+import { initNative } from "@/lib/meeqo/native";
 import { initLang, useLang } from "@/lib/meeqo/i18n";
 import appCss from "../styles.css?url";
 
@@ -24,7 +25,7 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "MeeQo" },
       { name: "description", content: "Menschen über Aktivitäten kennenlernen. Dating und Freundschaft bleiben getrennt." },
       { name: "theme-color", content: "#F7F1EA" },
@@ -41,9 +42,11 @@ export const Route = createRootRoute({
 
 function RootShell() {
   const lang = useLang();
+  const router = useRouter();
   useEffect(() => {
     initLang();
-  }, []);
+    void initNative((path) => void router.navigate({ to: path }));
+  }, [router]);
   return (
     <html lang="de" className="antialiased" suppressHydrationWarning>
       <head>

@@ -5,3 +5,9 @@ node_modules
 .tanstack
 dist
 *.log
+
+# Von "cap sync" erzeugt, enthaelt die Adresse der Seite
+android/app/src/main/assets/capacitor.config.json
+ios/App/App/capacitor.config.json
+android/app/src/main/assets/public
+ios/App/App/public

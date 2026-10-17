@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>MeeQo</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #F7F1EA; color: #2b2622; font-family: system-ui, sans-serif; text-align: center; padding: 24px; }
+  @media (prefers-color-scheme: dark) { body { background: #1c1815; color: #f3ece4; } }
+  button { margin-top: 16px; height: 48px; padding: 0 28px; border: 0; border-radius: 999px; background: #E07A5F; color: #1c1815; font-weight: 700; font-size: 16px; }
+</style>
+</head>
+<body>
+  <main>
+    <h1>MeeQo</h1>
+    <p>Keine Verbindung. Sobald du wieder online bist, geht es weiter.</p>
+    <p lang="en">No connection. We'll continue once you're back online.</p>
+    <button onclick="location.reload()">Nochmal versuchen / Retry</button>
+  </main>
+</body>
+</html>

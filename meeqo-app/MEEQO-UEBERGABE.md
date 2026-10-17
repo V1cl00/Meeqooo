@@ -258,3 +258,7 @@ Deutsch, kurz, konkret. Er testet auf dem Handy und vergleicht mit Hinge, Tinder
 - **Zahlen:** `/admin/zahlen` zeigt den Weg der Konten der letzten 30 Tage (Angemeldet → Onboarding → erste Anfrage → Zusage → Eingecheckt → zweites Treffen) sowie aktive Konten heute, in 7 und 30 Tagen und die Rückkehr am nächsten Tag und nach 7 Tagen. Grundlage ist `activity_days`: eine Zeile pro Konto und Tag, ohne Dritt-Dienst, wird mit dem Konto gelöscht.
 - **Onboarding:** Ist nur „Freunde“ an, entfällt die Bereichswahl; es fragt nur nach dem Ort. Interessen sind aufklappbar und optional.
 - **E2E:** `setAreas` in `e2e/helpers.mjs` schaltet Bereiche über die Admin-Seite; die Hauptläufe schalten alles an, `region.test.mjs` prüft den Startzustand.
+
+## Apps für Android und iOS
+
+Siehe `NATIVE-APPS.md`. Kurz: Capacitor-Hülle (`capacitor.config.ts`, Ordner `android/` und `ios/`) um die laufende Seite; `src/lib/meeqo/native.ts` ist die Brücke (Statusleiste, Zurück-Taste, App-Links, Vibration, Teilen, Push-Anmeldung). Mitteilungen laufen über Firebase (`src/lib/fcm.server.ts`, Tabelle `native_push`, Umgebungsvariable `FCM_SERVICE_ACCOUNT`); der Aufbau ist mit Mock-Tests geprüft, nicht mit echten Telefonen. Bauen und Einreichen geht nur mit Android Studio, Xcode (Mac) und Developer-Konten.

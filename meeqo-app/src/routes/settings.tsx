@@ -7,6 +7,8 @@ import { signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { isNative, registerNativePush } from "@/lib/meeqo/native";
+import { useNavigate } from "@tanstack/react-router";
 import { setLang, t, useLang } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/settings")({ component: Page });
@@ -29,6 +31,7 @@ function Settings() {
   const admin = useLoad(() => adminStatus(), []);
   const [confirm, setConfirm] = useState("");
   const lang = useLang();
+  const navigate = useNavigate();
   const [calendar, setCalendar] = useState("");
   if (!profile) return null;
 
@@ -62,6 +65,17 @@ function Settings() {
   }
 
   async function push() {
+    if (isNative()) {
+      try {
+        const result = await registerNativePush((path) => void navigate({ to: path }));
+        await setNotify({ data: { enabled: result === "granted" } });
+        await reload();
+        setNote(result === "granted" ? t("Mitteilungen an, auch wenn MeeQo zu ist.") : t("Der Browser hat nicht zugestimmt."));
+      } catch (err) {
+        setError(errText(err));
+      }
+      return;
+    }
     if (typeof Notification === "undefined") {
       setError("Dieser Browser kann keine Mitteilungen zeigen.");
       return;

@@ -102,3 +102,27 @@ Das ist keine Recherche, sondern mein Denken, gestützt auf die Funde oben. Nach
 - **Gemeinsames Foto-Album nach dem Treffen:** nur für Anwesende, löscht sich nach 30 Tagen, wenn niemand es behält. Erinnerung ohne öffentliche Spuren.
 
 **Was ich davon zuerst bauen würde:** Ruhemodus beim Treffen, Wiedersehen mit Vorschlag, „+1“ und „Neulinge willkommen“, die Mood-Eingabe. Alles klein, alles ohne neue Konten oder Schlüssel, und alles stärkt den Kern: echte Treffen statt Bildschirmzeit.
+
+## 11. Wenn die Zielgruppen einen Wunsch frei hätten
+Hypothesen aus den Funden oben und gesundem Menschenverstand. **Nicht befragt.** Vor dem Bauen mit je 5 bis 8 echten Gesprächen prüfen.
+
+| Gruppe | Wunsch in einem Satz | Was dahintersteckt | Was MeeQo schon hat / fehlt |
+|---|---|---|---|
+| Neu in der Stadt (Studium, Job, Umzug) | „Ich will in zwei Wochen drei Leute kennen, die ich wieder treffe.“ | Wiederholung statt Einzeltreffen | Stammtreffen, Wiedersehen · fehlt: Willkommenspfad für Neue („erste 14 Tage“) |
+| Dating-Müde, 25 bis 40 | „Ich will jemanden treffen, ohne vorher 3 Wochen zu schreiben.“ | Weniger Chat, mehr echter Moment | Anfrage + Treffen von Anfang an als Date · fehlt: klar kurzer Chat bis zum Termin |
+| Frauen allein unterwegs | „Ich will mich nicht erklären müssen und sicher heimkommen.“ | Kontrolle und Rückendeckung | Check-in, Vertrauenslink, Blockieren · fehlt: Notfallknopf, „Heimweg bestätigt“ |
+| Schüchterne / sozial ängstliche | „Ich will wissen, was mich erwartet, und jemanden mitbringen dürfen.“ | Vorhersagbarkeit | Stimmungs-Angabe, Eisbrecher · fehlt: „+1“, Ablauf im Voraus, „Neulinge willkommen“ |
+| Queere Menschen | „Ich will Räume, in denen ich nicht erklären muss, wer ich bin, und die niemand auswertet.“ | Schutz der Daten | Eigenschaften als Pflicht-Haken · fehlt: ausdrückliche Einwilligung, Datenschutz-Folgenabschätzung |
+| Eltern, 30 bis 45 | „Ich habe zwei Stunden und will sie nicht planen müssen.“ | Wenig Zeit, kurze Wege | „Gleich in der Nähe", Wochenübersicht · fehlt: Nachbarschaftsmodus, Kinder-willkommen-Haken |
+| Ältere (50+) | „Keine App-Spielereien, große Schrift, Telefon statt Konto.“ | Einfachheit | Einfache Oberfläche, große Schrift per Design · fehlt: Anmeldung ohne Mail, Telefonnummer |
+| Gastgeber (Läufer, Vereine, Cafés) | „Ich organisiere gern, aber nicht den Papierkram.“ | Wenig Aufwand, volle Runde | Vorlagen, Serien, Warteliste · fehlt: Teilnehmerliste, Folgen, Plätze von Betrieben |
+| Business / Netzwerken | „Ich will drei Gespräche, die etwas bringen, nicht 40 Visitenkarten.“ | Qualität der Begegnung | Business-Bereich · fehlt: Vorab-Match nach Thema, Anschlusskontakt nach dem Treffen |
+
+**Gemeinsamer Nenner (was fast alle meinen, ohne es zu sagen):**
+1. Sicher sein, dass der andere echt ist.
+2. Wissen, was mich erwartet.
+3. Nicht allein hingehen müssen.
+4. Dass die Verabredung hält (niemand sagt kurz vorher ab).
+5. Danach ein Wiedersehen, ohne neu anfangen zu müssen.
+
+Wenn ich einen Wunsch frei hätte, für alle: **„Der erste Kontakt ist nur ein Treffen, kein Gespräch.“** Genau das hat MeeQo als Kern. Alles weitere dient dazu, dieses Treffen sicher, planbar und wiederholbar zu machen.

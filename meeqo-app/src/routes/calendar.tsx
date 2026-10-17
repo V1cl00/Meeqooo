@@ -35,7 +35,7 @@ function Calendar() {
         ))}
       </div>
       {!loading && data && data.items.length === 0 ? (
-        <Empty title="An diesen Tagen ist nichts" body="Wähl einen anderen Tag oder schau eine Woche weiter im Kalender." action={<Link to="/" className="inline-flex h-10 items-center rounded-full border-2 border-accent bg-card px-4 text-sm font-semibold text-accent-deep">Zum Entdecken</Link>} />
+        <Empty title="An diesen Tagen ist nichts" body="Wähl einen anderen Tag oder schau eine Woche weiter im Kalender." action={<Link to="/" className="inline-flex h-11 items-center rounded-full border-2 border-accent bg-card px-4 text-sm font-semibold text-accent-deep">Zum Entdecken</Link>} />
       ) : null}
     </div>
   );

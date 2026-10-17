@@ -29,7 +29,7 @@ function Page() {
             </div>
           </article>
           <p className="text-sm text-muted">Mitmachen geht über eine Anfrage. {data.hostName} sagt zu. Du brauchst dafür ein Konto und ein Profilfoto.</p>
-          <Link to="/login" search={{ next: `/activity/${data.activityId}` }} className="inline-flex h-12 w-full items-center justify-center rounded-full bg-accent px-6 text-sm font-semibold text-onaccent">
+          <Link to="/login" search={{ next: `/activity/${data.activityId}` }} className="inline-flex h-12 w-full items-center justify-center rounded-full bg-accent px-6 text-sm font-semibold text-onfill">
             Anmelden und ansehen
           </Link>
         </>

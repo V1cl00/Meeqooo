@@ -87,6 +87,7 @@ type ActRow = {
   identity_confirmed: boolean;
   rating_n: number | string | null;
   again_yes: number | string | null;
+  hosted: number | string | null;
   punctual: number | string | null;
   respectful: number | string | null;
   matches: number | string | null;
@@ -141,11 +142,13 @@ function badgesFrom(
   respectful: number,
   matches: number,
   yes = 0,
+  hosted = 0,
 ) {
   const badges: string[] = [];
   if (count >= 3) badges.push(`${yes} von ${count} wollen wieder`);
   if (identity) badges.push("Profil bestätigt");
   if (organizer) badges.push("Veranstalter");
+  if (hosted >= 2) badges.push(`${hosted} Treffen geleitet`);
   if (count >= 1 && punctual >= 4) badges.push("Zuverlässig");
   if (count >= 1 && respectful >= 4) badges.push("Respektvoll");
   if (count >= 1 && matches >= 4) badges.push("Wie im Profil");
@@ -195,21 +198,23 @@ async function blockedWith(sql: Sql, userId: string) {
 }
 
 async function ratingStats(sql: Sql, userId: string) {
-  const rows = await sql<{ n: number; yes: number; punctual: number | null; respectful: number | null; matches: number | null }>`
-    select count(*)::int as n, count(*) filter (where want_again)::int as yes, avg(punctual) as punctual, avg(respectful) as respectful, avg(matches_profile) as matches
+  const rows = await sql<{ n: number; yes: number; hosted: number; punctual: number | null; respectful: number | null; matches: number | null }>`
+    select count(*)::int as n, count(*) filter (where want_again)::int as yes, avg(punctual) as punctual, avg(respectful) as respectful, avg(matches_profile) as matches,
+      (select count(*)::int from activities h where h.host_id = ${userId} and h.starts_at < now() and h.cancelled = false) as hosted
     from ratings where ratee_id = ${userId}
   `;
   const row = rows[0];
   return {
     n: num(row?.n),
     yes: num(row?.yes),
+    hosted: num(row?.hosted),
     punctual: num(row?.punctual),
     respectful: num(row?.respectful),
     matches: num(row?.matches),
   };
 }
 
-function mapProfile(row: ProfileRow, stats: { n: number; yes: number; punctual: number; respectful: number; matches: number }): Profile {
+function mapProfile(row: ProfileRow, stats: { n: number; yes: number; hosted: number; punctual: number; respectful: number; matches: number }): Profile {
   return {
     userId: row.user_id,
     displayName: row.display_name,
@@ -243,6 +248,7 @@ function mapProfile(row: ProfileRow, stats: { n: number; yes: number; punctual: 
       stats.respectful,
       stats.matches,
       stats.yes,
+      stats.hosted,
     ),
     theme: readTheme(row.theme),
   };
@@ -298,6 +304,7 @@ function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: nu
       num(row.respectful),
       num(row.matches),
       num(row.again_yes),
+      num(row.hosted),
     ),
     hostOrganizer: flag(row.is_organizer),
     area: row.area === "business" ? "business" : row.area === "event" ? "event" : "meetup",
@@ -334,7 +341,8 @@ async function loadRows(sql: Sql, userId: string, after: string | null = null, o
       a.place_name, a.city, a.lat, a.lng, a.starts_at, a.spots, a.image_url,
       a.booking_mode, a.community_id, a.public_place, a.cancelled, a.area, a.traits, a.visibility, a.audience_ids,
       p.display_name, p.avatar_url, p.is_organizer, p.identity_confirmed, p.traits as host_traits, p.birth_year as host_birth_year,
-      coalesce(r.n, 0) as rating_n, coalesce(r.yes, 0) as again_yes, r.punctual, r.respectful, r.matches,
+      coalesce(r.n, 0) as rating_n, coalesce(r.yes, 0) as again_yes,
+      (select count(*)::int from activities h where h.host_id = a.host_id and h.starts_at < now() and h.cancelled = false) as hosted, r.punctual, r.respectful, r.matches,
       coalesce(acc.taken, 0) as taken,
       jr.status as my_status
     from activities a
@@ -1005,7 +1013,54 @@ export const getActivity = createServerFn({ method: "POST" })
       `;
       mutual = iWantAgain && flag(theirs[0]?.want_again);
     }
-    return { activity, checkedIn: checks.length > 0, rated: ratedHost, mutual, iWantAgain, hidden: hidden.has(activity.id) };
+    const [replyRows, goingRows, mineRow] = await Promise.all([
+      sql<{ hours: number | null; n: number }>`
+        select avg(extract(epoch from (t.responded_at - t.created_at)) / 3600.0) as hours, count(*)::int as n
+        from (
+          select j.responded_at, j.created_at from join_requests j join activities a on a.id = j.activity_id
+          where a.host_id = ${activity.hostId} and j.responded_at is not null
+          order by j.responded_at desc limit 20
+        ) t
+      `,
+      activity.isHost || activity.myStatus === "accepted"
+        ? sql<{ user_id: string; display_name: string | null; avatar_url: string | null }>`
+            select j.requester_id as user_id, p.display_name, p.avatar_url
+            from join_requests j left join profiles p on p.user_id = j.requester_id
+            where j.activity_id = ${activity.id} and j.status = 'accepted'
+            order by j.created_at asc
+          `
+        : Promise.resolve([] as { user_id: string; display_name: string | null; avatar_url: string | null }[]),
+      sql<{ confirmed_at: unknown }>`select confirmed_at from join_requests where activity_id = ${activity.id} and requester_id = ${context.userId} and status = 'accepted'`,
+    ]);
+    const hoursAway = (new Date(activity.startsAt).getTime() - Date.now()) / 3_600_000;
+    const replies = replyRows[0];
+    return {
+      activity,
+      hostReplyHours: num(replies?.n) >= 3 && replies?.hours != null ? Math.max(0, num(replies.hours)) : null,
+      going: goingRows.map((row) => ({ id: row.user_id, name: row.display_name || "Jemand", avatar: row.avatar_url || "", me: row.user_id === context.userId })),
+      needsConfirm: activity.myStatus === "accepted" && mineRow.length > 0 && !mineRow[0].confirmed_at && hoursAway > 0 && hoursAway <= 30,
+      checkedIn: checks.length > 0, rated: ratedHost, mutual, iWantAgain, hidden: hidden.has(activity.id),
+    };
+  });
+
+export const confirmAttendance = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string; coming: boolean }) => ({ id: clean(input.id, 80), coming: Boolean(input.coming) }))
+  .handler(async ({ data, context }) => {
+    const { sql, profile } = await ensureProfile(context.userId);
+    const rows = await sql<{ id: string; host_id: string; title: string }>`
+      select j.id, a.host_id, a.title from join_requests j join activities a on a.id = j.activity_id
+      where j.activity_id = ${data.id} and j.requester_id = ${context.userId} and j.status = 'accepted'
+    `;
+    const row = rows[0];
+    if (!row) throw new Error("Du bist bei diesem Treffen nicht dabei.");
+    if (data.coming) {
+      await sql`update join_requests set confirmed_at = now() where id = ${row.id}`;
+      return { status: "confirmed" as const };
+    }
+    await sql`update join_requests set status = 'withdrawn' where id = ${row.id}`;
+    await notify(sql, row.host_id, "withdrawn", "Platz frei", `${profile.displayName} kann doch nicht zu „${row.title}“.`, `/activity/${data.id}`, data.id);
+    return { status: "withdrawn" as const };
   });
 
 export const createActivity = createServerFn({ method: "POST" })
@@ -1168,7 +1223,7 @@ export const respondRequest = createServerFn({ method: "POST" })
       if (num(taken[0]?.n) >= num(row.spots)) throw new Error("Keine Plätze mehr frei.");
     }
     const status = data.accept ? "accepted" : "declined";
-    await sql`update join_requests set status = ${status} where id = ${data.id}`;
+    await sql`update join_requests set status = ${status}, responded_at = now() where id = ${data.id}`;
     if (data.accept) {
       await sql`
         insert into messages (id, activity_id, sender_id, body)
@@ -1531,6 +1586,7 @@ export const getPublicProfile = createServerFn({ method: "POST" })
         stats.respectful,
         stats.matches,
         stats.yes,
+        stats.hosted,
       ),
       avatarUrl: row.avatar_url || "",
       friend: await friendState(sql, context.userId, row.user_id),

@@ -1,7 +1,7 @@
 import { TRAITS } from "@/lib/meeqo/labels";
 
 function chip(active: boolean) {
-  return `inline-flex h-10 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`;
+  return `inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
 }
 
 export function TraitPicker({

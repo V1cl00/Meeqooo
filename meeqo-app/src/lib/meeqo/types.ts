@@ -164,8 +164,19 @@ export type CommunityCard = {
   joined: boolean;
 };
 
+export type GoingPerson = {
+  id: string;
+  name: string;
+  avatar: string;
+  me: boolean;
+};
+
 export type ActivityDetail = {
   activity: ActivityCard;
+  /** Median-ish reply time of the host in hours, only with at least three answered requests. */
+  hostReplyHours: number | null;
+  going: GoingPerson[];
+  needsConfirm: boolean;
   checkedIn: boolean;
   rated: boolean;
   mutual: boolean;

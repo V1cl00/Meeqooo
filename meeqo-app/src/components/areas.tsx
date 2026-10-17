@@ -14,7 +14,7 @@ export function AreaPicker({ selected, onChange }: { selected: string[]; onChang
             key={item.id}
             type="button"
             onClick={() => toggle(item.id)}
-            className={`w-full rounded-2xl border-2 px-4 py-3 text-left ${on ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`}
+            className={`w-full rounded-2xl border-2 px-4 py-3 text-left ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
           >
             <span className="block font-semibold">{item.title}</span>
             <span className={`text-sm ${on ? "text-onaccent/80" : "text-muted"}`}>{item.hint}</span>

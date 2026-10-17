@@ -49,7 +49,7 @@ export function SafetyMenu({
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex h-10 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold text-ink">
+      <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex h-11 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold text-ink">
         Melden{personId ? " oder blockieren" : ""}
       </button>
       {open ? (
@@ -57,7 +57,7 @@ export function SafetyMenu({
           <p className="text-sm font-semibold">Was stimmt nicht?</p>
           <div className="flex flex-wrap gap-2">
             {REPORT_REASONS.map((item) => (
-              <button key={item} type="button" onClick={() => setReason(item)} className={`inline-flex h-10 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${reason === item ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`}>{item}</button>
+              <button key={item} type="button" onClick={() => setReason(item)} className={`inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${reason === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{item}</button>
             ))}
           </div>
           <textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={400} placeholder="Optional: was ist passiert?" className="min-h-20 w-full rounded-2xl border border-line bg-sand px-4 py-3 text-base outline-none focus:border-accent" />

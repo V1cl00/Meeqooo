@@ -142,7 +142,7 @@ export function Shell({
         <div className="max-w-sm space-y-4">
           <Wordmark className="text-3xl" />
           <p>{error || "Profil fehlt."}</p>
-          <button type="button" className="inline-flex h-12 items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-onaccent" onClick={() => window.location.reload()}>
+          <button type="button" className="inline-flex h-12 items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill" onClick={() => window.location.reload()}>
             Neu laden
           </button>
         </div>
@@ -196,7 +196,7 @@ export function Shell({
               <Link to="/notifications" className="relative grid h-11 w-11 place-items-center rounded-full border border-line bg-card shadow-sm">
                 <Bell className="h-5 w-5" />
                 {unread > 0 ? (
-                  <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-onaccent">
+                  <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-onfill">
                     {unread}
                   </span>
                 ) : null}
@@ -235,10 +235,10 @@ function NavLink({
     const create = to === "/create";
     return (
       <Link to={to} search={create ? { community: "" } : undefined} className="relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold">
-        <span className={create ? "-mt-6 grid h-14 w-14 place-items-center rounded-full bg-accent text-onaccent shadow-[0_10px_20px_color-mix(in_srgb,var(--color-accent)_40%,transparent)]" : active ? "grid h-9 w-9 place-items-center text-accent" : "grid h-9 w-9 place-items-center text-muted"}>
+        <span className={create ? "-mt-6 grid h-14 w-14 place-items-center rounded-full bg-accent text-onfill shadow-[0_10px_20px_color-mix(in_srgb,var(--color-accent)_40%,transparent)]" : active ? "grid h-9 w-9 place-items-center text-accent-deep" : "grid h-9 w-9 place-items-center text-muted"}>
           <Icon className={create ? "h-6 w-6" : "h-5 w-5"} />
         </span>
-        <span className={create ? "text-ink" : active ? "text-accent" : "text-muted"}>{label}</span>
+        <span className={create ? "text-ink" : active ? "text-accent-deep" : "text-muted"}>{label}</span>
       </Link>
     );
   }

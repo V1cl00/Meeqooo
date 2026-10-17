@@ -92,11 +92,11 @@ function Search() {
             placeholder={profile?.city ? `Bei dir in ${profile.city}, oder PLZ und Ort` : "Postleitzahl, Stadt oder Dorf"}
           />
         </Field>
-        <button type="button" onClick={() => setPlace("")} className={`inline-flex h-10 items-center rounded-full border-2 px-3 text-sm font-semibold ${place === "" ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`}>Bei mir</button>
+        <button type="button" onClick={() => setPlace("")} className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${place === "" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>Bei mir</button>
         <CategorySelect allowAll value={category} onChange={setCategory} custom={cats.data ?? []} />
         <div className="flex flex-wrap gap-2">
           {RADIUS_OPTIONS.map((item) => (
-            <button key={item} type="button" onClick={() => setRadius(item)} className={`inline-flex h-10 items-center rounded-full border-2 px-3 text-sm font-semibold ${radius === item ? "border-accent bg-accent text-onaccent" : "border-ink/25 bg-card text-ink"}`}>{item} km</button>
+            <button key={item} type="button" onClick={() => setRadius(item)} className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${radius === item ? "border-accent bg-accent text-onfill" : "border-ink/25 bg-card text-ink"}`}>{item} km</button>
           ))}
         </div>
         <div className="flex flex-wrap gap-2">

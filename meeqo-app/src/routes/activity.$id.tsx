@@ -4,8 +4,8 @@ import { BadgeRow, Button, IntentPill, Note, SparteStrip, StatusLine } from "@/c
 import { SafetyMenu } from "@/components/safety";
 import { ShareSheet } from "@/components/share";
 import { Shell } from "@/components/shell";
-import { checkIn, createInvite, createSafetyLink, getActivity, hideActivity, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
-import { bookingLabel, errText, formatWhen, MOODS, sparteOf } from "@/lib/meeqo/labels";
+import { checkIn, confirmAttendance, createInvite, createSafetyLink, getActivity, hideActivity, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
+import { bookingLabel, countdownLabel, errText, formatWhen, MOODS, replyLabel, sparteOf } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/activity/$id")({ component: Page });
@@ -37,7 +37,8 @@ function Detail({ id }: { id: string }) {
     setFail("");
     try {
       const result = await requestJoin({ data: { id: item.id, mood } });
-      setInfo(result.status === "accepted" ? "Du bist dabei. Der Chat ist offen." : "Anfrage ist raus. Der Ersteller entscheidet.");
+      const reply = data?.hostReplyHours != null ? ` ${item.hostName.split(" ")[0]} antwortet meist in ${replyLabel(data.hostReplyHours)}.` : "";
+      setInfo(result.status === "accepted" ? "Du bist dabei. Der Chat ist offen." : `Anfrage ist raus.${reply} Du bekommst eine Mitteilung, sobald es eine Antwort gibt.`);
       reload();
     } catch (err) {
       setFail(errText(err));
@@ -84,6 +85,21 @@ function Detail({ id }: { id: string }) {
       const url = `${window.location.origin}${result.path}`;
       setTrust({ title: item.title, text: `Komm mit zu „${item.title}“ (${formatWhen(item.startsAt)}, ${item.placeName}, ${item.city}). Hier siehst du das Treffen und kannst anfragen: ${url}` });
       setShareOpen(true);
+    } catch (err) {
+      setFail(errText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function attend(coming: boolean) {
+    if (!item) return;
+    setBusy(true);
+    setFail("");
+    try {
+      const result = await confirmAttendance({ data: { id: item.id, coming } });
+      setInfo(result.status === "confirmed" ? "Gut, bis dann." : "Schade. Dein Platz ist wieder frei.");
+      reload();
     } catch (err) {
       setFail(errText(err));
     } finally {
@@ -142,6 +158,16 @@ function Detail({ id }: { id: string }) {
 
   return (
     <article className="space-y-4">
+      {data.needsConfirm ? (
+        <div className="card space-y-3 border-2 !border-accent p-4">
+          <h2 className="font-display text-2xl leading-tight">{countdownLabel(item.startsAt) === "morgen" ? "Bist du morgen dabei?" : "Bist du dabei?"}</h2>
+          <p className="text-sm text-muted">Sag kurz Bescheid. Wenn du nicht kannst, wird dein Platz für andere frei.</p>
+          <div className="flex gap-2">
+            <Button type="button" className="flex-1" disabled={busy} onClick={() => attend(true)}>Ja, ich komme</Button>
+            <Button type="button" tone="ghost" className="flex-1" disabled={busy} onClick={() => attend(false)}>Doch nicht</Button>
+          </div>
+        </div>
+      ) : null}
       <div className={`card overflow-hidden ${business ? "!border-2 !border-ink" : sparte.kind === "event" ? "!border-2 !border-accent-deep" : ""}`}>
         <SparteStrip kind={sparte.kind} sub={sparte.sub} />
         {item.imageUrl ? <img src={item.imageUrl} alt="" className="aspect-[3/2] w-full object-cover" /> : <div className="aspect-[3/2] bg-sand-deep" />}
@@ -153,6 +179,9 @@ function Detail({ id }: { id: string }) {
           </div>
           <h1 className="font-display text-4xl leading-none">{item.title}</h1>
           <p className="text-sm text-muted">{formatWhen(item.startsAt)} · {item.placeName}, {item.city}</p>
+          {(item.isHost || item.myStatus === "accepted") && countdownLabel(item.startsAt) ? (
+            <p className="inline-flex rounded-full bg-accent px-3 py-1 text-sm font-semibold text-onfill">{countdownLabel(item.startsAt)}</p>
+          ) : null}
           <p className="text-sm">{item.description}</p>
           <p className="text-sm text-muted">{item.spotsLeft} von {item.spots} Plätzen frei · {item.category}</p>
           {item.cancelled ? <Note>Diese Aktivität ist abgesagt.</Note> : null}
@@ -176,13 +205,33 @@ function Detail({ id }: { id: string }) {
         <div className="mt-3">
           <BadgeRow badges={item.hostBadges} />
         </div>
+        {!item.isHost && data.hostReplyHours != null ? (
+          <p className="mt-3 text-sm text-muted">Antwortet meist innerhalb von {replyLabel(data.hostReplyHours)}.</p>
+        ) : null}
       </div>
+      {data.going.length > 0 ? (
+        <div className="card space-y-3 p-4">
+          <h2 className="font-display text-2xl">Wer noch dabei ist</h2>
+          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+            {data.going.map((person) => (
+              <div key={person.id} className="w-16 shrink-0 text-center">
+                {person.avatar ? (
+                  <img src={person.avatar} alt="" className="mx-auto h-14 w-14 rounded-full object-cover" />
+                ) : (
+                  <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-sand-deep text-lg font-semibold">{person.name.slice(0, 1)}</span>
+                )}
+                <span className="mt-1 block truncate text-xs font-bold">{person.me ? "Du" : person.name.split(" ")[0]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" ? (
         <div className="card space-y-3 p-4">
           <h2 className="font-display text-2xl">Was erwartest du heute?</h2>
           <div className="flex flex-wrap gap-2">
             {MOODS.map((item) => (
-              <button key={item} type="button" onClick={() => setMood(item)} className={`inline-flex h-10 items-center rounded-full border-2 px-4 text-sm font-semibold ${mood === item ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`}>{item}</button>
+              <button key={item} type="button" onClick={() => setMood(item)} className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${mood === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{item}</button>
             ))}
           </div>
           <p className="text-sm text-muted">Der Ersteller sieht das bei deiner Anfrage.</p>

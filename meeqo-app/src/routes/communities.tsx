@@ -44,7 +44,7 @@ function Communities() {
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-3">
         <h1 className="font-display text-4xl leading-none">Communities</h1>
-        <Button type="button" tone="ghost" className="h-10" onClick={() => setOpen((value) => !value)}>Neu</Button>
+        <Button type="button" tone="ghost" className="h-11" onClick={() => setOpen((value) => !value)}>Neu</Button>
       </div>
       <p className="text-sm text-muted">Gruppen zu einem Thema und einem Ort. Mitglieder sehen die Aktivitäten und können eigene vorschlagen.</p>
       {open ? (

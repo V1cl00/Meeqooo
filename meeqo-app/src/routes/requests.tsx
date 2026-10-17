@@ -36,8 +36,8 @@ function Requests() {
     <div className="space-y-4">
       <h1 className="font-display text-4xl leading-none">Anfragen</h1>
       <div className="flex gap-2">
-        <button type="button" onClick={() => setTab("in")} className={`inline-flex h-10 items-center rounded-full border px-4 text-sm font-semibold ${tab === "in" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>Eingehend</button>
-        <button type="button" onClick={() => setTab("out")} className={`inline-flex h-10 items-center rounded-full border px-4 text-sm font-semibold ${tab === "out" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>Ausgehend</button>
+        <button type="button" onClick={() => setTab("in")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${tab === "in" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>Eingehend</button>
+        <button type="button" onClick={() => setTab("out")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${tab === "out" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>Ausgehend</button>
       </div>
       {loading ? <p className="text-sm text-muted">Wird geladen…</p> : null}
       {error ? <Note>{error}</Note> : null}
@@ -50,8 +50,8 @@ function Requests() {
             <p className="text-sm text-muted">{tab === "in" ? item.personName : `Bei ${item.personName}`} · {item.status === "pending" ? "offen" : item.status === "accepted" ? "zugesagt" : "abgelehnt"}</p>
             {tab === "in" && item.status === "pending" ? (
               <div className="flex gap-2">
-                <Button type="button" className="h-10" onClick={() => answer(item.id, true)}>Annehmen</Button>
-                <Button type="button" tone="ghost" className="h-10" onClick={() => answer(item.id, false)}>Ablehnen</Button>
+                <Button type="button" className="h-11" onClick={() => answer(item.id, true)}>Annehmen</Button>
+                <Button type="button" tone="ghost" className="h-11" onClick={() => answer(item.id, false)}>Ablehnen</Button>
               </div>
             ) : null}
           </div>

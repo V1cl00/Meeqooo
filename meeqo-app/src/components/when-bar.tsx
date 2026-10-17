@@ -82,7 +82,7 @@ export function WhenBar({ days, onChange }: { days: string[]; onChange: (days: s
               type="button"
               disabled={past}
               onClick={() => toggle(day)}
-              className={`flex h-14 min-w-0 flex-1 flex-col items-center justify-center rounded-2xl text-ink ${on ? "bg-accent text-onaccent shadow-[0_6px_14px_color-mix(in_srgb,var(--color-accent)_30%,transparent)]" : "border border-line bg-card"} ${past ? "opacity-40" : ""}`}
+              className={`flex h-14 min-w-0 flex-1 flex-col items-center justify-center rounded-2xl text-ink ${on ? "bg-accent text-onfill shadow-[0_6px_14px_color-mix(in_srgb,var(--color-accent)_30%,transparent)]" : "border border-line bg-card"} ${past ? "opacity-40" : ""}`}
             >
               <span className="text-[11px] font-semibold">{WEEKDAYS[weekdayMon(day)]}</span>
               <span className="text-sm font-semibold tabular-nums">{Number(day.slice(8))}</span>
@@ -93,7 +93,7 @@ export function WhenBar({ days, onChange }: { days: string[]; onChange: (days: s
           type="button"
           aria-label="Weiter voraus"
           onClick={() => setOpen((value) => !value)}
-          className={`grid h-14 w-12 shrink-0 place-items-center rounded-2xl ${open ? "bg-accent text-onaccent" : "border border-line bg-card text-ink"}`}
+          className={`grid h-14 w-12 shrink-0 place-items-center rounded-2xl ${open ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
             <rect x="2.5" y="3.5" width="15" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
@@ -145,7 +145,7 @@ export function WhenBar({ days, onChange }: { days: string[]; onChange: (days: s
                       type="button"
                       data-day={off ? undefined : day}
                       disabled={off}
-                      className={`flex h-11 items-center justify-center rounded-xl border-2 text-sm font-semibold tabular-nums ${on ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"} ${off ? "opacity-30" : ""}`}
+                      className={`flex h-11 items-center justify-center rounded-xl border-2 text-sm font-semibold tabular-nums ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"} ${off ? "opacity-30" : ""}`}
                     >
                       {Number(day.slice(8))}
                     </button>

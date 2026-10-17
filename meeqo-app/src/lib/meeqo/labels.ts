@@ -260,3 +260,21 @@ export function errText(error: unknown) {
 export function isUnauthorized(error: unknown) {
   return errText(error) === "Unauthorized";
 }
+
+/** "in 2 Tagen", "in 3 Stunden": the wait is part of the anticipation. */
+export function countdownLabel(startsAt: string, now = new Date()) {
+  const ms = new Date(startsAt).getTime() - now.getTime();
+  if (ms <= 0) return "";
+  const hours = ms / 3_600_000;
+  if (hours < 1) return `in ${Math.max(1, Math.round(ms / 60_000))} Minuten`;
+  if (hours < 24) return `in ${Math.round(hours)} Stunden`;
+  const days = Math.round((new Date(`${berlinDay(startsAt)}T12:00:00Z`).getTime() - new Date(`${berlinDay(now)}T12:00:00Z`).getTime()) / 86_400_000);
+  if (days <= 1) return "morgen";
+  return `in ${days} Tagen`;
+}
+
+export function replyLabel(hours: number) {
+  if (hours < 1) return "unter einer Stunde";
+  if (hours < 24) return `etwa ${Math.round(hours)} Std.`;
+  return `etwa ${Math.round(hours / 24)} Tagen`;
+}

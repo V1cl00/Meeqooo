@@ -77,7 +77,7 @@ export function PostBoard({
                 key={item}
                 type="button"
                 onClick={() => setAudience(item)}
-                className={`inline-flex h-10 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${audience === item ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`}
+                className={`inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${audience === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
               >
                 {activityIntentLabel(item)}
               </button>
@@ -91,7 +91,7 @@ export function PostBoard({
                 key={trait}
                 type="button"
                 onClick={() => setRequireTraits((current) => current.includes(trait) ? current.filter((item) => item !== trait) : [...current, trait])}
-                className={`inline-flex h-10 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${requireTraits.includes(trait) ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`}
+                className={`inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${requireTraits.includes(trait) ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
               >
                 {trait}
               </button>

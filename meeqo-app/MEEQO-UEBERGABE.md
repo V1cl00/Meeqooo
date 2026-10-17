@@ -134,6 +134,17 @@ Liste und einzelne Nachrichten zeigen das Profilfoto, sonst den Anfangsbuchstabe
 - Schriften kommen von `@fontsource-variable/*`, nicht mehr von Google. Familiennamen heißen „Outfit Variable“ usw.
 - Chat-Liste in einer Abfrage statt einer pro Chat.
 
+## Design und Psychologie (Migration 0016)
+
+- Text auf Terrakotta-Flächen ist dunkel (`text-onfill`, 5,7:1), die Markenfarbe `#E07A5F` bleibt. Weiß auf Terrakotta hatte 2,8:1. `muted` ist `#6f6159` (5,3:1), `accent-deep` ist `#a8462f`. Eigene Designs setzen `--color-onfill` aus ihrer Akzent-Lesbarkeit.
+- Chips und Knöpfe mindestens 44 px hoch. Linsen sind gefüllt (aktiv schwarz), Unterkategorien terrakotta.
+- Leerer Feed: erst das Positive (nächster Tag mit Treffen), sonst „Ich hätte Lust“ als Hauptknopf.
+- Antwortzeit des Gastgebers (`join_requests.responded_at`), erst ab drei beantworteten Anfragen sichtbar.
+- Bestätigung am Vortag (`confirmed_at`): Karte „Bist du morgen dabei?“ in den letzten 30 Stunden. „Doch nicht“ setzt den Status auf `withdrawn` und gibt den Platz frei. Es gibt keinen Hintergrunddienst, der unbeantwortete Plätze automatisch freigibt.
+- Countdown und „Wer noch dabei ist“ nur für Gastgeber und Zugesagte.
+- Karten-Chip „N Treffen geleitet“ ab zwei vergangenen Treffen.
+- Anlegen in drei Schritten. Wichtig: die Knöpfe haben `key`, sonst wird „Weiter“ zum Absenden-Knopf und veröffentlicht sofort.
+
 ## Noch schwach, nicht anfassen ohne Auftrag
 
 - Menschen ohne Foto bleiben Buchstaben. Foto ist Pflicht zum Anfragen und zum Veröffentlichen, nicht zum Reinschauen.

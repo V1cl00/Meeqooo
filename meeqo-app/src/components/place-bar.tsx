@@ -99,7 +99,7 @@ export function PlaceBar({ onChange }: { onChange?: () => void }) {
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          className="inline-flex h-10 items-center gap-1.5 rounded-full border-2 border-line bg-card px-3 text-sm font-semibold text-ink"
+          className="inline-flex h-11 items-center gap-1.5 rounded-full border-2 border-line bg-card px-3 text-sm font-semibold text-ink"
           onClick={() => setOpen(open === "city" ? null : "city")}
           aria-expanded={open === "city"}
         >
@@ -108,7 +108,7 @@ export function PlaceBar({ onChange }: { onChange?: () => void }) {
         </button>
         <button
           type="button"
-          className="inline-flex h-10 items-center gap-1.5 rounded-full border-2 border-line bg-card px-3 text-sm font-semibold text-ink"
+          className="inline-flex h-11 items-center gap-1.5 rounded-full border-2 border-line bg-card px-3 text-sm font-semibold text-ink"
           onClick={() => setOpen(open === "radius" ? null : "radius")}
           aria-expanded={open === "radius"}
         >
@@ -171,7 +171,7 @@ export function PlaceBar({ onChange }: { onChange?: () => void }) {
               key={item}
               type="button"
               onClick={() => pickRadius(item)}
-              className={`inline-flex h-10 items-center rounded-full border-2 px-3 text-sm font-semibold ${item === profile?.radiusKm ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`}
+              className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${item === profile?.radiusKm ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
             >
               {item} km
             </button>

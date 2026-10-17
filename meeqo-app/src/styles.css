@@ -11,12 +11,14 @@
   --color-sand-deep: #efe6db;
   --color-card: #fffcf9;
   --color-ink: #241c18;
-  --color-muted: #8a7b72;
+  --color-muted: #6f6159;
   --color-line: #eadfd4;
   --color-accent: #e07a5f;
-  --color-accent-deep: #c45d45;
+  --color-accent-deep: #a8462f;
   --color-friend: #3f6b58;
   --color-onaccent: #fff8f4;
+  /* Text on solid accent fills. Dark on #e07a5f gives 5.7:1, light gave 2.8:1. */
+  --color-onfill: #241c18;
   --font-sans: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fraunces Variable", Georgia, serif;
   --radius-card: 1.5rem;

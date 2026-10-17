@@ -62,7 +62,7 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: "accent" | "ink" | "ghost" }) {
   const tones = {
-    accent: "bg-accent text-onaccent shadow-[0_8px_18px_color-mix(in_srgb,var(--color-accent)_35%,transparent)] hover:bg-accent-deep",
+    accent: "bg-accent text-onfill shadow-[0_8px_18px_color-mix(in_srgb,var(--color-accent)_35%,transparent)] hover:brightness-95",
     ink: "bg-ink text-onaccent",
     ghost: "border border-line bg-card text-ink",
   };
@@ -104,7 +104,7 @@ export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 export function IntentPill({ intent }: { intent: string }) {
   const styles =
     intent === "date"
-      ? "bg-accent text-onaccent"
+      ? "bg-accent text-onfill"
       : intent === "friends"
         ? "bg-friend text-onaccent"
         : "bg-ink text-onaccent";
@@ -166,7 +166,7 @@ export function ActivityCard({ item, onHide }: { item: Activity; onHide?: () => 
               {item.hostBadges[0] ? <span className="block truncate text-xs text-muted">{item.hostBadges[0]}</span> : null}
             </span>
             <span className="ml-auto text-xs font-semibold text-muted">{item.spotsLeft} frei</span>
-            {item.myStatus === "pending" ? <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold text-onaccent">Angefragt</span> : null}
+            {item.myStatus === "pending" ? <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold text-onfill">Angefragt</span> : null}
             {item.myStatus === "accepted" ? <span className="rounded-full bg-friend px-2 py-0.5 text-[11px] font-bold text-onaccent">Dabei</span> : null}
           </div>
         </div>

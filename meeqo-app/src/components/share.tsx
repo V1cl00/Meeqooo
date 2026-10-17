@@ -38,7 +38,7 @@ export function ShareSheet({
       <div className="card w-full max-w-lg space-y-3 p-4" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-display text-2xl">Teilen</h2>
-          <button type="button" className="inline-flex h-10 items-center rounded-full border-2 border-line bg-card px-4 text-sm font-semibold" onClick={onClose}>Schließen</button>
+          <button type="button" className="inline-flex h-11 items-center rounded-full border-2 border-line bg-card px-4 text-sm font-semibold" onClick={onClose}>Schließen</button>
         </div>
         <p className="text-sm text-muted">Instagram, TikTok und Nebenan.de bekommen den Text in die Zwischenablage.</p>
         <div className="grid grid-cols-2 gap-2">

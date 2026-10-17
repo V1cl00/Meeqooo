@@ -153,6 +153,7 @@ export function themeStyle(theme: AppTheme | null): CSSProperties | undefined {
     "--color-accent-deep": theme.accentDeep,
     "--color-friend": theme.friend,
     "--color-onaccent": theme.onaccent,
+    "--color-onfill": theme.onaccent,
     "--font-sans": font.sans,
     "--font-display": font.display,
     "--radius-card": theme.radius === "tight" ? "0.7rem" : theme.radius === "round" ? "1.85rem" : "1.35rem",

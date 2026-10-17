@@ -29,7 +29,7 @@ function Page() {
         </p>
         {ideas.map((item) => <ActivityCard key={item.id} item={item} />)}
         <div className="flex flex-wrap gap-2">
-          <Link to="/create" search={{ community: "" }} className="inline-flex h-12 items-center rounded-full bg-accent px-5 text-sm font-semibold text-onaccent">Nächste Woche selbst anlegen</Link>
+          <Link to="/create" search={{ community: "" }} className="inline-flex h-12 items-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill">Nächste Woche selbst anlegen</Link>
           <Link to="/" className="inline-flex h-12 items-center rounded-full border-2 border-line bg-card px-5 text-sm font-semibold">Zum Feed</Link>
         </div>
       </div>

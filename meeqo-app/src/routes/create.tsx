@@ -69,6 +69,7 @@ function Create({ communityId }: { communityId: string }) {
   const [communityIds, setCommunityIds] = useState<string[]>(profile?.audienceIds ?? []);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [step, setStep] = useState(1);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -85,12 +86,39 @@ function Create({ communityId }: { communityId: string }) {
     });
   }
 
+  function problem(at: number) {
+    if (at === 1) {
+      if (title.trim().length < 3) return "Gib dem Treffen einen Titel.";
+      if (!imageUrl) return "Ohne Foto wird nichts veröffentlicht.";
+    }
+    if (at === 2) {
+      if (!placeName.trim() || !city.trim()) return "Ort und Stadt fehlen.";
+      if (!when) return "Wann geht es los?";
+    }
+    return "";
+  }
+
+  function next() {
+    const message = problem(step);
+    setError(message);
+    if (!message) setStep((value) => Math.min(3, value + 1));
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (step < 3) {
+      next();
+      return;
+    }
+    const message = problem(1) || problem(2);
+    if (message) {
+      setError(message);
+      setStep(problem(1) ? 1 : 2);
+      return;
+    }
     setPending(true);
     setError("");
     try {
-      if (!imageUrl) throw new Error("Ohne Foto wird nichts veröffentlicht.");
       const created = await createActivity({
         data: {
           title,
@@ -119,49 +147,78 @@ function Create({ communityId }: { communityId: string }) {
     }
   }
 
+  const titles = ["Was", "Wann und wo", "Wer darf mit"] as const;
+
   return (
-    <form onSubmit={submit} className="mx-auto max-w-lg space-y-4">
-      <h1 className="font-display text-4xl leading-none">Aktivität anlegen</h1>
-      <p className="text-sm text-muted">Wer sie sieht, hängt an der Absicht. Teilnehmen geht nur über Anfrage, außer du bist Veranstalter mit Sofortbuchung.</p>
-      <Field label="Titel"><TextInput value={title} onChange={(event) => setTitle(event.target.value)} required /></Field>
-      <Field label="Beschreibung"><TextArea value={description} onChange={(event) => setDescription(event.target.value)} /></Field>
-      <Field label="Kategorie">
-        <CategorySelect value={category} onChange={setCategory} custom={cats.data ?? []} />
-      </Field>
-      <p className="text-sm text-muted">
-        Fehlt deine Unterkategorie? <Link to="/categories" className={face}>Selbst anlegen</Link>
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {(["friends", "date", "both"] as const).map((item) => (
-          <button key={item} type="button" onClick={() => setIntent(item)} className={`inline-flex h-10 items-center rounded-full border px-4 text-sm font-semibold ${intent === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>
-            {item === "friends" ? "Nur Freundschaft" : item === "date" ? "Nur Dates" : "Alle"}
-          </button>
-        ))}
-      </div>
-      <VisibilityPicker value={visibility} onChange={setVisibility} communityIds={communityIds} onCommunityIds={setCommunityIds} />
-      <Field label="Ort"><TextInput value={placeName} onChange={(event) => setPlaceName(event.target.value)} required /></Field>
-      <Field label="Stadt"><TextInput value={city} onChange={(event) => setCity(event.target.value)} required /></Field>
-      <button type="button" className={face} onClick={locate}>{coords ? "Standort übernommen" : "Diesen Ort vom Handy nehmen"}</button>
-      <Field label="Beginn"><TextInput type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} required /></Field>
-      <Field label="Plätze für Gäste"><TextInput type="number" min={1} max={40} value={spots} onChange={(event) => setSpots(Number(event.target.value))} /></Field>
-      <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" className="mt-1 h-5 w-5" checked={intent === "date" ? true : publicPlace} disabled={intent === "date"} onChange={(event) => setPublicPlace(event.target.checked)} />
-        <span>{intent === "date" ? "Dates sind nur an öffentlichen Orten." : "Öffentlicher Ort."}</span>
-      </label>
-      {profile?.isOrganizer ? (
-        <div className="flex gap-2">
-          <button type="button" className={`inline-flex h-10 items-center rounded-full border-2 px-4 text-sm font-semibold ${bookingMode === "request" ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("request")}>Anfrage</button>
-          <button type="button" className={`inline-flex h-10 items-center rounded-full border-2 px-4 text-sm font-semibold ${bookingMode === "instant" ? "border-accent bg-accent text-onaccent" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("instant")}>Sofortbuchung</button>
+    <form onSubmit={submit} className="mx-auto max-w-lg space-y-4" noValidate>
+      <div className="space-y-2">
+        <h1 className="font-display text-4xl leading-none">Aktivität anlegen</h1>
+        <div className="flex gap-1.5" aria-hidden>
+          {titles.map((_, index) => (
+            <span key={index} className={`h-1.5 flex-1 rounded-full ${index < step ? "bg-accent" : "bg-sand-deep"}`} />
+          ))}
         </div>
-      ) : <p className="text-sm text-muted">Buchung: Anfrage mit deiner Freigabe.</p>}
-      <TraitPicker label="Eigenschaften des Treffens" hint="Wer vegan oder queer als Pflicht gesetzt hat, sieht das Treffen nur mit dem passenden Haken." selected={traits} onChange={setTraits} />
-      <Field label="Foto, Pflicht">
-        <input type="file" accept="image/*" required={!imageUrl} className="text-sm" onChange={(event) => onFile(event.target.files?.[0])} />
-      </Field>
-      {imageUrl ? <img src={imageUrl} alt="Vorschau" className="aspect-[3/2] w-full rounded-card object-cover" /> : null}
-      {communityId ? <Note>Die Aktivität erscheint in deiner Community und im Feed.</Note> : null}
+        <p className="text-sm text-muted">Schritt {step} von 3: {titles[step - 1]}</p>
+      </div>
+      {step === 1 ? (
+        <div className="space-y-4">
+          <Field label="Titel"><TextInput value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Zum Beispiel: Laufen, acht Kilometer" /></Field>
+          <Field label="Beschreibung"><TextArea value={description} onChange={(event) => setDescription(event.target.value)} /></Field>
+          <Field label="Kategorie">
+            <CategorySelect value={category} onChange={setCategory} custom={cats.data ?? []} />
+          </Field>
+          <p className="text-sm text-muted">
+            Fehlt deine Unterkategorie? <Link to="/categories" className={face}>Selbst anlegen</Link>
+          </p>
+          <Field label="Foto, Pflicht">
+            <input type="file" accept="image/*" className="text-sm" onChange={(event) => onFile(event.target.files?.[0])} />
+          </Field>
+          {imageUrl ? <img src={imageUrl} alt="Vorschau" className="aspect-[3/2] w-full rounded-card object-cover" /> : null}
+        </div>
+      ) : null}
+      {step === 2 ? (
+        <div className="space-y-4">
+          <Field label="Ort"><TextInput value={placeName} onChange={(event) => setPlaceName(event.target.value)} placeholder="Treffpunkt, zum Beispiel Schlossgarten" /></Field>
+          <Field label="Stadt"><TextInput value={city} onChange={(event) => setCity(event.target.value)} /></Field>
+          <button type="button" className={face} onClick={locate}>{coords ? "Standort übernommen" : "Diesen Ort vom Handy nehmen"}</button>
+          <Field label="Beginn"><TextInput type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} /></Field>
+          <Field label="Plätze für Gäste"><TextInput type="number" min={1} max={40} value={spots} onChange={(event) => setSpots(Number(event.target.value))} /></Field>
+          <label className="flex items-start gap-3 text-sm">
+            <input type="checkbox" className="mt-1 h-5 w-5" checked={intent === "date" ? true : publicPlace} disabled={intent === "date"} onChange={(event) => setPublicPlace(event.target.checked)} />
+            <span>{intent === "date" ? "Dates sind nur an öffentlichen Orten." : "Öffentlicher Ort."}</span>
+          </label>
+          {profile?.isOrganizer ? (
+            <div className="flex gap-2">
+              <button type="button" className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${bookingMode === "request" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("request")}>Anfrage</button>
+              <button type="button" className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${bookingMode === "instant" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("instant")}>Sofortbuchung</button>
+            </div>
+          ) : <p className="text-sm text-muted">Buchung: Anfrage mit deiner Freigabe.</p>}
+        </div>
+      ) : null}
+      {step === 3 ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted">Wer sie sieht, hängt an der Absicht. Teilnehmen geht nur über Anfrage, außer du bist Veranstalter mit Sofortbuchung.</p>
+          <div className="flex flex-wrap gap-2">
+            {(["friends", "date", "both"] as const).map((item) => (
+              <button key={item} type="button" onClick={() => setIntent(item)} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${intent === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>
+                {item === "friends" ? "Nur Freundschaft" : item === "date" ? "Nur Dates" : "Alle"}
+              </button>
+            ))}
+          </div>
+          <VisibilityPicker value={visibility} onChange={setVisibility} communityIds={communityIds} onCommunityIds={setCommunityIds} />
+          <TraitPicker label="Eigenschaften des Treffens" hint="Wer vegan oder queer als Pflicht gesetzt hat, sieht das Treffen nur mit dem passenden Haken." selected={traits} onChange={setTraits} />
+          {communityId ? <Note>Die Aktivität erscheint in deiner Community und im Feed.</Note> : null}
+        </div>
+      ) : null}
       {error ? <Note>{error}</Note> : null}
-      <Button type="submit" disabled={pending} className="w-full">{pending ? "Speichern…" : "Veröffentlichen"}</Button>
+      <div className="flex gap-2">
+        {step > 1 ? <Button key="back" type="button" tone="ghost" className="flex-1" onClick={() => { setError(""); setStep((value) => value - 1); }}>Zurück</Button> : null}
+        {step < 3 ? (
+          <Button key="next" type="button" className="flex-1" onClick={next}>Weiter</Button>
+        ) : (
+          <Button key="publish" type="submit" disabled={pending} className="flex-1">{pending ? "Speichern…" : "Veröffentlichen"}</Button>
+        )}
+      </div>
     </form>
   );
 }

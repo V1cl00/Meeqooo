@@ -148,7 +148,7 @@ function Settings() {
                 await setRadius({ data: { radiusKm: item } });
                 await reload();
               }}
-              className={`inline-flex h-10 items-center rounded-full border px-3 text-sm font-semibold ${profile.radiusKm === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}
+              className={`inline-flex h-11 items-center rounded-full border px-3 text-sm font-semibold ${profile.radiusKm === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}
             >
               {item} km
             </button>

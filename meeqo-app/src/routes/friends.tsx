@@ -78,8 +78,8 @@ function Friends() {
             <div key={person.userId} className="flex flex-wrap items-center justify-between gap-2">
               <Link to="/profile/$id" params={{ id: person.userId }} className="font-semibold">{person.displayName}</Link>
               <div className="flex gap-2">
-                <Button type="button" className="h-10" onClick={() => act("accept", person.userId)}>Annehmen</Button>
-                <Button type="button" tone="ghost" className="h-10" onClick={() => act("decline", person.userId)}>Ablehnen</Button>
+                <Button type="button" className="h-11" onClick={() => act("accept", person.userId)}>Annehmen</Button>
+                <Button type="button" tone="ghost" className="h-11" onClick={() => act("decline", person.userId)}>Ablehnen</Button>
               </div>
             </div>
           ))}
@@ -94,7 +94,7 @@ function Friends() {
               <Link to="/profile/$id" params={{ id: person.userId }} className="font-semibold">{person.displayName}</Link>
               {person.city ? <p className="text-sm text-muted">{person.city}</p> : null}
             </div>
-            <Button type="button" tone="ghost" className="h-10" onClick={() => act("remove", person.userId)}>Lösen</Button>
+            <Button type="button" tone="ghost" className="h-11" onClick={() => act("remove", person.userId)}>Lösen</Button>
           </div>
         ))}
         {(data?.outgoing.length ?? 0) > 0 ? <p className="text-sm text-muted">Angefragt: {data?.outgoing.map((person) => person.displayName).join(", ")}</p> : null}

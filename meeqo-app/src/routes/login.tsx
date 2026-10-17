@@ -7,7 +7,7 @@ import { errText } from "@/lib/meeqo/labels";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
-    next: typeof search.next === "string" && search.next.startsWith("/") && !search.next.startsWith("//") ? search.next : "",
+    next: typeof search.next === "string" && search.next.startsWith("/") && !search.next.startsWith("//") ? search.next : undefined,
   }),
   component: LoginPage,
 });
@@ -31,7 +31,7 @@ function LoginPage() {
       </main>
     );
   }
-  if (user) return <Navigate to={next || "/"} />;
+  if (user) return <Navigate to={next ?? "/"} />;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -52,7 +52,7 @@ function LoginPage() {
         setPending(false);
         return;
       }
-      window.location.assign(next || "/");
+      window.location.assign(next ?? "/");
     } catch (err) {
       setError(errText(err));
       setPending(false);

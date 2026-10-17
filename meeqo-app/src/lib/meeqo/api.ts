@@ -250,6 +250,14 @@ function mapProfile(row: ProfileRow, stats: { n: number; yes: number; punctual: 
 
 async function ensureProfile(userId: string) {
   const sql = await getSql();
+  // Fast path: almost every call hits an existing, named profile. One round trip, stats in parallel.
+  const [first, firstStats] = await Promise.all([
+    sql<ProfileRow>`select * from profiles where user_id = ${userId}`,
+    ratingStats(sql, userId),
+  ]);
+  if (first[0] && first[0].display_name && first[0].display_name !== "Neu hier") {
+    return { sql, profile: mapProfile(first[0], firstStats) };
+  }
   const accounts = await sql<{ name: string }>`select name from "user" where id = ${userId}`;
   const fromAccount = clean(accounts[0]?.name ?? "", 40);
   const starter = fromAccount.length >= 2 ? fromAccount : "Neu hier";
@@ -320,7 +328,7 @@ function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: nu
   };
 }
 
-async function loadRows(sql: Sql, userId: string) {
+async function loadRows(sql: Sql, userId: string, after: string | null = null, only: string | null = null) {
   return sql<ActRow>`
     select a.id, a.host_id, a.title, a.description, a.category, a.intent,
       a.place_name, a.city, a.lat, a.lng, a.starts_at, a.spots, a.image_url,
@@ -341,6 +349,7 @@ async function loadRows(sql: Sql, userId: string) {
       from join_requests where status = 'accepted' group by activity_id
     ) acc on acc.activity_id = a.id
     left join join_requests jr on jr.activity_id = a.id and jr.requester_id = ${userId}
+    where (${after}::timestamptz is null or a.starts_at >= ${after}::timestamptz) and (${only}::text is null or a.id = ${only}::text)
     order by a.starts_at asc
   `;
 }
@@ -371,21 +380,22 @@ type Audience = {
 };
 
 async function audienceOf(sql: Sql, userId: string, birthYear: number | null): Promise<Audience> {
-  const friendRows = await sql<{ other: string }>`
+  const [friendRows, communityRows, peopleRows, eventRows] = await Promise.all([
+  sql<{ other: string }>`
     select case when requester_id = ${userId} then addressee_id else requester_id end as other
     from friendships
     where status = 'accepted' and (requester_id = ${userId} or addressee_id = ${userId})
-  `;
-  const communityRows = await sql<{ community_id: string }>`
+  `,
+  sql<{ community_id: string }>`
     select community_id from community_members where user_id = ${userId}
-  `;
-  const peopleRows = await sql<{ user_id: string }>`
+  `,
+  sql<{ user_id: string }>`
     select distinct m2.user_id as user_id
     from community_members m1
     join community_members m2 on m2.community_id = m1.community_id and m2.user_id <> ${userId}
     where m1.user_id = ${userId}
-  `;
-  const eventRows = await sql<{ user_id: string }>`
+  `,
+  sql<{ user_id: string }>`
     select r.requester_id as user_id
     from join_requests r
     join activities a on a.id = r.activity_id
@@ -400,7 +410,8 @@ async function audienceOf(sql: Sql, userId: string, birthYear: number | null): P
     from join_requests r1
     join join_requests r2 on r2.activity_id = r1.activity_id and r2.status = 'accepted' and r2.requester_id <> ${userId}
     where r1.requester_id = ${userId} and r1.status = 'accepted'
-  `;
+  `,
+  ]);
   return {
     friends: new Set(friendRows.map((row) => row.other)),
     communities: new Set(communityRows.map((row) => row.community_id)),
@@ -859,12 +870,24 @@ export const getFeed = createServerFn({ method: "POST" })
   .validator((input: FeedInput) => input ?? {})
   .handler(async ({ data, context }): Promise<FeedResult> => {
     const { sql, profile } = await ensureProfile(context.userId);
-    const hidden = await hiddenSet(sql, context.userId);
-    const blocked = await blockedWith(sql, context.userId);
-    const audience = await audienceOf(sql, context.userId, profile.birthYear);
-    const rows = await loadRows(sql, context.userId);
     const place = searchPlace(data);
-    const looked = place ? await lookupPlace(place) : null;
+    const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+    const [hidden, blocked, audience, rows, looked, againRows] = await Promise.all([
+      hiddenSet(sql, context.userId),
+      blockedWith(sql, context.userId),
+      audienceOf(sql, context.userId, profile.birthYear),
+      loadRows(sql, context.userId, data.includePast ? null : new Date(cutoff).toISOString()),
+      place ? lookupPlace(place) : Promise.resolve(null),
+      sql<{ title: string }>`
+        select a.title from checkins c
+        join activities a on a.id = c.activity_id
+        where c.user_id = ${context.userId}
+          and c.created_at <= now() - interval '5 days'
+          and c.created_at >= now() - interval '12 days'
+        order by c.created_at desc
+        limit 1
+      `,
+    ]);
     const home = profile.lat != null && profile.lng != null ? { lat: profile.lat, lng: profile.lng } : null;
     const origin = looked ?? home;
     const radius = Number(data.radiusKm ?? profile.radiusKm) || 25;
@@ -903,15 +926,6 @@ export const getFeed = createServerFn({ method: "POST" })
       return true;
     });
     const matched = days.length ? base.filter((item) => days.includes(berlinDay(item.startsAt))) : base;
-    const againRows = await sql<{ title: string }>`
-      select a.title from checkins c
-      join activities a on a.id = c.activity_id
-      where c.user_id = ${context.userId}
-        and c.created_at <= now() - interval '5 days'
-        and c.created_at >= now() - interval '12 days'
-      order by c.created_at desc
-      limit 1
-    `;
     const againTitle = againRows[0]?.title ?? null;
     if (againTitle) {
       const sent = await sql`select 1 as ok from notifications where user_id = ${context.userId} and kind = 'week' and created_at >= now() - interval '7 days'`;
@@ -955,12 +969,16 @@ export const getActivity = createServerFn({ method: "POST" })
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }): Promise<ActivityDetail> => {
     const { sql, profile } = await ensureProfile(context.userId);
-    const rows = await loadRows(sql, context.userId);
+    const [rows, audience, blocked] = await Promise.all([
+      loadRows(sql, context.userId, null, data.id),
+      audienceOf(sql, context.userId, profile.birthYear),
+      blockedWith(sql, context.userId),
+    ]);
     const origin = profile.lat != null && profile.lng != null ? { lat: profile.lat, lng: profile.lng } : null;
     const row = rows.find((item) => item.id === data.id);
     if (!row) throw new Error("Aktivität nicht gefunden.");
     const activity = mapActivity(row, context.userId, origin);
-    const audience = await audienceOf(sql, context.userId, profile.birthYear);
+    if (!activity.isHost && blocked.has(activity.hostId)) throw new Error("Aktivität nicht gefunden.");
     if (!sees(activity.visibility, activity.hostId, activity.communityId, activity.hostBirthYear, audience, activity.isHost || Boolean(activity.myStatus), activity.audienceIds)) {
       throw new Error("Das siehst du mit den Einstellungen dieser Person nicht.");
     }
@@ -1097,7 +1115,7 @@ export const requestJoin = createServerFn({ method: "POST" })
     const { sql, profile } = await ensureProfile(context.userId);
     if (!profile.onboardingDone) throw new Error("Schließ zuerst das Onboarding ab.");
     if (!profile.avatarUrl) throw new Error("Ohne Foto kannst du nicht anfragen. Lad eins im Profil hoch.");
-    const rows = await loadRows(sql, context.userId);
+    const rows = await loadRows(sql, context.userId, null, data.id);
     const row = rows.find((item) => item.id === data.id);
     if (!row) throw new Error("Aktivität nicht gefunden.");
     const activity = mapActivity(row, context.userId, null);

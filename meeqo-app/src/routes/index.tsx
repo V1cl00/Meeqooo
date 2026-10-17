@@ -5,10 +5,11 @@ import { ActivityCard, Button, Empty, face, Note } from "@/components/bits";
 import { ClassifiedBoard } from "@/components/classifieds";
 import { Shell, useMe } from "@/components/shell";
 import { WhenBar } from "@/components/when-bar";
-import { getFeed, hideActivity, makeWish, setRadius, setRequireTraits, unhideActivity, wishInfo } from "@/lib/meeqo/api";
+import { hideActivity, makeWish, setRadius, setRequireTraits, unhideActivity, wishInfo } from "@/lib/meeqo/api";
 import { TRAITS, berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { takeFeed } from "@/lib/meeqo/warm";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -60,7 +61,7 @@ function Feed() {
   const [gone, setGone] = useState<{ id: string; title: string } | null>(null);
   const [days, setDays] = useState<string[]>(() => [berlinDay()]);
   const { data, error, loading, reload: reloadFeed } = useLoad(
-    () => getFeed({ data: { filter, sub, days } }),
+    () => takeFeed(filter, sub, days),
     [filter, sub, days.join(","), profile?.radiusKm, profile?.lat, profile?.city, profile?.areas.join(","), profile?.openTo, profile?.requireTraits.join(",")],
   );
 

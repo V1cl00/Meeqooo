@@ -116,6 +116,24 @@ Liste und einzelne Nachrichten zeigen das Profilfoto, sonst den Anfangsbuchstabe
 - Wieder getroffen: `listCircle`, nur gegenseitiges Ja, steht auf `/friends`.
 - Ortslogik liegt in `src/lib/meeqo/places.ts` mit Tests (`places.test.ts`, gemocktes fetch).
 
+## Schutz-Runde (Migration 0015)
+
+- Melden und Blockieren: `reports`, `blocks`, Komponente `src/components/safety.tsx` (Treffen, Profil, Anzeige, Anzeigen-Chat). Blockieren gilt beidseitig: Feed, Anzeigen, Treffen-Detail, Anfragen, Freundschaft, Profil, Anzeigen-Chat. Es gibt noch keine Oberfläche, die Meldungen liest, nur die Tabelle.
+- Konto löschen in den Einstellungen (`deleteAccount`), Tippen von LÖSCHEN. Neue Tabelle? Dann dort die Löschung ergänzen.
+- `/datenschutz` und `/impressum` sind Entwürfe. Impressum hat Platzhalter in eckigen Klammern. Datenschutz beschreibt, was der Code speichert. Ändert sich das, die Seite mitziehen.
+- Einladung: `/einladung/$token` ist öffentlich, zeigt nur Titel, Zeit, Ort, Vorname des Gastgebers. `login?next=` leitet danach weiter.
+- Serie: `repeatActivity` mit `weeks` (1 bis 12). Beim Wiederholen werden Fotos mitkopiert.
+- Karte: erster Chip ist „X von Y wollen wieder“ ab drei Bewertungen.
+- Web-Push: `public/sw.js`, `push_subscriptions`, Versand in `notify`. Braucht `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (Schlüssel mit `npx web-push generate-vapid-keys`). Ohne Schlüssel passiert nichts und nichts bricht. Zustellung ist nicht live getestet.
+- Fotos der Treffen kommen als `/media/activity/$id` (cachebar) statt als Text im Feed. Die Adresse ist ohne Anmeldung abrufbar, wer die UUID kennt, sieht das Foto.
+
+## Start schneller
+
+- `src/lib/meeqo/warm.ts` startet Profil und Standard-Feed beim Laden des Skripts, parallel zur Sitzungsprüfung. Ergebnisse gelten 15 Sekunden und einmal.
+- `ensureProfile` hat einen schnellen Pfad. `getFeed` und `getActivity` fragen parallel. `loadRows` kann nach Zeit und Id eingrenzen.
+- Schriften kommen von `@fontsource-variable/*`, nicht mehr von Google. Familiennamen heißen „Outfit Variable“ usw.
+- Chat-Liste in einer Abfrage statt einer pro Chat.
+
 ## Noch schwach, nicht anfassen ohne Auftrag
 
 - Menschen ohne Foto bleiben Buchstaben. Foto ist Pflicht zum Anfragen und zum Veröffentlichen, nicht zum Reinschauen.

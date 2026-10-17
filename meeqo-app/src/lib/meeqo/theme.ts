@@ -20,16 +20,16 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 const FONTS = {
   warm: {
-    sans: '"Outfit", ui-sans-serif, system-ui, sans-serif',
-    display: '"Fraunces", Georgia, serif',
+    sans: '"Outfit Variable", ui-sans-serif, system-ui, sans-serif',
+    display: '"Fraunces Variable", Georgia, serif',
   },
   calm: {
-    sans: '"Figtree", ui-sans-serif, system-ui, sans-serif',
-    display: '"Literata", Georgia, serif',
+    sans: '"Figtree Variable", ui-sans-serif, system-ui, sans-serif',
+    display: '"Literata Variable", Georgia, serif',
   },
   plain: {
-    sans: '"Nunito Sans", ui-sans-serif, system-ui, sans-serif',
-    display: '"Newsreader", Georgia, serif',
+    sans: '"Nunito Sans Variable", ui-sans-serif, system-ui, sans-serif',
+    display: '"Newsreader Variable", Georgia, serif',
   },
 } as const;
 

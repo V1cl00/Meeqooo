@@ -1,4 +1,9 @@
-@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Literata:opsz,wght@7..72,560;7..72,650&family=Newsreader:opsz,wght@6..72,560;6..72,650&family=Nunito+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap");
+@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/fraunces";
+@import "@fontsource-variable/figtree";
+@import "@fontsource-variable/literata";
+@import "@fontsource-variable/newsreader";
+@import "@fontsource-variable/nunito-sans";
 @import "tailwindcss";
 
 @theme {
@@ -12,8 +17,8 @@
   --color-accent-deep: #c45d45;
   --color-friend: #3f6b58;
   --color-onaccent: #fff8f4;
-  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces Variable", Georgia, serif;
   --radius-card: 1.5rem;
 }
 

@@ -4,6 +4,7 @@ import { Bell, CalendarDays, Compass, MessageCircle, Plus, UserRound } from "luc
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getProfile, listNotifications } from "@/lib/meeqo/api";
+import { takeProfile } from "@/lib/meeqo/warm";
 import { isUnauthorized } from "@/lib/meeqo/labels";
 import type { Profile } from "@/lib/meeqo/types";
 import { themeStyle } from "@/lib/meeqo/theme";
@@ -62,7 +63,7 @@ export function Shell({
     const timer = window.setTimeout(() => {
       if (live) setError("Das Profil lädt nicht. Prüfe die Verbindung und versuch es nochmal.");
     }, 8000);
-    getProfile()
+    takeProfile()
       .then((next) => {
         if (live) {
           setProfile(next);

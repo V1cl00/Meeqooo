@@ -30,7 +30,7 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: "Schriften",
-    body: "Die Schriften Fraunces und Outfit werden derzeit von Google Fonts geladen. Dabei erfährt Google deine IP-Adresse.",
+    body: "Die Schriften liegen auf unserem eigenen Server. Dafür wird keine Verbindung zu Google oder anderen Anbietern aufgebaut.",
   },
   {
     title: "Mitteilungen",

@@ -179,6 +179,22 @@ Liste und einzelne Nachrichten zeigen das Profilfoto, sonst den Anfangsbuchstabe
 - Design: folgt dem Dunkelmodus des Handys (ein eigenes Design aus den Einstellungen gewinnt), Illustrationen in leeren Zuständen (`Illustration`, `Empty art=`), ruhige Bestätigungen oben (`notice` aus `feel.ts`, sonner), eigene Nachrichten erscheinen sofort, weiche Seitenwechsel (View Transitions), Skelette beim Laden, Ort und Radius stehen oben im Feed, Offline-Leiste. Overlays über Fotos bleiben schwarz (`bg-black/…`), nicht `ink`, sonst kippen sie im Dunkelmodus.
 - Barrierefreiheit hell und dunkel mit axe geprüft: keine Befunde.
 
+## Bedienung (Migration 0021)
+
+- **Als Nächstes** (`NextUpCard`, `nextUp`): das nächste zugesagte oder eigene Treffen der kommenden 7 Tage steht über dem Feed, mit Countdown, Weg, Einchecken (ab 2 Stunden vorher), Chat (erst wenn jemand zugesagt hat) und „Gut angekommen“.
+- **Gut angekommen** (`checkins.safe_at`, `confirmSafe`): die öffentliche Vertrauensseite zeigt dann „Alles gut“.
+- **Ein Satz statt Formular** (`parse.ts`, getestet): Regeln, kein Netz, keine KI. Tag, Uhrzeit, Plätze, Dauer, Ort nach „am/im/bei“, Kategorie. Unklares bleibt leer. Der Parser rät nicht.
+- **Vorlagen** (`MEETUP_TEMPLATES`, `templateFor`): Plätze, Dauer und ein erster Satz je Kategorie. **Dauer** ist jetzt eine Spalte (`activities.duration_min`) und gilt für Kalender und „Als Nächstes“.
+- **Öffentliche Orte** (`venuesNear`, Overpass/OpenStreetMap, `suggestVenues`): Cafés, Parks, Bibliotheken in der Nähe als Chips beim Ort. Fällt still aus, wenn der Dienst nicht antwortet. Ist hier nicht live getestet, nur mit gemocktem Netz.
+- **Schnell-Antworten** im Chat am Tag des Treffens (3 Stunden vorher bis 3 Stunden nach dem Ende): `ARRIVAL_REPLIES`.
+- **Terminabstimmung** im Chat (`polls`, `poll_votes`): nur Zeitpunkte. Der Gastgeber kann das Ergebnis als neuen Start festlegen, dann verlieren die Bestätigungen „Ich komme“ ihre Gültigkeit und alle bekommen Bescheid.
+- **Mitfahren** (`rides`, `ride_riders`): nur für Gastgeber und Zugesagte. Voll heißt voll, geprüft nach dem Eintragen.
+- **Zuverlässigkeit** in den Anfragen: „Kam zu 4 von 5 Treffen · 2× bei dir“, nur aus echten Check-ins.
+- **Gleich in der Nähe** (`soon` im Feed): nächste vier Stunden, nächstgelegenes zuerst.
+- **Kalender abonnieren** (`calendar_tokens`, Route `/kalender/$token`): Link in den Einstellungen, ersetzbar. Wer ihn kennt, sieht Titel und Orte.
+- **Karten-Menü**: gedrückt halten oder „Mehr“ an der Karte. Anfragen mit Tempo, Teilen, Weg, Ausblenden. Es geht um Treffen, nicht um Leute.
+- Neue Tabellen mit Personenbezug stehen in `deleteAccount`. `exportMyData` enthält auch Fahrten und Abstimmungen.
+
 ## Noch schwach, nicht anfassen ohne Auftrag
 
 - Menschen ohne Foto bleiben Buchstaben. Foto ist Pflicht zum Anfragen und zum Veröffentlichen, nicht zum Reinschauen.

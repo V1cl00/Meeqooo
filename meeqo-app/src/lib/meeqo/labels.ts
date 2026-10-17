@@ -278,3 +278,29 @@ export function replyLabel(hours: number) {
   if (hours < 24) return `etwa ${Math.round(hours)} Std.`;
   return `etwa ${Math.round(hours / 24)} Tagen`;
 }
+
+/** Starting points for the create form: how many, how long, and a first sentence. Keyed by subcategory, then by parent. */
+export const MEETUP_TEMPLATES: Record<string, { spots: number; durationMin: number; description: string }> = {
+  Laufen: { spots: 6, durationMin: 90, description: "Locker, wir laufen im Tempo der Langsamsten. Danach Kaffee, wenn ihr wollt." },
+  Klettern: { spots: 6, durationMin: 120, description: "Anfänger sind willkommen. Schuhe kann man leihen." },
+  Calisthenics: { spots: 8, durationMin: 90, description: "Alle Level. Wir zeigen uns Technik und trainieren zusammen." },
+  Yoga: { spots: 8, durationMin: 60, description: "Eigene Matte mitbringen. Keine Vorkenntnisse nötig." },
+  Brunch: { spots: 6, durationMin: 120, description: "Wir sitzen zusammen und lassen uns Zeit." },
+  Kaffee: { spots: 4, durationMin: 60, description: "Ein Kaffee, ein Gespräch, kein Programm." },
+  Kochen: { spots: 6, durationMin: 180, description: "Wir kochen gemeinsam und essen danach zusammen." },
+  Spaziergang: { spots: 4, durationMin: 60, description: "Ein ruhiger Spaziergang, bei dem niemand performen muss." },
+  Wandern: { spots: 8, durationMin: 240, description: "Mittlere Strecke, feste Schuhe und etwas zu trinken mitbringen." },
+  Brettspiele: { spots: 6, durationMin: 180, description: "Wir spielen, was auf den Tisch kommt. Keine Vorkenntnisse nötig." },
+  Netzwerken: { spots: 12, durationMin: 120, description: "Kontakte knüpfen, ohne Pitch und ohne Visitenkarten-Pflicht." },
+  Afterwork: { spots: 12, durationMin: 120, description: "Feierabend, ein Getränk, gute Gespräche." },
+  Sport: { spots: 6, durationMin: 90, description: "Alle Level willkommen." },
+  Essen: { spots: 6, durationMin: 120, description: "Gemeinsam essen und sich kennenlernen." },
+  Outdoor: { spots: 6, durationMin: 120, description: "Draußen unterwegs, Wetter angepasste Kleidung mitbringen." },
+};
+
+export function templateFor(category: string) {
+  const { parent, sub } = splitCategory(category);
+  return MEETUP_TEMPLATES[sub] ?? MEETUP_TEMPLATES[parent] ?? null;
+}
+
+export const ARRIVAL_REPLIES = ["Bin unterwegs", "5 Minuten später", "Bin da"] as const;

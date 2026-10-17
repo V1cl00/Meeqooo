@@ -3,7 +3,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, Note, Skeleton, TextInput } from "@/components/bits";
 import { Shell } from "@/components/shell";
 import { listMessages, sendMessage } from "@/lib/meeqo/api";
-import { errText, formatWhen } from "@/lib/meeqo/labels";
+import { PollCard, PollForm } from "@/components/poll";
+import { ARRIVAL_REPLIES, errText, formatWhen } from "@/lib/meeqo/labels";
 import { buzz } from "@/lib/meeqo/feel";
 import type { ChatMessage } from "@/lib/meeqo/types";
 import { useLoad, usePolling } from "@/lib/meeqo/use-load";
@@ -25,6 +26,7 @@ function Thread({ id }: { id: string }) {
   const [fail, setFail] = useState("");
   const seen = useRef(0);
   const [pending, setPending] = useState<ChatMessage[]>([]);
+  const [pollOpen, setPollOpen] = useState(false);
   usePolling(refresh);
 
   useEffect(() => {
@@ -39,23 +41,28 @@ function Thread({ id }: { id: string }) {
     setPending((list) => list.filter((temp) => !data.messages.some((item) => item.mine && item.body === temp.body && Math.abs(new Date(item.createdAt).getTime() - new Date(temp.createdAt).getTime()) < 120_000)));
   }, [data]);
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const text = body.trim();
-    if (!text) return;
+  async function send(text: string) {
+    const clean = text.trim();
+    if (!clean) return;
     setFail("");
-    const temp: ChatMessage = { id: `tmp-${Date.now()}`, senderId: "", senderName: "Du", senderAvatar: "", body: text, createdAt: new Date().toISOString(), mine: true };
+    const fromInput = clean === body.trim();
+    const temp: ChatMessage = { id: `tmp-${Date.now()}`, senderId: "", senderName: "Du", senderAvatar: "", body: clean, createdAt: new Date().toISOString(), mine: true };
     setPending((list) => [...list, temp]);
-    setBody("");
+    if (fromInput) setBody("");
     try {
-      await sendMessage({ data: { id, body: text } });
+      await sendMessage({ data: { id, body: clean } });
       buzz(8);
       refresh();
     } catch (err) {
       setPending((list) => list.filter((item) => item.id !== temp.id));
-      setBody(text);
+      if (fromInput) setBody(clean);
       setFail(errText(err));
     }
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    void send(body);
   }
 
   if (loading) return <Skeleton lines={5} />;
@@ -91,7 +98,9 @@ function Thread({ id }: { id: string }) {
         </div>
       ) : null}
       <div className="mt-4 flex flex-1 flex-col gap-2">
-        {[...data.messages, ...pending].map((message) => (
+        {[...data.messages, ...pending, ...data.polls.map((poll) => ({ id: `poll-${poll.id}`, createdAt: poll.createdAt, poll }))].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).map((message) => "poll" in message ? (
+          <PollCard key={message.id} poll={message.poll} onChanged={refresh} />
+        ) : (
           <div key={message.id} className={`flex max-w-[85%] items-end gap-2 ${message.mine ? "ml-auto" : ""} ${message.id.startsWith("tmp-") ? "opacity-70" : ""}`}>
             {message.mine ? null : message.senderAvatar ? (
               <img src={message.senderAvatar} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
@@ -106,8 +115,21 @@ function Thread({ id }: { id: string }) {
           </div>
         ))}
       </div>
+      {pollOpen ? (
+        <div className="mt-4">
+          <PollForm activityId={id} onDone={() => { setPollOpen(false); refresh(); }} />
+        </div>
+      ) : null}
+      <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        {data.dayOf
+          ? ARRIVAL_REPLIES.map((reply) => (
+              <button key={reply} type="button" onClick={() => send(reply)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{reply}</button>
+            ))
+          : null}
+        <button type="button" onClick={() => setPollOpen((value) => !value)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">Termin abstimmen</button>
+      </div>
       {fail ? <Note>{fail}</Note> : null}
-      <form onSubmit={submit} className="mt-4 flex gap-2">
+      <form onSubmit={submit} className="mt-3 flex gap-2">
         <TextInput value={body} onChange={(event) => setBody(event.target.value)} placeholder="Nachricht" />
         <Button type="submit">Senden</Button>
       </form>

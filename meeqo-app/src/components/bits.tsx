@@ -1,6 +1,8 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
+import { useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Briefcase, Calendar, MapPin, Ticket, Users } from "lucide-react";
+import { Briefcase, Calendar, MapPin, MoreHorizontal, Ticket, Users } from "lucide-react";
+import { CardSheet } from "@/components/card-menu";
 import { activityIntentLabel, formatWhen, sparteOf, type Sparte } from "@/lib/meeqo/labels";
 import type { ActivityCard as Activity } from "@/lib/meeqo/types";
 
@@ -143,11 +145,41 @@ function friendsLine(names: string[]) {
   return `${names[0]}, ${names[1]} und ${names.length - 2} weitere sind dabei`;
 }
 
-export function ActivityCard({ item, onHide }: { item: Activity; onHide?: () => void }) {
+export function ActivityCard({ item, onHide, onChanged }: { item: Activity; onHide?: () => void; onChanged?: () => void }) {
+  const [menu, setMenu] = useState(false);
+  const press = useRef<number | null>(null);
+  const suppress = useRef(false);
   const sparte = sparteOf(item.area, item.category);
   return (
     <article className={`card overflow-hidden ${sparte.kind === "business" ? "!border-2 !border-ink" : sparte.kind === "event" ? "!border-2 !border-accent-deep" : ""}`}>
-      <Link to="/activity/$id" params={{ id: item.id }} className="block">
+      <Link
+        to="/activity/$id"
+        params={{ id: item.id }}
+        className="block"
+        onPointerDown={() => {
+          suppress.current = false;
+          press.current = window.setTimeout(() => {
+            suppress.current = true;
+            setMenu(true);
+          }, 500);
+        }}
+        onPointerUp={() => press.current && window.clearTimeout(press.current)}
+        onPointerLeave={() => press.current && window.clearTimeout(press.current)}
+        onPointerCancel={() => press.current && window.clearTimeout(press.current)}
+        onPointerMove={(event) => {
+          if (press.current && (Math.abs(event.movementX) > 3 || Math.abs(event.movementY) > 3)) window.clearTimeout(press.current);
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setMenu(true);
+        }}
+        onClick={(event) => {
+          if (suppress.current) {
+            event.preventDefault();
+            suppress.current = false;
+          }
+        }}
+      >
         <SparteStrip kind={sparte.kind} sub={sparte.sub} />
         <div className="relative aspect-[16/11] bg-sand-deep">
           {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : null}
@@ -182,11 +214,15 @@ export function ActivityCard({ item, onHide }: { item: Activity; onHide?: () => 
           </div>
         </div>
       </Link>
-      {onHide && !item.isHost ? (
-        <div className="px-4 pb-3">
+      <div className="flex items-center justify-between px-4 pb-3">
+        {onHide && !item.isHost ? (
           <button type="button" className="text-xs font-semibold text-muted" onClick={onHide}>Ausblenden</button>
-        </div>
-      ) : null}
+        ) : <span />}
+        <button type="button" aria-label="Mehr zu diesem Treffen" className="grid h-11 w-11 place-items-center rounded-full text-muted" onClick={() => setMenu(true)}>
+          <MoreHorizontal className="h-5 w-5" />
+        </button>
+      </div>
+      {menu ? <CardSheet item={item} onClose={() => setMenu(false)} onHide={onHide} onChanged={onChanged} /> : null}
     </article>
   );
 }

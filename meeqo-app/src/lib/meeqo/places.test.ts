@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { lookupPlace, plzChoices, plzPoint } from "./places.ts";
+import { lookupPlace, plzChoices, plzPoint, venuesNear } from "./places.ts";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -66,4 +66,30 @@ test("lookupPlace tries zippopotam for a PLZ and falls back to nominatim", async
   assert.deepEqual(point, { lat: 49.01, lng: 8.42 });
   assert.ok(calls[0]?.includes("zippopotam.us/de/76999"));
   assert.ok(calls.some((url) => url.includes("nominatim")));
+});
+
+test("venues come back nearest first, without duplicates or unnamed places", async () => {
+  mockFetch({
+    "overpass-api.de": {
+      elements: [
+        { lat: 49.0145, lon: 8.4, tags: { amenity: "cafe", name: "Café Fern" } },
+        { lat: 49.0072, lon: 8.4037, tags: { amenity: "cafe", name: "Café Nah" } },
+        { lat: 49.0072, lon: 8.4037, tags: { amenity: "cafe", name: "café nah" } },
+        { center: { lat: 49.009, lon: 8.405 }, tags: { leisure: "park", name: "Stadtgarten" } },
+        { lat: 49.0071, lon: 8.4036, tags: { amenity: "cafe" } },
+        { lat: 49.0071, lon: 8.4036, tags: { amenity: "bank", name: "Sparkasse" } },
+      ],
+    },
+  });
+  const venues = await venuesNear(49.0069, 8.4037);
+  assert.deepEqual(venues.map((venue) => venue.name), ["Café Nah", "Stadtgarten", "Café Fern"]);
+  assert.equal(venues[1]?.kind, "Park");
+  assert.ok(venues[0].meters < venues[2].meters);
+});
+
+test("venues fail soft", async () => {
+  globalThis.fetch = (async () => {
+    throw new Error("offline");
+  }) as typeof fetch;
+  assert.deepEqual(await venuesNear(49, 8), []);
 });

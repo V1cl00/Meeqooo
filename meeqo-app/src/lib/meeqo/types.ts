@@ -38,6 +38,7 @@ export type ActivityCard = {
   hostAvatar: string;
   hostBadges: string[];
   hostOrganizer: boolean;
+  durationMin: number;
   area: "meetup" | "business" | "event";
   /** First names of the viewer's friends who are going. Filled by the feed only. */
   friendsGoing: string[];
@@ -87,6 +88,10 @@ export type RequestItem = {
   status: string;
   createdAt: string;
   mood: string;
+  /** Past accepted meetups, how many of them the person showed up to, and how often with this host. */
+  past: number;
+  came: number;
+  withMe: number;
   direction: "in" | "out";
 };
 
@@ -128,7 +133,8 @@ export type SafetyView = {
   placeName: string;
   city: string;
   checkedInAt: string | null;
-  state: "waiting" | "ok" | "late";
+  safeAt: string | null;
+  state: "waiting" | "ok" | "late" | "safe";
   minutesLate: number;
 };
 
@@ -185,6 +191,7 @@ export type ActivityDetail = {
   going: GoingPerson[];
   needsConfirm: boolean;
   checkedIn: boolean;
+  safe: boolean;
   rated: boolean;
   mutual: boolean;
   iWantAgain: boolean;
@@ -302,3 +309,49 @@ export type MyData = {
   filename: string;
   json: string;
 };
+
+export type NextUp = {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  placeName: string;
+  city: string;
+  lat: number;
+  lng: number;
+  hosting: boolean;
+  group: boolean;
+  /** The chat opens with the first accepted guest. */
+  chatOpen: boolean;
+  checkedIn: boolean;
+  safe: boolean;
+  canCheckIn: boolean;
+  hasSafetyLink: boolean;
+};
+
+export type PollOption = { at: string; votes: number };
+
+export type PollView = {
+  id: string;
+  question: string;
+  options: PollOption[];
+  mine: number | null;
+  closed: boolean;
+  createdAt: string;
+  creatorName: string;
+  canClose: boolean;
+};
+
+export type RideView = {
+  id: string;
+  driverId: string;
+  driverName: string;
+  seats: number;
+  free: number;
+  origin: string;
+  mine: boolean;
+  iRide: boolean;
+  riders: string[];
+};
+
+export type VenueHit = { name: string; kind: string; meters: number };

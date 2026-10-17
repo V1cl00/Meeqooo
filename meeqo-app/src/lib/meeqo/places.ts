@@ -1,4 +1,4 @@
-import { cityCoords } from "./geo.ts";
+import { cityCoords, kmBetween } from "./geo.ts";
 
 export type LatLng = { lat: number; lng: number };
 
@@ -80,3 +80,38 @@ export async function plzChoices(query: string) {
   }).slice(0, 12);
 }
 
+
+export type Venue = { name: string; kind: string; meters: number };
+
+const VENUE_KIND: Record<string, string> = {
+  cafe: "Café", restaurant: "Restaurant", library: "Bibliothek", pub: "Kneipe", biergarten: "Biergarten", ice_cream: "Eisdiele", park: "Park", garden: "Garten",
+};
+
+/** Public places near a point from OpenStreetMap (Overpass). Cafés, parks, libraries: places where a first meeting is fine. */
+export async function venuesNear(lat: number, lng: number, radius = 1500): Promise<Venue[]> {
+  const around = `(around:${Math.round(radius)},${lat},${lng})`;
+  const query = `[out:json][timeout:10];(node${around}[amenity~"^(cafe|restaurant|library|ice_cream|pub|biergarten)$"][name];node${around}[leisure~"^(park|garden)$"][name];way${around}[leisure~"^(park|garden)$"][name];);out center 60;`;
+  try {
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: `data=${encodeURIComponent(query)}`,
+    });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { elements?: { lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }[] };
+    const seen = new Set<string>();
+    const venues: Venue[] = [];
+    for (const element of body.elements ?? []) {
+      const name = element.tags?.name?.trim();
+      const pointLat = element.lat ?? element.center?.lat;
+      const pointLng = element.lon ?? element.center?.lon;
+      const kind = VENUE_KIND[element.tags?.amenity ?? element.tags?.leisure ?? ""];
+      if (!name || !kind || pointLat == null || pointLng == null || seen.has(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      venues.push({ name, kind, meters: Math.round(kmBetween(lat, lng, pointLat, pointLng) * 1000) });
+    }
+    return venues.sort((a, b) => a.meters - b.meters).slice(0, 8);
+  } catch {
+    return [];
+  }
+}

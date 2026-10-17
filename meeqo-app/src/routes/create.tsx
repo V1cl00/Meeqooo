@@ -1,12 +1,14 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea, TextInput } from "@/components/bits";
 import { CategorySelect } from "@/components/categories";
 import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
 import { Shell, useMe } from "@/components/shell";
-import { createActivity, listCategories } from "@/lib/meeqo/api";
-import { errText } from "@/lib/meeqo/labels";
+import { createActivity, listCategories, suggestVenues } from "@/lib/meeqo/api";
+import { errText, templateFor } from "@/lib/meeqo/labels";
+import { parseMeetup } from "@/lib/meeqo/parse";
+import type { VenueHit } from "@/lib/meeqo/types";
 import { useLoad } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/create")({
@@ -70,6 +72,62 @@ function Create({ communityId }: { communityId: string }) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [step, setStep] = useState(1);
+  const [durationMin, setDurationMin] = useState(120);
+  const [sentence, setSentence] = useState("");
+  const [sentenceNote, setSentenceNote] = useState("");
+  const [venues, setVenues] = useState<VenueHit[]>([]);
+  const venuePoint = coords ?? (profile?.lat != null && profile?.lng != null ? { lat: profile.lat, lng: profile.lng } : null);
+  const template = templateFor(category);
+
+  useEffect(() => {
+    if (step !== 2 || !venuePoint) return;
+    let live = true;
+    suggestVenues({ data: venuePoint })
+      .then((list) => live && setVenues(list))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+    // the point only changes when the person picks another place
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, venuePoint?.lat, venuePoint?.lng]);
+
+  function fillFromSentence() {
+    const found = parseMeetup(sentence);
+    const filled: string[] = [];
+    if (found.title) {
+      setTitle(found.title);
+      filled.push("Titel");
+    }
+    if (found.category) {
+      setCategory(found.category);
+      filled.push("Kategorie");
+    }
+    if (found.when) {
+      setWhen(found.when);
+      filled.push("Zeit");
+    }
+    if (found.placeName) {
+      setPlaceName(found.placeName);
+      filled.push("Ort");
+    }
+    if (found.spots) {
+      setSpots(Math.min(40, Math.max(1, found.spots)));
+      filled.push("Plätze");
+    }
+    if (found.durationMin) {
+      setDurationMin(Math.min(480, Math.max(30, found.durationMin)));
+      filled.push("Dauer");
+    }
+    setSentenceNote(filled.length ? `Ausgefüllt: ${filled.join(", ")}. Prüf alles kurz, ein Foto fehlt noch.` : "Daraus konnte ich nichts herauslesen. Schreib zum Beispiel Tag, Uhrzeit und was ihr macht.");
+  }
+
+  function applyTemplate() {
+    if (!template) return;
+    setSpots(template.spots);
+    setDurationMin(template.durationMin);
+    if (!description.trim()) setDescription(template.description);
+  }
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -138,6 +196,7 @@ function Create({ communityId }: { communityId: string }) {
           traits,
           visibility,
           communityIds: visibility === "community" ? communityIds : [],
+          durationMin,
         },
       });
       await navigate({ to: "/activity/$id", params: { id: created.id } });
@@ -162,11 +221,33 @@ function Create({ communityId }: { communityId: string }) {
       </div>
       {step === 1 ? (
         <div className="space-y-4">
+          <div className="card space-y-2 p-4">
+            <Field label="Beschreib es in einem Satz">
+              <TextInput
+                value={sentence}
+                onChange={(event) => setSentence(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    fillFromSentence();
+                  }
+                }}
+                placeholder="Samstag 10 Uhr Bouldern am Ostkreuz, sechs Leute"
+              />
+            </Field>
+            <Button type="button" tone="ghost" className="w-full" disabled={sentence.trim().length < 3} onClick={fillFromSentence}>Ausfüllen</Button>
+            {sentenceNote ? <p className="text-sm text-muted">{sentenceNote}</p> : null}
+          </div>
           <Field label="Titel"><TextInput value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Zum Beispiel: Laufen, acht Kilometer" /></Field>
           <Field label="Beschreibung"><TextArea value={description} onChange={(event) => setDescription(event.target.value)} /></Field>
           <Field label="Kategorie">
             <CategorySelect value={category} onChange={setCategory} custom={cats.data ?? []} />
           </Field>
+          {template ? (
+            <button type="button" onClick={applyTemplate} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold">
+              Vorlage einsetzen: {template.spots} Leute · {template.durationMin} Min.
+            </button>
+          ) : null}
           <p className="text-sm text-muted">
             Fehlt deine Unterkategorie? <Link to="/categories" className={face}>Selbst anlegen</Link>
           </p>
@@ -179,9 +260,27 @@ function Create({ communityId }: { communityId: string }) {
       {step === 2 ? (
         <div className="space-y-4">
           <Field label="Ort"><TextInput value={placeName} onChange={(event) => setPlaceName(event.target.value)} placeholder="Treffpunkt, zum Beispiel Schlossgarten" /></Field>
+          {venues.length ? (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Öffentliche Orte in der Nähe</p>
+              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+                {venues.map((venue) => (
+                  <button key={venue.name} type="button" onClick={() => setPlaceName(venue.name)} className={`inline-flex min-h-11 shrink-0 flex-col items-start justify-center rounded-2xl border-2 px-3 py-1 text-left ${placeName === venue.name ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>
+                    <span className="text-sm font-semibold">{venue.name}</span>
+                    <span className="text-xs opacity-80">{venue.kind} · {venue.meters < 1000 ? `${venue.meters} m` : `${(venue.meters / 1000).toFixed(1)} km`}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <Field label="Stadt"><TextInput value={city} onChange={(event) => setCity(event.target.value)} /></Field>
           <button type="button" className={face} onClick={locate}>{coords ? "Standort übernommen" : "Diesen Ort vom Handy nehmen"}</button>
           <Field label="Beginn"><TextInput type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} /></Field>
+          <Field label="Dauer">
+            <select value={durationMin} onChange={(event) => setDurationMin(Number(event.target.value))} className="h-12 w-full rounded-2xl border border-line bg-sand px-4 text-base outline-none focus:border-accent">
+              {[30, 60, 90, 120, 180, 240, 360].map((minutes) => <option key={minutes} value={minutes}>{minutes < 60 ? `${minutes} Minuten` : minutes % 60 === 0 ? `${minutes / 60} Std.` : `${Math.floor(minutes / 60)} Std. ${minutes % 60} Min.`}</option>)}
+            </select>
+          </Field>
           <Field label="Plätze für Gäste"><TextInput type="number" min={1} max={40} value={spots} onChange={(event) => setSpots(Number(event.target.value))} /></Field>
           <label className="flex items-start gap-3 text-sm">
             <input type="checkbox" className="mt-1 h-5 w-5" checked={intent === "date" ? true : publicPlace} disabled={intent === "date"} onChange={(event) => setPublicPlace(event.target.checked)} />

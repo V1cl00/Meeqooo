@@ -3,5 +3,6 @@ Disallow: /admin/
 Disallow: /sicher/
 Disallow: /einladung/
 Disallow: /passwort
+Disallow: /kalender/
 Disallow: /media/
 Disallow: /_serverFn/

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea } from "@/components/bits";
 import { Shell, useMe } from "@/components/shell";
-import { adminStatus, deleteAccount, exportMyData, setNotifyEmail, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
+import { adminStatus, deleteAccount, exportMyData, getCalendarLink, setNotifyEmail, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
 import { signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
@@ -27,6 +27,7 @@ function Settings() {
   const blocked = useLoad(() => listBlocked(), []);
   const admin = useLoad(() => adminStatus(), []);
   const [confirm, setConfirm] = useState("");
+  const [calendar, setCalendar] = useState("");
   if (!profile) return null;
 
   async function locate() {
@@ -228,6 +229,44 @@ function Settings() {
           </div>
         ))}
         {!blocked.loading && (blocked.data ?? []).length === 0 ? <p className="text-sm text-muted">Niemand blockiert.</p> : null}
+      </div>
+      <div className="card space-y-3 p-4">
+        <h2 className="font-display text-2xl">Kalender abonnieren</h2>
+        <p className="text-sm text-muted">Deine zugesagten und eigenen Treffen erscheinen von selbst im Kalender deines Handys. Wer den Link kennt, sieht die Titel und Orte. Du kannst ihn jederzeit ersetzen.</p>
+        {calendar ? (
+          <div className="space-y-2">
+            <input readOnly value={`${window.location.origin}${calendar}`} aria-label="Kalender-Adresse" onFocus={(event) => event.currentTarget.select()} className="h-12 w-full rounded-2xl border border-line bg-sand px-4 text-sm" />
+            <div className="flex flex-wrap gap-2">
+              <a className={face} href={`webcal://${window.location.host}${calendar}`}>Im Kalender öffnen</a>
+              <button
+                type="button"
+                className={face}
+                onClick={async () => {
+                  const next = await getCalendarLink({ data: { rotate: true } });
+                  setCalendar(next.path);
+                  notice("Neuer Link. Der alte funktioniert nicht mehr.");
+                }}
+              >
+                Neuen Link erzeugen
+              </button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            tone="ghost"
+            onClick={async () => {
+              try {
+                const link = await getCalendarLink({ data: {} });
+                setCalendar(link.path);
+              } catch (err) {
+                setError(errText(err));
+              }
+            }}
+          >
+            Link anzeigen
+          </Button>
+        )}
       </div>
       <div className="card space-y-3 p-4">
         <h2 className="font-display text-2xl">Meine Daten</h2>

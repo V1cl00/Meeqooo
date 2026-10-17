@@ -34,10 +34,15 @@ function Page() {
             <p className="text-sm text-muted">{data.placeName}, {data.city}</p>
           </section>
           <section
-            className={`rounded-[1.5rem] p-5 ${data.state === "ok" ? "bg-friend text-onaccent" : data.state === "late" ? "border-2 border-ink bg-card" : "bg-sand-deep"}`}
+            className={`rounded-[1.5rem] p-5 ${data.state === "ok" || data.state === "safe" ? "bg-friend text-onaccent" : data.state === "late" ? "border-2 border-ink bg-card" : "bg-sand-deep"}`}
             aria-live="polite"
           >
-            {data.state === "ok" ? (
+            {data.state === "safe" ? (
+              <>
+                <p className="font-display text-2xl leading-none">Alles gut</p>
+                <p className="mt-2 text-sm">{data.name} hat Bescheid gesagt{data.safeAt ? ` um ${formatWhen(data.safeAt)}` : ""}: gut angekommen.</p>
+              </>
+            ) : data.state === "ok" ? (
               <>
                 <p className="font-display text-2xl leading-none">Eingecheckt</p>
                 <p className="mt-2 text-sm">{data.name} ist angekommen{data.checkedInAt ? ` um ${formatWhen(data.checkedInAt)}` : ""}.</p>

@@ -4,7 +4,7 @@ import { getSql, type Sql } from "@/lib/db";
 import { kmBetween, cityCoords, matchCities } from "@/lib/meeqo/geo";
 import { MOODS, REPORT_REASONS } from "@/lib/meeqo/labels";
 import { addDaysBerlin } from "@/lib/meeqo/time";
-import { lookupPlace, plzChoices, plzPoint } from "@/lib/meeqo/places";
+import { lookupPlace, plzChoices, plzPoint, venuesNear } from "@/lib/meeqo/places";
 import { categoryMatches, CATEGORIES, CATEGORY_TREE, MORE_SUGGESTIONS, PROMOTE_AT, splitCategory, areasFromOpen, berlinDay, cleanAreas, intentFromAreas, openFromAreas, seesByAreas } from "@/lib/meeqo/labels";
 import { localTheme, normalizeTheme } from "@/lib/meeqo/theme";
 import type {
@@ -19,6 +19,10 @@ import type {
   BlockedUser,
   AdminReport,
   AdminStats,
+  NextUp,
+  PollView,
+  RideView,
+  VenueHit,
   MyData,
   InviteView,
   ChatThread,
@@ -106,6 +110,7 @@ type ActRow = {
   public_place: boolean;
   cancelled: boolean;
   area: string;
+  duration_min: number | string | null;
   traits: string;
   host_traits: string;
   visibility: string;
@@ -377,6 +382,7 @@ function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: nu
       num(row.hosted),
     ),
     hostOrganizer: flag(row.is_organizer),
+    durationMin: num(row.duration_min) || 120,
     area: row.area === "business" ? "business" : row.area === "event" ? "event" : "meetup",
     friendsGoing: [],
     matchesInterest: false,
@@ -411,7 +417,7 @@ async function loadRows(sql: Sql, userId: string, after: string | null = null, o
   return sql<ActRow>`
     select a.id, a.host_id, a.title, a.description, a.category, a.intent,
       a.place_name, a.city, a.lat, a.lng, a.starts_at, a.spots, a.image_url,
-      a.booking_mode, a.community_id, a.public_place, a.cancelled, a.area, a.traits, a.visibility, a.audience_ids,
+      a.booking_mode, a.community_id, a.public_place, a.cancelled, a.area, a.duration_min, a.traits, a.visibility, a.audience_ids,
       p.display_name, p.avatar_url, p.is_organizer, p.identity_confirmed, p.traits as host_traits, p.birth_year as host_birth_year,
       coalesce(r.n, 0) as rating_n, coalesce(r.yes, 0) as again_yes,
       (select count(*)::int from activities h where h.host_id = a.host_id and h.starts_at < now() and h.cancelled = false) as hosted, r.punctual, r.respectful, r.matches,
@@ -956,6 +962,8 @@ type FeedInput = {
   includePast?: boolean;
   days?: string[];
   limit?: number;
+  /** Only meetups starting within the next four hours, nearest first. */
+  soon?: boolean;
 };
 
 function searchPlace(data: FeedInput) {
@@ -1051,7 +1059,16 @@ export const getFeed = createServerFn({ method: "POST" })
       }
       return true;
     });
-    const matched = days.length ? base.filter((item) => days.includes(berlinDay(item.startsAt))) : base;
+    const soonUntil = Date.now() + 4 * 60 * 60 * 1000;
+    const soonFrom = Date.now() - 60 * 60 * 1000;
+    const matched = data.soon
+      ? base.filter((item) => {
+          const at = new Date(item.startsAt).getTime();
+          return at >= soonFrom && at <= soonUntil;
+        })
+      : days.length
+        ? base.filter((item) => days.includes(berlinDay(item.startsAt)))
+        : base;
     const againTitle = againRows[0]?.title ?? null;
     if (againTitle) {
       const sent = await sql`select 1 as ok from notifications where user_id = ${context.userId} and kind = 'week' and created_at >= now() - interval '7 days'`;
@@ -1086,7 +1103,8 @@ export const getFeed = createServerFn({ method: "POST" })
     if (!origin || data.mineOnly) return { items: matched.slice(0, limit), total: matched.length, missed: 0, hasLocation: Boolean(origin), around: place || undefined, ...hint(matched) };
     const near = matched.filter((item) => item.km != null && item.km <= radius);
     const missed = matched.filter((item) => item.km != null && item.km > radius && item.km <= 120).length;
-    near.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    if (data.soon) near.sort((a, b) => (a.km ?? 1e9) - (b.km ?? 1e9));
+    else near.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
     return { items: near.slice(0, limit), total: near.length, missed, hasLocation: true, around: place || undefined, ...hint(near) };
   });
 
@@ -1112,8 +1130,8 @@ export const getActivity = createServerFn({ method: "POST" })
       throw new Error("Diese Aktivität siehst du mit deiner Absicht nicht.");
     }
     const hidden = await hiddenSet(sql, context.userId);
-    const checks = await sql<{ user_id: string }>`
-      select user_id from checkins where activity_id = ${activity.id} and user_id = ${context.userId}
+    const checks = await sql<{ safe_at: unknown }>`
+      select safe_at from checkins where activity_id = ${activity.id} and user_id = ${context.userId}
     `;
     const otherId = activity.isHost ? "" : activity.hostId;
     const myRatings = await sql<{ want_again: boolean; ratee_id: string }>`
@@ -1157,7 +1175,7 @@ export const getActivity = createServerFn({ method: "POST" })
       hostReplyHours: num(replies?.n) >= 3 && replies?.hours != null ? Math.max(0, num(replies.hours)) : null,
       going: goingRows.map((row) => ({ id: row.user_id, name: row.display_name || "Jemand", avatar: row.avatar_url || "", me: row.user_id === context.userId })),
       needsConfirm: activity.myStatus === "accepted" && mineRow.length > 0 && !mineRow[0].confirmed_at && hoursAway > 0 && hoursAway <= 30,
-      checkedIn: checks.length > 0, rated: ratedHost, mutual, iWantAgain, hidden: hidden.has(activity.id),
+      checkedIn: checks.length > 0, safe: Boolean(checks[0]?.safe_at), rated: ratedHost, mutual, iWantAgain, hidden: hidden.has(activity.id),
     };
   });
 
@@ -1201,11 +1219,13 @@ export const createActivity = createServerFn({ method: "POST" })
     traits?: string[];
     visibility?: string;
     communityIds?: string[];
+    durationMin?: number;
   }) => input)
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
     assertAdult(profile);
     await throttle(sql, context.userId, "activity", 10, 86_400);
+    const durationMin = Math.min(480, Math.max(30, Math.round(Number(data.durationMin)) || 120));
     const title = clean(data.title, 80);
     const description = clean(data.description, 800);
     const category = assertCategory(clean(data.category, 48));
@@ -1251,12 +1271,12 @@ export const createActivity = createServerFn({ method: "POST" })
     await sql`
       insert into activities (
         id, host_id, title, description, category, intent, place_name, city, lat, lng,
-        starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
+        starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area, duration_min
       ) values (
         ${id}, ${context.userId}, ${title}, ${description}, ${category}, ${intent}, ${placeName}, ${city},
         ${lat}, ${lng}, ${starts.toISOString()}, ${spots}, ${imageUrl}, ${booking},
         nullif(${communityId}, ''), ${publicPlace}, ${JSON.stringify(activityTraits)}, ${visibility}, ${JSON.stringify(audienceIds)},
-        ${areaOf(category, profile.isOrganizer)}
+        ${areaOf(category, profile.isOrganizer)}, ${durationMin}
       )
     `;
     return { id };
@@ -1370,8 +1390,15 @@ export const listRequests = createServerFn({ method: "GET" })
   .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<RequestItem[]> => {
     const sql = await getSql();
-    const incoming = await sql<{ id: string; activity_id: string; title: string; display_name: string; status: string; created_at: unknown; mood: string }>`
-      select j.id, j.activity_id, a.title, p.display_name, j.status, j.created_at, j.mood
+    const incoming = await sql<{ id: string; activity_id: string; title: string; display_name: string; status: string; created_at: unknown; mood: string; past: number; came: number; with_me: number }>`
+      select j.id, j.activity_id, a.title, p.display_name, j.status, j.created_at, j.mood,
+        (select count(*)::int from join_requests j2 join activities a2 on a2.id = j2.activity_id
+           where j2.requester_id = j.requester_id and j2.status = 'accepted' and a2.starts_at < now() and a2.cancelled = false) as past,
+        (select count(*)::int from join_requests j2 join activities a2 on a2.id = j2.activity_id
+           join checkins c2 on c2.activity_id = a2.id and c2.user_id = j2.requester_id
+           where j2.requester_id = j.requester_id and j2.status = 'accepted' and a2.starts_at < now() and a2.cancelled = false) as came,
+        (select count(*)::int from join_requests j3 join activities a3 on a3.id = j3.activity_id
+           where j3.requester_id = j.requester_id and a3.host_id = ${context.userId} and j3.status = 'accepted' and a3.starts_at < now() and a3.cancelled = false) as with_me
       from join_requests j
       join activities a on a.id = j.activity_id
       join profiles p on p.user_id = j.requester_id
@@ -1395,6 +1422,9 @@ export const listRequests = createServerFn({ method: "GET" })
         status: row.status,
         createdAt: iso(row.created_at),
         mood: row.mood,
+        past: num(row.past),
+        came: num(row.came),
+        withMe: num(row.with_me),
         direction: "in" as const,
       })),
       ...outgoing.map((row) => ({
@@ -1405,6 +1435,9 @@ export const listRequests = createServerFn({ method: "GET" })
         status: row.status,
         createdAt: iso(row.created_at),
         mood: row.mood,
+        past: 0,
+        came: 0,
+        withMe: 0,
         direction: "out" as const,
       })),
     ];
@@ -1527,7 +1560,7 @@ async function assertChat(sql: Sql, activityId: string, userId: string) {
 export const listMessages = createServerFn({ method: "POST" })
   .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
-  .handler(async ({ data, context }): Promise<{ title: string; group: boolean; people: ChatPerson[]; messages: ChatMessage[] }> => {
+  .handler(async ({ data, context }): Promise<{ title: string; group: boolean; people: ChatPerson[]; messages: ChatMessage[]; polls: PollView[]; startsAt: string; dayOf: boolean }> => {
     const sql = await getSql();
     const activity = await assertChat(sql, data.id, context.userId);
     await markRead(sql, context.userId, data.id);
@@ -1554,7 +1587,14 @@ export const listMessages = createServerFn({ method: "POST" })
       order by is_host desc, display_name asc
     `;
     const spots = await sql<{ spots: number }>`select spots from activities where id = ${data.id}`;
+    const meta = await sql<{ starts_at: unknown; duration_min: number; host_id: string }>`select starts_at, duration_min, host_id from activities where id = ${data.id}`;
+    const startsAt = iso(meta[0]?.starts_at);
+    const hoursTo = (new Date(startsAt).getTime() - Date.now()) / 3_600_000;
+    const polls = await loadPolls(sql, data.id, context.userId, meta[0]?.host_id === context.userId);
     return {
+      polls,
+      startsAt,
+      dayOf: hoursTo <= 3 && hoursTo >= -(num(meta[0]?.duration_min) / 60 || 2) - 3,
       title: activity.title,
       group: members.length >= 3 || num(spots[0]?.spots) > 2,
       people: members.map((row) => ({
@@ -2590,10 +2630,10 @@ export const repeatActivity = createServerFn({ method: "POST" })
       await sql`
         insert into activities (
           id, host_id, title, description, category, intent, place_name, city, lat, lng,
-          starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
+          starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area, duration_min
         )
         select ${id}, host_id, title, description, category, intent, place_name, city, lat, lng,
-          ${addDaysBerlin(base, 7 * (offset + index))}, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
+          ${addDaysBerlin(base, 7 * (offset + index))}, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area, duration_min
         from activities where id = ${data.id} and host_id = ${context.userId}
       `;
     }
@@ -2669,9 +2709,10 @@ export const getSafetyView = createServerFn({ method: "POST" })
   .validator((input: { token: string }) => ({ token: clean(input.token, 80) }))
   .handler(async ({ data }): Promise<SafetyView> => {
     const sql = await getSql();
-    const rows = await sql<{ title: string; starts_at: unknown; place_name: string; city: string; display_name: string | null; checked: unknown }>`
+    const rows = await sql<{ title: string; starts_at: unknown; place_name: string; city: string; display_name: string | null; checked: unknown; safe: unknown }>`
       select a.title, a.starts_at, a.place_name, a.city, p.display_name,
-        (select c.created_at from checkins c where c.activity_id = a.id and c.user_id = s.user_id) as checked
+        (select c.created_at from checkins c where c.activity_id = a.id and c.user_id = s.user_id) as checked,
+        (select c.safe_at from checkins c where c.activity_id = a.id and c.user_id = s.user_id) as safe
       from safety_shares s
       join activities a on a.id = s.activity_id
       left join profiles p on p.user_id = s.user_id
@@ -2689,7 +2730,8 @@ export const getSafetyView = createServerFn({ method: "POST" })
       placeName: row.place_name,
       city: row.city,
       checkedInAt,
-      state: checkedInAt ? "ok" : late > 0 ? "late" : "waiting",
+      safeAt: row.safe ? iso(row.safe) : null,
+      state: row.safe ? "safe" : checkedInAt ? "ok" : late > 0 ? "late" : "waiting",
       minutesLate: checkedInAt ? 0 : Math.max(0, late),
     };
   });
@@ -2798,6 +2840,14 @@ export const deleteAccount = createServerFn({ method: "POST" })
     await sql`delete from hidden_activities where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from safety_shares where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from invites where inviter_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from poll_votes where user_id = ${me} or poll_id in (select id from polls where creator_id = ${me} or activity_id in (select id from activities where host_id = ${me}))`;
+    await sql`delete from polls where creator_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from ride_riders where rider_id = ${me} or ride_id in (select id from rides where driver_id = ${me} or activity_id in (select id from activities where host_id = ${me}))`;
+    await sql`delete from rides where driver_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from calendar_tokens where user_id = ${me}`;
+    await sql`delete from chat_reads where user_id = ${me}`;
+    await sql`delete from rate_events where user_id = ${me}`;
+    await sql`delete from password_resets where user_id = ${me}`;
     await sql`delete from activities where host_id = ${me}`;
     await sql`
       delete from classified_messages where sender_id = ${me} or thread_id in (
@@ -3174,7 +3224,7 @@ export const exportMyData = createServerFn({ method: "POST" })
   .handler(async ({ context }): Promise<MyData> => {
     const sql = await getSql();
     const me = context.userId;
-    const [account, profile, activities, requests, messages, adMessages, ratingsGiven, ratingsReceived, classifieds, posts, friends, favorites, blocks, wishes, reports, checkins, communities] = await Promise.all([
+    const [account, profile, activities, requests, messages, adMessages, ratingsGiven, ratingsReceived, classifieds, posts, friends, favorites, blocks, wishes, reports, checkins, communities, rides, polls, votes] = await Promise.all([
       sql`select name, email, "createdAt" as created_at from "user" where id = ${me}`,
       sql`select * from profiles where user_id = ${me}`,
       sql`select id, title, description, category, intent, place_name, city, starts_at, spots, cancelled, created_at from activities where host_id = ${me} order by starts_at`,
@@ -3192,6 +3242,9 @@ export const exportMyData = createServerFn({ method: "POST" })
       sql`select kind, target_id, reason, note, created_at from reports where reporter_id = ${me}`,
       sql`select activity_id, created_at from checkins where user_id = ${me}`,
       sql`select c.name from community_members m join communities c on c.id = m.community_id where m.user_id = ${me}`,
+      sql`select r.activity_id, r.seats, r.origin, 'fahrer' as rolle from rides r where r.driver_id = ${me} union all select r.activity_id, r.seats, r.origin, 'mitfahrer' as rolle from ride_riders rr join rides r on r.id = rr.ride_id where rr.rider_id = ${me}`,
+      sql`select activity_id, question, options, created_at from polls where creator_id = ${me}`,
+      sql`select poll_id, option_idx from poll_votes where user_id = ${me}`,
     ]);
     const data = {
       exportedAt: new Date().toISOString(),
@@ -3212,7 +3265,323 @@ export const exportMyData = createServerFn({ method: "POST" })
       meldungenDieIchGemacht: reports,
       checkIns: checkins,
       communities,
+      fahrten: rides,
+      abstimmungenDieIchGestartetHabe: polls,
+      meineStimmen: votes,
       hinweis: "Nachrichten anderer Personen und deren Profile sind nicht enthalten.",
     };
     return { filename: `meeqo-daten-${new Date().toISOString().slice(0, 10)}.json`, json: JSON.stringify(data, null, 2) };
   });
+
+// ---------------------------------------------------------------------------
+// Bedienung: Als Naechstes, Alles gut, Orte, Abstimmung, Mitfahren, Kalender
+
+async function membership(sql: Sql, activityId: string, userId: string) {
+  const rows = await sql<{ host_id: string; title: string; starts_at: unknown }>`select host_id, title, starts_at from activities where id = ${activityId} and cancelled = false`;
+  const row = rows[0];
+  if (!row) throw new Error("Aktivität nicht gefunden.");
+  const host = row.host_id === userId;
+  const member = host || (await sql`select 1 as ok from join_requests where activity_id = ${activityId} and requester_id = ${userId} and status = 'accepted'`).length > 0;
+  if (!member) throw new Error("Das geht erst nach der Zusage.");
+  return { host, title: row.title, startsAt: iso(row.starts_at) };
+}
+
+async function otherMembers(sql: Sql, activityId: string, exceptId: string) {
+  const rows = await sql<{ user_id: string }>`
+    select requester_id as user_id from join_requests where activity_id = ${activityId} and status = 'accepted' and requester_id <> ${exceptId}
+    union
+    select host_id as user_id from activities where id = ${activityId} and host_id <> ${exceptId}
+  `;
+  return rows.map((row) => row.user_id);
+}
+
+export const nextUp = createServerFn({ method: "GET" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }): Promise<NextUp | null> => {
+    const sql = await getSql();
+    const rows = await sql<{
+      id: string; title: string; starts_at: unknown; duration_min: number; place_name: string; city: string; lat: number; lng: number;
+      host_id: string; spots: number; accepted: number; checked_at: unknown; safe_at: unknown; shared: boolean;
+    }>`
+      select a.id, a.title, a.starts_at, a.duration_min, a.place_name, a.city, a.lat, a.lng, a.host_id, a.spots,
+        (select count(*)::int from join_requests j where j.activity_id = a.id and j.status = 'accepted') as accepted,
+        c.created_at as checked_at, c.safe_at,
+        exists (select 1 from safety_shares s where s.activity_id = a.id and s.user_id = ${context.userId}) as shared
+      from activities a
+      left join checkins c on c.activity_id = a.id and c.user_id = ${context.userId}
+      where a.cancelled = false
+        and (a.host_id = ${context.userId}
+          or exists (select 1 from join_requests j where j.activity_id = a.id and j.requester_id = ${context.userId} and j.status = 'accepted'))
+        and a.starts_at + make_interval(mins => a.duration_min) > now() - interval '3 hours'
+        and a.starts_at < now() + interval '7 days'
+      order by a.starts_at asc
+      limit 1
+    `;
+    const row = rows[0];
+    if (!row) return null;
+    const startsAt = iso(row.starts_at);
+    const hoursTo = (new Date(startsAt).getTime() - Date.now()) / 3_600_000;
+    return {
+      id: row.id,
+      title: row.title,
+      startsAt,
+      endsAt: new Date(new Date(startsAt).getTime() + num(row.duration_min) * 60_000).toISOString(),
+      placeName: row.place_name,
+      city: row.city,
+      lat: num(row.lat),
+      lng: num(row.lng),
+      hosting: row.host_id === context.userId,
+      group: num(row.spots) > 2 || num(row.accepted) >= 2,
+      chatOpen: row.host_id !== context.userId || num(row.accepted) > 0,
+      checkedIn: Boolean(row.checked_at),
+      safe: Boolean(row.safe_at),
+      canCheckIn: hoursTo <= 2 && hoursTo >= -12,
+      hasSafetyLink: flag(row.shared),
+    };
+  });
+
+/** After the meetup: "I am home and fine". The trusted person sees it on the link. */
+export const confirmSafe = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const done = await sql<{ activity_id: string }>`
+      update checkins set safe_at = now() where activity_id = ${data.id} and user_id = ${context.userId} and safe_at is null returning activity_id
+    `;
+    if (!done.length) {
+      const had = await sql`select 1 as ok from checkins where activity_id = ${data.id} and user_id = ${context.userId}`;
+      if (!had.length) throw new Error("Erst einchecken, dann Bescheid sagen.");
+    }
+    return { ok: true as const };
+  });
+
+export const suggestVenues = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { lat: number; lng: number }) => ({ lat: Number(input.lat), lng: Number(input.lng) }))
+  .handler(async ({ data, context }): Promise<VenueHit[]> => {
+    if (!Number.isFinite(data.lat) || !Number.isFinite(data.lng) || Math.abs(data.lat) > 90 || Math.abs(data.lng) > 180) return [];
+    const sql = await getSql();
+    await throttle(sql, context.userId, "venues", 60, 3600);
+    return venuesNear(data.lat, data.lng);
+  });
+
+// --- Terminabstimmung
+
+async function loadPolls(sql: Sql, activityId: string, userId: string, isHost: boolean): Promise<PollView[]> {
+  const polls = await sql<{ id: string; question: string; options: string; closed: boolean; created_at: unknown; display_name: string | null }>`
+    select pl.id, pl.question, pl.options, pl.closed, pl.created_at, p.display_name
+    from polls pl left join profiles p on p.user_id = pl.creator_id
+    where pl.activity_id = ${activityId} order by pl.created_at asc
+  `;
+  if (!polls.length) return [];
+  const votes = await sql<{ poll_id: string; option_idx: number; user_id: string }>`
+    select v.poll_id, v.option_idx, v.user_id from poll_votes v join polls pl on pl.id = v.poll_id where pl.activity_id = ${activityId}
+  `;
+  return polls.map((poll) => {
+    const options = parseList(poll.options);
+    const mine = votes.find((vote) => vote.poll_id === poll.id && vote.user_id === userId);
+    return {
+      id: poll.id,
+      question: poll.question,
+      options: options.map((at, index) => ({ at, votes: votes.filter((vote) => vote.poll_id === poll.id && num(vote.option_idx) === index).length })),
+      mine: mine ? num(mine.option_idx) : null,
+      closed: flag(poll.closed),
+      createdAt: iso(poll.created_at),
+      creatorName: (poll.display_name || "Jemand").split(" ")[0],
+      canClose: isHost,
+    };
+  });
+}
+
+export const createPoll = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { activityId: string; question?: string; options: string[] }) => ({
+    activityId: clean(input.activityId, 80),
+    question: clean(input.question, 80) || "Wann passt es euch?",
+    options: Array.isArray(input.options) ? input.options.map((item) => clean(item, 40)).slice(0, 4) : [],
+  }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const member = await membership(sql, data.activityId, context.userId);
+    await throttle(sql, context.userId, "poll", 10, 3600);
+    const times = [...new Set(data.options.map((item) => new Date(item).getTime()).filter((value) => Number.isFinite(value) && value > Date.now()))];
+    if (times.length < 2) throw new Error("Gib mindestens zwei Zeiten in der Zukunft an.");
+    const id = crypto.randomUUID();
+    await sql`
+      insert into polls (id, activity_id, creator_id, question, options)
+      values (${id}, ${data.activityId}, ${context.userId}, ${data.question}, ${JSON.stringify(times.sort().map((value) => new Date(value).toISOString()))})
+    `;
+    for (const other of await otherMembers(sql, data.activityId, context.userId)) {
+      await notify(sql, other, "poll", "Terminabstimmung", `${member.title}: ${data.question}`, `/chat/${data.activityId}`, id);
+    }
+    return { id };
+  });
+
+export const votePoll = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { pollId: string; optionIdx: number }) => ({ pollId: clean(input.pollId, 80), optionIdx: Math.round(Number(input.optionIdx)) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const rows = await sql<{ activity_id: string; options: string; closed: boolean }>`select activity_id, options, closed from polls where id = ${data.pollId}`;
+    const poll = rows[0];
+    if (!poll) throw new Error("Abstimmung nicht gefunden.");
+    await membership(sql, poll.activity_id, context.userId);
+    if (flag(poll.closed)) throw new Error("Die Abstimmung ist beendet.");
+    if (!(data.optionIdx >= 0 && data.optionIdx < parseList(poll.options).length)) throw new Error("Diese Zeit gibt es nicht.");
+    await sql`
+      insert into poll_votes (poll_id, user_id, option_idx) values (${data.pollId}, ${context.userId}, ${data.optionIdx})
+      on conflict (poll_id, user_id) do update set option_idx = ${data.optionIdx}
+    `;
+    return { ok: true as const };
+  });
+
+/** The host ends the vote and can set the winning time as the new start. */
+export const closePoll = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { pollId: string; applyIdx?: number }) => ({ pollId: clean(input.pollId, 80), applyIdx: input.applyIdx == null ? null : Math.round(Number(input.applyIdx)) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const rows = await sql<{ activity_id: string; options: string }>`select activity_id, options from polls where id = ${data.pollId}`;
+    const poll = rows[0];
+    if (!poll) throw new Error("Abstimmung nicht gefunden.");
+    const member = await membership(sql, poll.activity_id, context.userId);
+    if (!member.host) throw new Error("Nur der Gastgeber beendet die Abstimmung.");
+    const options = parseList(poll.options);
+    if (data.applyIdx != null) {
+      const chosen = options[data.applyIdx];
+      if (!chosen || new Date(chosen).getTime() < Date.now()) throw new Error("Diese Zeit ist nicht mehr möglich.");
+      await sql`update activities set starts_at = ${chosen} where id = ${poll.activity_id}`;
+      await sql`update join_requests set confirmed_at = null where activity_id = ${poll.activity_id}`;
+      for (const other of await otherMembers(sql, poll.activity_id, context.userId)) {
+        await notify(sql, other, "poll", "Neuer Termin", `${member.title} ist jetzt am ${formatBerlin(chosen)}.`, `/activity/${poll.activity_id}`, data.pollId);
+      }
+    }
+    await sql`update polls set closed = true where id = ${data.pollId}`;
+    return { ok: true as const };
+  });
+
+function formatBerlin(iso: string) {
+  return new Intl.DateTimeFormat("de-DE", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }).format(new Date(iso));
+}
+
+// --- Mitfahren
+
+export const listRides = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { activityId: string }) => ({ activityId: clean(input.activityId, 80) }))
+  .handler(async ({ data, context }): Promise<RideView[]> => {
+    const sql = await getSql();
+    await membership(sql, data.activityId, context.userId);
+    const rides = await sql<{ id: string; driver_id: string; seats: number; origin: string; display_name: string | null }>`
+      select r.id, r.driver_id, r.seats, r.origin, p.display_name
+      from rides r left join profiles p on p.user_id = r.driver_id
+      where r.activity_id = ${data.activityId} order by r.created_at asc
+    `;
+    if (!rides.length) return [];
+    const riders = await sql<{ ride_id: string; rider_id: string; display_name: string | null }>`
+      select rr.ride_id, rr.rider_id, p.display_name
+      from ride_riders rr join rides r on r.id = rr.ride_id left join profiles p on p.user_id = rr.rider_id
+      where r.activity_id = ${data.activityId}
+    `;
+    return rides.map((ride) => {
+      const mine = riders.filter((rider) => rider.ride_id === ride.id);
+      return {
+        id: ride.id,
+        driverId: ride.driver_id,
+        driverName: (ride.display_name || "Jemand").split(" ")[0],
+        seats: num(ride.seats),
+        free: Math.max(0, num(ride.seats) - mine.length),
+        origin: ride.origin,
+        mine: ride.driver_id === context.userId,
+        iRide: mine.some((rider) => rider.rider_id === context.userId),
+        riders: mine.map((rider) => (rider.display_name || "Jemand").split(" ")[0]),
+      };
+    });
+  });
+
+export const offerRide = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { activityId: string; seats: number; origin?: string }) => ({
+    activityId: clean(input.activityId, 80),
+    seats: Math.min(6, Math.max(1, Math.round(Number(input.seats)) || 1)),
+    origin: clean(input.origin, 60),
+  }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    await membership(sql, data.activityId, context.userId);
+    await throttle(sql, context.userId, "ride", 20, 3600);
+    const existing = await sql<{ id: string; riders: number }>`
+      select r.id, (select count(*)::int from ride_riders rr where rr.ride_id = r.id) as riders from rides r where r.activity_id = ${data.activityId} and r.driver_id = ${context.userId}
+    `;
+    if (existing[0] && num(existing[0].riders) > data.seats) throw new Error("Es fahren schon mehr Leute mit.");
+    await sql`
+      insert into rides (id, activity_id, driver_id, seats, origin) values (${crypto.randomUUID()}, ${data.activityId}, ${context.userId}, ${data.seats}, ${data.origin})
+      on conflict (activity_id, driver_id) do update set seats = ${data.seats}, origin = ${data.origin}
+    `;
+    await sql`delete from ride_riders where rider_id = ${context.userId} and ride_id in (select id from rides where activity_id = ${data.activityId})`;
+    return { ok: true as const };
+  });
+
+export const claimRide = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { rideId: string }) => ({ rideId: clean(input.rideId, 80) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const rows = await sql<{ activity_id: string; driver_id: string; seats: number }>`select activity_id, driver_id, seats from rides where id = ${data.rideId}`;
+    const ride = rows[0];
+    if (!ride) throw new Error("Die Fahrt gibt es nicht mehr.");
+    const member = await membership(sql, ride.activity_id, context.userId);
+    if (ride.driver_id === context.userId) throw new Error("Das ist deine eigene Fahrt.");
+    await sql`delete from ride_riders where rider_id = ${context.userId} and ride_id in (select id from rides where activity_id = ${ride.activity_id})`;
+    await sql`insert into ride_riders (ride_id, rider_id) values (${data.rideId}, ${context.userId}) on conflict do nothing`;
+    const count = await sql<{ n: number }>`select count(*)::int as n from ride_riders where ride_id = ${data.rideId}`;
+    if (num(count[0]?.n) > num(ride.seats)) {
+      await sql`delete from ride_riders where ride_id = ${data.rideId} and rider_id = ${context.userId}`;
+      throw new Error("Die Fahrt ist voll.");
+    }
+    const { profile } = await ensureProfile(context.userId);
+    await notify(sql, ride.driver_id, "ride", "Jemand fährt mit", `${profile.displayName} fährt zu „${member.title}“ mit dir.`, `/activity/${ride.activity_id}`, data.rideId);
+    return { ok: true as const };
+  });
+
+export const leaveRide = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { rideId: string }) => ({ rideId: clean(input.rideId, 80) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    await sql`delete from ride_riders where ride_id = ${data.rideId} and rider_id = ${context.userId}`;
+    return { ok: true as const };
+  });
+
+export const cancelRide = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { rideId: string }) => ({ rideId: clean(input.rideId, 80) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const rows = await sql<{ id: string; activity_id: string }>`select id, activity_id from rides where id = ${data.rideId} and driver_id = ${context.userId}`;
+    if (!rows[0]) throw new Error("Nur du kannst deine Fahrt absagen.");
+    const riders = await sql<{ rider_id: string }>`select rider_id from ride_riders where ride_id = ${data.rideId}`;
+    await sql`delete from ride_riders where ride_id = ${data.rideId}`;
+    await sql`delete from rides where id = ${data.rideId}`;
+    for (const rider of riders) await notify(sql, rider.rider_id, "ride", "Fahrt abgesagt", "Deine Mitfahrgelegenheit gibt es nicht mehr.", `/activity/${rows[0].activity_id}`, data.rideId);
+    return { ok: true as const };
+  });
+
+// --- Kalender abonnieren
+
+async function calendarToken(sql: Sql, userId: string, rotate: boolean) {
+  const existing = await sql<{ token: string }>`select token from calendar_tokens where user_id = ${userId}`;
+  if (existing[0] && !rotate) return existing[0].token;
+  const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 40);
+  await sql`
+    insert into calendar_tokens (user_id, token) values (${userId}, ${token})
+    on conflict (user_id) do update set token = ${token}, created_at = now()
+  `;
+  return token;
+}
+
+export const getCalendarLink = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { rotate?: boolean }) => ({ rotate: Boolean(input?.rotate) }))
+  .handler(async ({ data, context }) => ({ path: `/kalender/${await calendarToken(await getSql(), context.userId, data.rotate)}` }));

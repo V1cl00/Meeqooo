@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BadgeRow, Button, IntentPill, Note, Skeleton, SparteStrip, StatusLine } from "@/components/bits";
+import { RidesCard } from "@/components/rides";
 import { SafetyMenu } from "@/components/safety";
 import { icsFor, mapUrl } from "@/lib/meeqo/ics";
 import { ShareSheet } from "@/components/share";
 import { Shell } from "@/components/shell";
-import { checkIn, confirmAttendance, createInvite, createSafetyLink, getActivity, hideActivity, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
+import { checkIn, confirmAttendance, confirmSafe, createInvite, createSafetyLink, getActivity, hideActivity, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
 import { bookingLabel, countdownLabel, errText, formatWhen, MOODS, replyLabel, sparteOf } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -103,6 +104,21 @@ function Detail({ id }: { id: string }) {
     }
   }
 
+  async function allGood() {
+    if (!item) return;
+    setBusy(true);
+    setFail("");
+    try {
+      await confirmSafe({ data: { id: item.id } });
+      notice("Gut. Deine Vertrauensperson sieht es.");
+      reload();
+    } catch (err) {
+      setFail(errText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function attend(coming: boolean) {
     if (!item) return;
     setBusy(true);
@@ -179,6 +195,12 @@ function Detail({ id }: { id: string }) {
           </div>
         </div>
       ) : null}
+      {data.checkedIn && !data.safe ? (
+        <div className="card flex items-center justify-between gap-3 border-2 !border-friend p-4">
+          <p className="text-sm font-semibold">Alles gut? Sag kurz Bescheid.</p>
+          <Button type="button" tone="ink" className="h-11 shrink-0" disabled={busy} onClick={allGood}>Gut angekommen</Button>
+        </div>
+      ) : null}
       <div className={`card overflow-hidden ${business ? "!border-2 !border-ink" : sparte.kind === "event" ? "!border-2 !border-accent-deep" : ""}`}>
         <SparteStrip kind={sparte.kind} sub={sparte.sub} />
         {item.imageUrl ? <img src={item.imageUrl} alt="" className="aspect-[3/2] w-full object-cover" /> : <div className="aspect-[3/2] bg-sand-deep" />}
@@ -194,7 +216,7 @@ function Detail({ id }: { id: string }) {
             <p className="inline-flex rounded-full bg-accent px-3 py-1 text-sm font-semibold text-onfill">{countdownLabel(item.startsAt)}</p>
           ) : null}
           <p className="text-sm">{item.description}</p>
-          <p className="text-sm text-muted">{item.spotsLeft} von {item.spots} Plätzen frei · {item.category}</p>
+          <p className="text-sm text-muted">{item.spotsLeft} von {item.spots} Plätzen frei · {item.category} · {item.durationMin} Min.</p>
           {item.cancelled ? <Note>Diese Aktivität ist abgesagt.</Note> : null}
         </div>
       </div>
@@ -248,6 +270,7 @@ function Detail({ id }: { id: string }) {
           <p className="text-sm text-muted">Der Ersteller sieht das bei deiner Anfrage.</p>
         </div>
       ) : null}
+      {item.isHost || item.myStatus === "accepted" ? <RidesCard activityId={item.id} /> : null}
       <div className="card space-y-2 p-4">
         <h2 className="font-display text-2xl">{oneToOne ? "Vor dem Treffen" : "Weitergeben"}</h2>
         <p className="text-sm text-muted">

@@ -127,6 +127,7 @@ describe("Treffen", () => {
     await anna.page.goto(`${base}/requests`);
     await anna.page.waitForTimeout(1500);
     assert.match(await text(anna.page), /Erwartet: Gespräch/);
+    assert.match(await text(anna.page), /Noch kein Treffen über MeeQo/);
     while (await anna.page.getByRole("button", { name: "Annehmen" }).count()) {
       await anna.page.getByRole("button", { name: "Annehmen" }).first().click();
       await anna.page.waitForTimeout(900);
@@ -162,6 +163,11 @@ describe("Treffen", () => {
     await pub.reload();
     await pub.waitForTimeout(2000);
     assert.match(await text(pub), /Eingecheckt/);
+    await ben.page.getByRole("button", { name: "Gut angekommen" }).click();
+    await ben.page.waitForTimeout(1500);
+    await pub.reload();
+    await pub.waitForTimeout(2000);
+    assert.match(await text(pub), /Alles gut/);
 
     // Einladung mit Link-Vorschau
     await ben.page.goto(url);
@@ -230,6 +236,118 @@ describe("Treffen", () => {
     await ben.page.waitForTimeout(4000);
     assert.match(ben.page.url(), /\/login/);
     await guest.close();
+    await anna.context.close();
+    await ben.context.close();
+  });
+});
+
+describe("Bedienung", () => {
+  test("Satz-Formular, Vorlage, Als Naechstes, Gleich, Karten-Menue, Schnell-Antworten, Abstimmung, Mitfahren, Kalender-Abo", async () => {
+    const anna = await newUser(browser, "Anna");
+    const tag = Date.now();
+
+    // Ein Satz fuellt das Formular, eine Vorlage setzt Plaetze und Dauer
+    await anna.page.goto(`${base}/create`);
+    await anna.page.getByPlaceholder("Samstag 10 Uhr Bouldern am Ostkreuz, sechs Leute").fill("Morgen 18:30 Brunch bei Giulia für 4");
+    await anna.page.getByRole("button", { name: "Ausfüllen" }).click();
+    assert.match(await text(anna.page), /Ausgefüllt: .*Titel/);
+    assert.equal(await anna.page.getByPlaceholder("Zum Beispiel: Laufen, acht Kilometer").inputValue(), "Brunch bei Giulia");
+    assert.ok(await anna.page.getByRole("button", { name: /Vorlage einsetzen/ }).count(), "Vorlage fuer Brunch fehlt");
+    await anna.page.getByRole("button", { name: /Vorlage einsetzen/ }).click();
+    await anna.page.locator("input[type=file]").setInputFiles({ name: "p.jpg", mimeType: "image/jpeg", buffer: jpeg });
+    await anna.page.waitForTimeout(1500);
+    await anna.page.getByRole("button", { name: "Weiter" }).click();
+    assert.equal(await anna.page.getByLabel("Ort", { exact: true }).inputValue(), "Giulia");
+    await anna.page.getByRole("button", { name: "Weiter" }).click();
+    await anna.page.getByRole("button", { name: "Veröffentlichen" }).click();
+    await anna.page.waitForURL(/\/activity\//, { timeout: 20000 });
+    await anna.page.waitForFunction(() => /Plätzen frei/.test(document.body.innerText), null, { timeout: 15000 });
+    assert.match(await text(anna.page), /120 Min\./);
+
+    // Als Naechstes: ein Treffen in einer Stunde steht ganz oben, Einchecken und Gut angekommen
+    const soon = await createMeetup(anna.page, `Eiltreff ${tag}`, 1);
+    await anna.page.goto(`${base}/`);
+    await anna.page.waitForTimeout(2500);
+    assert.match(await text(anna.page), /als nächstes/i);
+    assert.ok((await anna.page.locator("section[aria-label='Als Nächstes']").innerText()).includes(`Eiltreff ${tag}`));
+    await anna.page.getByRole("button", { name: "Einchecken" }).click();
+    await anna.page.waitForTimeout(1500);
+    await anna.page.getByRole("button", { name: "Gut angekommen" }).click();
+    await anna.page.waitForTimeout(1500);
+    assert.match(await text(anna.page), /Du hast Bescheid gesagt/);
+
+    // Gleich in der Naehe und das Karten-Menue
+    const ben = await newUser(browser, "Ben");
+    await ben.page.goto(`${base}/`);
+    await ben.page.waitForTimeout(1500);
+    await ben.page.getByRole("button", { name: "Gleich in der Nähe" }).click();
+    await ben.page.waitForTimeout(1800);
+    const card = ben.page.locator("article", { hasText: `Eiltreff ${tag}` });
+    assert.ok(await card.count(), "Gleich zeigt das Treffen in einer Stunde");
+    await card.getByRole("button", { name: "Mehr zu diesem Treffen" }).click();
+    await ben.page.getByRole("button", { name: "Sport", exact: true }).click();
+    await ben.page.getByRole("dialog").getByRole("button", { name: "Anfragen" }).click();
+    await ben.page.waitForTimeout(1500);
+    assert.match(await text(ben.page), /Anfrage ist raus/);
+    await anna.page.goto(`${base}/requests`);
+    await anna.page.waitForTimeout(1500);
+    assert.match(await text(anna.page), /Erwartet: Sport/);
+    await anna.page.getByRole("button", { name: "Annehmen" }).first().click();
+    await anna.page.waitForTimeout(1200);
+
+    // Schnell-Antworten am Tag des Treffens, live bei Anna
+    const id = soon.split("/").pop();
+    await anna.page.goto(`${base}/chat/${id}`);
+    await anna.page.waitForTimeout(1500);
+    await ben.page.goto(`${base}/chat/${id}`);
+    await ben.page.waitForTimeout(1500);
+    await ben.page.getByRole("button", { name: "Bin unterwegs" }).click();
+    await anna.page.waitForFunction(() => document.body.innerText.includes("Bin unterwegs"), null, { timeout: 15000 });
+
+    // Mitfahren
+    await anna.page.goto(soon);
+    await anna.page.waitForTimeout(1500);
+    await anna.page.getByRole("button", { name: "Ich nehme jemanden mit" }).click();
+    await anna.page.getByRole("button", { name: "Fahrt anbieten" }).click();
+    await anna.page.waitForTimeout(1500);
+    assert.match(await text(anna.page), /Du fährst/);
+    await ben.page.goto(soon);
+    await ben.page.waitForTimeout(1500);
+    await ben.page.getByRole("button", { name: "Mitfahren", exact: true }).click();
+    await ben.page.waitForTimeout(1500);
+    assert.match(await text(ben.page), /Nicht mehr mitfahren/);
+    await anna.page.reload();
+    await anna.page.waitForTimeout(1800);
+    assert.match(await text(anna.page), /mit Ben/);
+
+    // Kalender-Abo
+    await ben.page.goto(`${base}/settings`);
+    await ben.page.waitForTimeout(1500);
+    await ben.page.getByRole("button", { name: "Link anzeigen" }).click();
+    const feed = await ben.page.getByLabel("Kalender-Adresse").inputValue();
+    const calendar = await (await ben.page.request.get(feed)).text();
+    assert.match(calendar, /BEGIN:VCALENDAR/);
+    assert.ok(calendar.includes(`Eiltreff ${tag}`));
+
+    // Terminabstimmung: Ben fragt, Anna stimmt ab und legt fest
+    await ben.page.goto(`${base}/chat/${id}`);
+    await ben.page.waitForTimeout(1500);
+    await ben.page.getByRole("button", { name: "Termin abstimmen" }).click();
+    const pad = (n) => String(n).padStart(2, "0");
+    const slot = (days) => {
+      const d = new Date(Date.now() + days * 86400000);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T18:00`;
+    };
+    await ben.page.getByLabel("Zeit 1").fill(slot(3));
+    await ben.page.getByLabel("Zeit 2").fill(slot(4));
+    await ben.page.getByRole("button", { name: "Abstimmen lassen" }).click();
+    await anna.page.goto(`${base}/chat/${id}`);
+    await anna.page.waitForFunction(() => document.body.innerText.includes("Wann passt es euch?"), null, { timeout: 15000 });
+    await anna.page.locator("section[aria-label='Wann passt es euch?'] button[aria-pressed]").first().click();
+    await anna.page.waitForTimeout(1200);
+    await anna.page.getByRole("button", { name: "Festlegen" }).first().click();
+    await anna.page.waitForTimeout(1500);
+    assert.match(await text(anna.page), /Beendet/);
     await anna.context.close();
     await ben.context.close();
   });

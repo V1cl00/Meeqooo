@@ -38,6 +38,7 @@ import { Route as AdminZahlenRouteImport } from './routes/admin.zahlen'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as CommunitiesIdRouteImport } from './routes/communities.$id'
 import { Route as EinladungTokenRouteImport } from './routes/einladung.$token'
+import { Route as KalenderTokenRouteImport } from './routes/kalender.$token'
 import { Route as OrganizerCreateRouteImport } from './routes/organizer.create'
 import { Route as OrganizerRegisterRouteImport } from './routes/organizer.register'
 import { Route as ProfileIdRouteImport } from './routes/profile.$id'
@@ -193,6 +194,11 @@ const EinladungTokenRoute = EinladungTokenRouteImport.update({
   path: '/einladung/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KalenderTokenRoute = KalenderTokenRouteImport.update({
+  id: '/kalender/$token',
+  path: '/kalender/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrganizerCreateRoute = OrganizerCreateRouteImport.update({
   id: '/create',
   path: '/create',
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
+  '/kalender/$token': typeof KalenderTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
   '/profile/$id': typeof ProfileIdRoute
@@ -309,6 +316,7 @@ export interface FileRoutesByTo {
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
+  '/kalender/$token': typeof KalenderTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
   '/profile/$id': typeof ProfileIdRoute
@@ -350,6 +358,7 @@ export interface FileRoutesById {
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
+  '/kalender/$token': typeof KalenderTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
   '/profile/$id': typeof ProfileIdRoute
@@ -392,6 +401,7 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
+    | '/kalender/$token'
     | '/organizer/create'
     | '/organizer/register'
     | '/profile/$id'
@@ -432,6 +442,7 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
+    | '/kalender/$token'
     | '/organizer/create'
     | '/organizer/register'
     | '/profile/$id'
@@ -472,6 +483,7 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
+    | '/kalender/$token'
     | '/organizer/create'
     | '/organizer/register'
     | '/profile/$id'
@@ -511,6 +523,7 @@ export interface RootRouteChildren {
   AdminMeldungenRoute: typeof AdminMeldungenRoute
   AdminZahlenRoute: typeof AdminZahlenRoute
   EinladungTokenRoute: typeof EinladungTokenRoute
+  KalenderTokenRoute: typeof KalenderTokenRoute
   RatingIdRoute: typeof RatingIdRoute
   RatingCompleteRoute: typeof RatingCompleteRoute
   SicherTokenRoute: typeof SicherTokenRoute
@@ -723,6 +736,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EinladungTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/kalender/$token': {
+      id: '/kalender/$token'
+      path: '/kalender/$token'
+      fullPath: '/kalender/$token'
+      preLoaderRoute: typeof KalenderTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/organizer/create': {
       id: '/organizer/create'
       path: '/create'
@@ -866,6 +886,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminMeldungenRoute: AdminMeldungenRoute,
   AdminZahlenRoute: AdminZahlenRoute,
   EinladungTokenRoute: EinladungTokenRoute,
+  KalenderTokenRoute: KalenderTokenRoute,
   RatingIdRoute: RatingIdRoute,
   RatingCompleteRoute: RatingCompleteRoute,
   SicherTokenRoute: SicherTokenRoute,

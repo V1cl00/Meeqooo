@@ -16,6 +16,11 @@ function Page() {
   );
 }
 
+function reliability(item: { past: number; came: number; withMe: number }) {
+  if (item.past === 0) return "Noch kein Treffen über MeeQo.";
+  return `Kam zu ${item.came} von ${item.past} Treffen${item.withMe ? ` · ${item.withMe}× bei dir` : ""}.`;
+}
+
 function Requests() {
   const [tab, setTab] = useState<"in" | "out">("in");
   const { data, loading, error, reload } = useLoad(() => listRequests(), []);
@@ -46,6 +51,7 @@ function Requests() {
         {rows.map((item) => (
           <div key={item.id} className="card space-y-2 p-4">
             <Link to="/activity/$id" params={{ id: item.activityId }} className="font-semibold">{item.activityTitle}</Link>
+            {tab === "in" ? <p className="text-sm text-muted">{reliability(item)}</p> : null}
             {item.mood ? <span className="inline-flex rounded-full bg-sand-deep px-2.5 py-1 text-xs font-semibold">Erwartet: {item.mood}</span> : null}
             <p className="text-sm text-muted">{tab === "in" ? item.personName : `Bei ${item.personName}`} · {item.status === "pending" ? "offen" : item.status === "accepted" ? "zugesagt" : "abgelehnt"}</p>
             {tab === "in" && item.status === "pending" ? (

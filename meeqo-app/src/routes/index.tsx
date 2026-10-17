@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { NextUpCard } from "@/components/next-up";
 import { PlaceBar } from "@/components/place-bar";
 import { ActivityCard, Button, Empty, face, Note } from "@/components/bits";
 import { ClassifiedBoard } from "@/components/classifieds";
@@ -64,12 +65,13 @@ function Feed() {
   const [locError, setLocError] = useState("");
   const [gone, setGone] = useState<{ id: string; title: string } | null>(null);
   const [days, setDays] = useState<string[]>(() => [berlinDay()]);
-  const viewKey = `${filter}|${sub}|${days.join(",")}`;
+  const [soon, setSoon] = useState(false);
+  const viewKey = `${filter}|${sub}|${days.join(",")}|${soon}`;
   const [more, setMore] = useState({ key: "", limit: 30 });
   const limit = more.key === viewKey ? more.limit : 30;
   const { data, error, loading, reload: reloadFeed } = useLoad(
-    () => takeFeed(filter, sub, days, limit),
-    [filter, sub, days.join(","), limit, profile?.radiusKm, profile?.lat, profile?.city, profile?.areas.join(","), profile?.openTo, profile?.requireTraits.join(",")],
+    () => takeFeed(filter, sub, days, limit, soon),
+    [filter, sub, days.join(","), limit, soon, profile?.radiusKm, profile?.lat, profile?.city, profile?.areas.join(","), profile?.openTo, profile?.requireTraits.join(",")],
   );
 
   async function hide(item: Card) {
@@ -109,6 +111,7 @@ function Feed() {
 
   return (
     <div className="space-y-5">
+      <NextUpCard />
       <div className="space-y-3">
         <h1 className="font-display text-4xl leading-none">Treffen in der Nähe</h1>
         <PlaceBar onChange={reloadFeed} />
@@ -138,7 +141,19 @@ function Feed() {
       ) : null}
       {filter === "business" ? <p className="text-sm text-muted">Business: Kontakte und Kooperationen. Kein Date.</p> : null}
       {filter === "classifieds" ? <p className="text-sm text-muted">Kleinanzeigen: Dinge und Angebote statt Verabredungen.</p> : null}
-      {filter === "classifieds" ? null : <WhenBar days={days} onChange={setDays} />}
+      {filter === "classifieds" ? null : (
+        <div className="space-y-3">
+          <button
+            type="button"
+            aria-pressed={soon}
+            onClick={() => setSoon((value) => !value)}
+            className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold ${soon ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}
+          >
+            Gleich in der Nähe
+          </button>
+          {soon ? <p className="text-sm text-muted">Was in den nächsten vier Stunden anfängt, das Nächstgelegene zuerst.</p> : <WhenBar days={days} onChange={setDays} />}
+        </div>
+      )}
       {!profile?.avatarUrl ? (
         <Link to="/profile" className="flex items-center justify-between gap-3 rounded-2xl bg-sand-deep px-4 py-3 text-sm">
           <span>Mit Foto kannst du anfragen und Treffen anlegen.</span>
@@ -154,7 +169,7 @@ function Feed() {
       {error ? <Note>{error}</Note> : null}
       {filter === "classifieds" ? <ClassifiedBoard city={profile?.city ?? ""} sub={sub} /> : (
       <div className="grid gap-4 md:grid-cols-2">
-        {data?.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} />)}
+        {data?.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} onChanged={reloadFeed} />)}
       </div>
       )}
       {filter !== "classifieds" && data && data.total > data.items.length ? (
@@ -163,7 +178,14 @@ function Feed() {
         </Button>
       ) : null}
       {filter !== "classifieds" && data && data.items.length === 0 ? (
-        data.nextDay ? (
+        soon ? (
+          <Empty
+            art="calendar"
+            title="Gleich ist nichts in der Nähe"
+            body="In den nächsten vier Stunden fängt nichts an. Schau, was heute oder morgen kommt."
+            action={<Button type="button" className="w-full" onClick={() => setSoon(false)}>Alle Treffen zeigen</Button>}
+          />
+        ) : data.nextDay ? (
           <Empty
             art="calendar"
             title="An diesem Tag ist nichts"

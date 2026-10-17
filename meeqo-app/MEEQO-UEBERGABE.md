@@ -243,3 +243,11 @@ Deutsch, kurz, konkret. Er testet auf dem Handy und vergleicht mit Hinge, Tinder
 
 - **Art. 9 DSGVO:** „Queer“ und „Queerfreundlich“ am eigenen Profil (und als „Mindestens vorhanden“) gehen nur mit ausdrücklicher Einwilligung (`giveSensitiveConsent`, Spalte `profiles.sensitive_consent_at`). Der Server lehnt sonst ab. Widerruf in den Einstellungen löscht die Angaben (`withdrawSensitiveConsent`). Migration 0026 hat vorhandene Angaben ohne Einwilligung entfernt. Treffen- und Anzeigen-Eigenschaften (Beschreibung des Angebots) sind davon nicht betroffen. Entwurf der Folgenabschätzung: `DATENSCHUTZ-FOLGENABSCHAETZUNG.md`, rechtlich prüfen lassen.
 - **Bestätigung am Vortag:** `attendance.ts` (getestet) entscheidet: innerhalb von 24 Stunden vor Beginn einmal fragen („Bist du noch dabei?“, Mitteilung plus Karte „Als Nächstes“), und nur wenn jemand auf der Warteliste steht und die Frage mindestens 90 Minuten alt ist, geht der Platz 2,5 Stunden vor Beginn an die Warteliste. Ohne Warteliste wird niemand entfernt. Es gibt keinen Zeitplaner: `sweepAttendance` läuft, wenn Leute die App nutzen (höchstens alle 5 Minuten). Ein Cron-Aufruf beim Hoster würde das genau machen.
+
+## Startgebiet Karlsruhe + 100 km
+
+- `region.ts`: `LAUNCH` (Karlsruhe, 100 km) und `inLaunchRegion`. Wer außerhalb wohnt, kann trotzdem mitmachen, sieht aber auf dem Feed den Hinweis „MeeQo startet im Raum Karlsruhe“ mit dem Weg „Treffen anlegen“. Ohne gesetzten Ort kommt kein Hinweis.
+- Orte: `geo.ts` kennt jetzt rund 20 weitere Städte im Gebiet (Speyer, Heilbronn, Offenburg, Kaiserslautern, …); die Schnellauswahl zeigt nur noch Städte des Startgebiets. Suchtreffer, die mit dem Eingegebenen anfangen, stehen vorn.
+- Neue Profile starten mit 60 km Umkreis statt 25 (Migration 0027), weil die Dichte anfangs gering ist.
+- Gebiet ändern: nur `LAUNCH` und die Chips in `geo.ts`.
+- E2E laufen jetzt nacheinander (`--test-concurrency=1`), parallel waren sie unter Last unzuverlässig.

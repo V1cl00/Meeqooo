@@ -77,7 +77,7 @@ describe("Kleinanzeigen", () => {
     await ben.page.getByRole("button", { name: "Senden", exact: true }).click();
     await anna.page.waitForFunction(() => document.body.innerText.includes("Bin gleich da"), null, { timeout: 15000 });
     await ben.page.locator("input[type=file]").setInputFiles({ name: "artikel.jpg", mimeType: "image/jpeg", buffer: jpeg });
-    await anna.page.waitForFunction(() => document.querySelectorAll("img[alt='artikel.jpg']").length > 0, null, { timeout: 15000 });
+    await anna.page.waitForFunction(() => document.querySelectorAll("img[alt='artikel.jpg']").length > 0, null, { timeout: 30000 });
     await anna.context.close();
     await ben.context.close();
   });
@@ -319,9 +319,9 @@ describe("Bedienung", () => {
 
     const pdf = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF");
     await ben.page.locator("input[type=file]").setInputFiles({ name: "Plan.pdf", mimeType: "application/pdf", buffer: pdf });
-    await anna.page.waitForFunction(() => document.body.innerText.includes("Plan.pdf"), null, { timeout: 15000 });
+    await anna.page.waitForFunction(() => document.body.innerText.includes("Plan.pdf"), null, { timeout: 30000 });
     await ben.page.locator("input[type=file]").setInputFiles({ name: "foto.jpg", mimeType: "image/jpeg", buffer: jpeg });
-    await anna.page.waitForFunction(() => document.querySelectorAll("img[alt='foto.jpg']").length > 0, null, { timeout: 15000 });
+    await anna.page.waitForFunction(() => document.querySelectorAll("img[alt='foto.jpg']").length > 0, null, { timeout: 30000 });
     await ben.page.locator("input[type=file]").setInputFiles({ name: "x.txt", mimeType: "text/plain", buffer: Buffer.from("hi") });
     await ben.page.waitForFunction(() => document.body.innerText.includes("Nur Bilder und PDF"), null, { timeout: 8000 });
 

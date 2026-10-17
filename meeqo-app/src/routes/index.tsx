@@ -10,6 +10,7 @@ import { hideActivity, makeWish, setRadius, setRequireTraits, unhideActivity, wi
 import { TRAITS, berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
 import { useSensitiveGate } from "@/components/sensitive";
+import { RegionNote } from "@/components/region-note";
 import { WeekCard } from "@/components/week-card";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { takeFeed } from "@/lib/meeqo/warm";
@@ -128,6 +129,7 @@ function Feed() {
 
   return (
     <div className="space-y-5">
+      <RegionNote />
       <NextUpCard />
       <WeekCard nearby={(data?.items ?? []).filter((item) => !item.isHost && !item.myStatus && !item.cancelled && new Date(item.startsAt).getTime() < Date.now() + 7 * 86_400_000).length} />
       <div className="space-y-3">

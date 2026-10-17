@@ -37,6 +37,30 @@ const CITIES: Record<string, [number, number]> = {
   pforzheim: [48.8922, 8.6946],
   rastatt: [48.8574, 8.2066],
   "baden-baden": [48.7606, 8.2398],
+  speyer: [49.3173, 8.4312],
+  ludwigshafen: [49.4774, 8.4452],
+  landau: [49.1989, 8.1169],
+  "neustadt an der weinstraße": [49.3501, 8.1368],
+  worms: [49.6341, 8.3507],
+  kaiserslautern: [49.4401, 7.7491],
+  heilbronn: [49.1427, 9.2109],
+  ludwigsburg: [48.8975, 9.1920],
+  böblingen: [48.6836, 9.0141],
+  boeblingen: [48.6836, 9.0141],
+  offenburg: [48.4735, 7.9444],
+  bühl: [48.6967, 8.1358],
+  buehl: [48.6967, 8.1358],
+  bretten: [49.0366, 8.7063],
+  sinsheim: [49.2530, 8.8795],
+  schwetzingen: [49.3829, 8.5732],
+  weinheim: [49.5493, 8.6683],
+  mosbach: [49.3532, 9.1517],
+  calw: [48.7144, 8.7391],
+  freudenstadt: [48.4636, 8.4122],
+  germersheim: [49.2236, 8.3639],
+  wörth: [49.0486, 8.2644],
+  pirmasens: [49.2012, 7.6058],
+  zweibrücken: [49.2491, 7.3646],
 };
 
 export const CITY_CHIPS = [
@@ -44,12 +68,12 @@ export const CITY_CHIPS = [
   "Mannheim",
   "Heidelberg",
   "Stuttgart",
-  "Freiburg",
-  "Frankfurt",
-  "Köln",
-  "Berlin",
-  "Hamburg",
-  "München",
+  "Pforzheim",
+  "Heilbronn",
+  "Baden-Baden",
+  "Speyer",
+  "Offenburg",
+  "Kaiserslautern",
 ] as const;
 
 export function matchCities(query: string) {
@@ -62,6 +86,7 @@ export function matchCities(query: string) {
   }
   return [...label.entries()]
     .filter(([key]) => key.startsWith(q) || key.includes(q))
+    .sort((a, b) => Number(b[0].startsWith(q)) - Number(a[0].startsWith(q)))
     .slice(0, 6)
     .map(([key, city]) => ({ city, lat: CITIES[key][0], lng: CITIES[key][1] }));
 }

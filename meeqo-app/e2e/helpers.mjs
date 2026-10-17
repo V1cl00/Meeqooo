@@ -21,7 +21,7 @@ export async function text(page) {
 }
 
 /** Signs up a fresh account, confirms age, finishes onboarding. Pass `email` for a fixed address (the admin). */
-export async function newUser(browser, name, { email, photo = true, scheme } = {}) {
+export async function newUser(browser, name, { email, photo = true, scheme, city = "Karlsruhe" } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...(scheme ? { colorScheme: scheme } : {}) });
   const page = await context.newPage();
   await page.goto(`${base}/login`);
@@ -39,7 +39,7 @@ export async function newUser(browser, name, { email, photo = true, scheme } = {
   for (const title of ["Dating", "Freunde", "Business", "Kleinanzeigen"]) {
     await page.getByRole("button", { name: new RegExp(`^${title}`) }).first().click();
   }
-  await page.getByPlaceholder("Postleitzahl, Stadt oder Dorf").fill("Karlsruhe");
+  await page.getByPlaceholder("Postleitzahl, Stadt oder Dorf").fill(city);
   await page.getByRole("button", { name: "Weiter zum Feed" }).click();
   await page.waitForURL(`${base}/`, { timeout: 20000 });
   if (photo) await addPhoto(page);

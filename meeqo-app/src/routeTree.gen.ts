@@ -35,6 +35,7 @@ import { Route as SupportRouteImport } from './routes/support'
 import { Route as ActivityIdRouteImport } from './routes/activity.$id'
 import { Route as AdminMeldungenRouteImport } from './routes/admin.meldungen'
 import { Route as AdminZahlenRouteImport } from './routes/admin.zahlen'
+import { Route as BearbeitenIdRouteImport } from './routes/bearbeiten.$id'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as CommunitiesIdRouteImport } from './routes/communities.$id'
 import { Route as EinladungTokenRouteImport } from './routes/einladung.$token'
@@ -179,6 +180,11 @@ const AdminZahlenRoute = AdminZahlenRouteImport.update({
   path: '/admin/zahlen',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BearbeitenIdRoute = BearbeitenIdRouteImport.update({
+  id: '/bearbeiten/$id',
+  path: '/bearbeiten/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatIdRoute = ChatIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -272,6 +278,7 @@ export interface FileRoutesByFullPath {
   '/activity/$id': typeof ActivityIdRoute
   '/admin/meldungen': typeof AdminMeldungenRoute
   '/admin/zahlen': typeof AdminZahlenRoute
+  '/bearbeiten/$id': typeof BearbeitenIdRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
@@ -313,6 +320,7 @@ export interface FileRoutesByTo {
   '/activity/$id': typeof ActivityIdRoute
   '/admin/meldungen': typeof AdminMeldungenRoute
   '/admin/zahlen': typeof AdminZahlenRoute
+  '/bearbeiten/$id': typeof BearbeitenIdRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
@@ -355,6 +363,7 @@ export interface FileRoutesById {
   '/activity/$id': typeof ActivityIdRoute
   '/admin/meldungen': typeof AdminMeldungenRoute
   '/admin/zahlen': typeof AdminZahlenRoute
+  '/bearbeiten/$id': typeof BearbeitenIdRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
@@ -398,6 +407,7 @@ export interface FileRouteTypes {
     | '/activity/$id'
     | '/admin/meldungen'
     | '/admin/zahlen'
+    | '/bearbeiten/$id'
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
@@ -439,6 +449,7 @@ export interface FileRouteTypes {
     | '/activity/$id'
     | '/admin/meldungen'
     | '/admin/zahlen'
+    | '/bearbeiten/$id'
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
@@ -480,6 +491,7 @@ export interface FileRouteTypes {
     | '/activity/$id'
     | '/admin/meldungen'
     | '/admin/zahlen'
+    | '/bearbeiten/$id'
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
@@ -522,6 +534,7 @@ export interface RootRouteChildren {
   ActivityIdRoute: typeof ActivityIdRoute
   AdminMeldungenRoute: typeof AdminMeldungenRoute
   AdminZahlenRoute: typeof AdminZahlenRoute
+  BearbeitenIdRoute: typeof BearbeitenIdRoute
   EinladungTokenRoute: typeof EinladungTokenRoute
   KalenderTokenRoute: typeof KalenderTokenRoute
   RatingIdRoute: typeof RatingIdRoute
@@ -715,6 +728,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminZahlenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bearbeiten/$id': {
+      id: '/bearbeiten/$id'
+      path: '/bearbeiten/$id'
+      fullPath: '/bearbeiten/$id'
+      preLoaderRoute: typeof BearbeitenIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat/$id': {
       id: '/chat/$id'
       path: '/$id'
@@ -885,6 +905,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityIdRoute: ActivityIdRoute,
   AdminMeldungenRoute: AdminMeldungenRoute,
   AdminZahlenRoute: AdminZahlenRoute,
+  BearbeitenIdRoute: BearbeitenIdRoute,
   EinladungTokenRoute: EinladungTokenRoute,
   KalenderTokenRoute: KalenderTokenRoute,
   RatingIdRoute: RatingIdRoute,

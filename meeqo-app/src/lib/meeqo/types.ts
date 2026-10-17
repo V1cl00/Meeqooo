@@ -43,6 +43,8 @@ export type ActivityCard = {
   /** First names of the viewer's friends who are going. Filled by the feed only. */
   friendsGoing: string[];
   matchesInterest: boolean;
+  /** Why the meetup is high up when sorted by fit. Empty otherwise. */
+  fitReason: string;
   title: string;
   description: string;
   category: string;
@@ -65,7 +67,7 @@ export type ActivityCard = {
   publicPlace: boolean;
   cancelled: boolean;
   km: number | null;
-  myStatus: "pending" | "accepted" | "declined" | null;
+  myStatus: "pending" | "accepted" | "declined" | "waitlist" | null;
   isHost: boolean;
 };
 
@@ -190,6 +192,9 @@ export type ActivityDetail = {
   hostReplyHours: number | null;
   going: GoingPerson[];
   needsConfirm: boolean;
+  /** Place in the queue when the viewer is on the waitlist, counted from 1. */
+  waitlistPosition: number | null;
+  waitlistCount: number;
   checkedIn: boolean;
   safe: boolean;
   rated: boolean;

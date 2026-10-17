@@ -4,10 +4,11 @@ import { Button, Note, Skeleton, TextInput } from "@/components/bits";
 import { Shell } from "@/components/shell";
 import { listMessages, sendMessage } from "@/lib/meeqo/api";
 import { PollCard, PollForm } from "@/components/poll";
+import { announce } from "@/lib/meeqo/api";
 import { ARRIVAL_REPLIES, errText, formatWhen } from "@/lib/meeqo/labels";
 import { buzz } from "@/lib/meeqo/feel";
 import type { ChatMessage } from "@/lib/meeqo/types";
-import { useLoad, usePolling } from "@/lib/meeqo/use-load";
+import { useLiveChat, useLoad, usePolling } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/chat/$id")({ component: Page });
 
@@ -27,7 +28,9 @@ function Thread({ id }: { id: string }) {
   const seen = useRef(0);
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const [pollOpen, setPollOpen] = useState(false);
-  usePolling(refresh);
+  const [announceOpen, setAnnounceOpen] = useState(false);
+  useLiveChat(id, "activity", refresh);
+  usePolling(refresh, 30);
 
   useEffect(() => {
     const count = (data?.messages.length ?? 0) + pending.length;
@@ -56,6 +59,21 @@ function Thread({ id }: { id: string }) {
     } catch (err) {
       setPending((list) => list.filter((item) => item.id !== temp.id));
       if (fromInput) setBody(clean);
+      setFail(errText(err));
+    }
+  }
+
+  async function sendAnnouncement() {
+    const text = body.trim();
+    if (!text) return;
+    setFail("");
+    try {
+      await announce({ data: { id, body: text } });
+      setBody("");
+      setAnnounceOpen(false);
+      buzz(8);
+      refresh();
+    } catch (err) {
       setFail(errText(err));
     }
   }
@@ -126,12 +144,16 @@ function Thread({ id }: { id: string }) {
               <button key={reply} type="button" onClick={() => send(reply)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{reply}</button>
             ))
           : null}
+        {data.people.find((person) => person.me)?.isHost ? (
+          <button type="button" onClick={() => setAnnounceOpen((value) => !value)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">Ansage an alle</button>
+        ) : null}
         <button type="button" onClick={() => setPollOpen((value) => !value)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">Termin abstimmen</button>
       </div>
       {fail ? <Note>{fail}</Note> : null}
-      <form onSubmit={submit} className="mt-3 flex gap-2">
-        <TextInput value={body} onChange={(event) => setBody(event.target.value)} placeholder="Nachricht" />
-        <Button type="submit">Senden</Button>
+      {announceOpen ? <p className="mt-3 text-sm text-muted">Die Ansage geht als Mitteilung an alle, die dabei sind. Schreib sie unten und tippe auf „Ansage senden“.</p> : null}
+      <form onSubmit={(event) => { if (announceOpen) { event.preventDefault(); void sendAnnouncement(); } else submit(event); }} className="mt-3 flex gap-2">
+        <TextInput value={body} onChange={(event) => setBody(event.target.value)} placeholder={announceOpen ? "Ansage an alle" : "Nachricht"} />
+        <Button type="submit">{announceOpen ? "Ansage senden" : "Senden"}</Button>
       </form>
     </div>
   );

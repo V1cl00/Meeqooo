@@ -81,7 +81,7 @@ describe("Kleinanzeigen", () => {
   });
 });
 
-async function createMeetup(page, title, hoursAhead) {
+async function createMeetup(page, title, hoursAhead, { spots } = {}) {
   await page.goto(`${base}/create`);
   await page.getByPlaceholder("Zum Beispiel: Laufen, acht Kilometer").fill(title);
   await page.getByRole("button", { name: "Weiter" }).click();
@@ -93,6 +93,7 @@ async function createMeetup(page, title, hoursAhead) {
   const when = new Date(Date.now() + hoursAhead * 3600 * 1000);
   const pad = (n) => String(n).padStart(2, "0");
   await page.getByLabel("Beginn").fill(`${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`);
+  if (spots) await page.getByLabel("Plätze für Gäste").fill(String(spots));
   await page.getByRole("button", { name: "Weiter" }).click();
   assert.match(await text(page), /Schritt 3 von 3/, "Schritt 3 darf nicht sofort veroeffentlichen");
   await page.getByRole("button", { name: "Veröffentlichen" }).click();
@@ -350,6 +351,96 @@ describe("Bedienung", () => {
     assert.match(await text(anna.page), /Beendet/);
     await anna.context.close();
     await ben.context.close();
+  });
+});
+
+describe("Grundlagen", () => {
+  test("Warteliste, Nachruecken, Absagen, Bearbeiten, Entfernen, Ansage, Sortierung", async () => {
+    const tag = Date.now();
+    const anna = await newUser(browser, "Anna");
+    const url = await createMeetup(anna.page, `Kleinrunde ${tag}`, 40, { spots: 1 });
+    const id = url.split("/").pop();
+
+    const ben = await newUser(browser, "Ben");
+    const cleo = await newUser(browser, "Cleo");
+    await ben.page.goto(url);
+    await ben.page.waitForTimeout(1500);
+    await ben.page.getByRole("button", { name: "Anfragen" }).click();
+    await ben.page.waitForTimeout(1200);
+    await anna.page.goto(`${base}/requests`);
+    await anna.page.waitForTimeout(1500);
+    await anna.page.getByRole("button", { name: "Annehmen" }).first().click();
+    await anna.page.waitForTimeout(1200);
+
+    // voll: Cleo kommt auf die Warteliste
+    await cleo.page.goto(url);
+    await cleo.page.waitForTimeout(1500);
+    assert.ok(await cleo.page.getByRole("button", { name: "Auf die Warteliste" }).count(), "bei vollem Treffen steht Warteliste");
+    await cleo.page.getByRole("button", { name: "Auf die Warteliste" }).click();
+    await cleo.page.waitForTimeout(1500);
+    assert.match(await text(cleo.page), /Warteliste, Platz 1/);
+    await anna.page.goto(url);
+    await anna.page.waitForTimeout(1500);
+    assert.match(await text(anna.page), /1 Person wartet/);
+
+    // Ben sagt ab, Cleo rueckt nach und landet bei Anna zur Freigabe
+    await ben.page.goto(url);
+    await ben.page.waitForTimeout(1500);
+    await ben.page.getByRole("button", { name: "Absagen" }).click();
+    await ben.page.getByRole("button", { name: "Ja, ich sage ab" }).click();
+    await ben.page.waitForTimeout(1500);
+    await cleo.page.goto(url);
+    await cleo.page.waitForTimeout(1500);
+    assert.match(await text(cleo.page), /Wartet auf Freigabe/);
+    await anna.page.goto(`${base}/requests`);
+    await anna.page.waitForTimeout(1500);
+    await anna.page.getByRole("button", { name: "Annehmen" }).first().click();
+    await anna.page.waitForTimeout(1200);
+
+    // Anna aendert Titel und Plaetze
+    await anna.page.goto(`${base}/bearbeiten/${id}`);
+    await anna.page.waitForFunction(() => document.querySelector("input")?.value, null, { timeout: 15000 });
+    await anna.page.getByLabel("Titel").fill(`Kleinrunde ${tag} neu`);
+    await anna.page.getByLabel("Plätze für Gäste").fill("3");
+    await anna.page.getByRole("button", { name: "Speichern" }).click();
+    await anna.page.waitForFunction(() => /Plätzen frei/.test(document.body.innerText), null, { timeout: 15000 });
+    assert.match(await text(anna.page), new RegExp(`Kleinrunde ${tag} neu`));
+    assert.match(await text(anna.page), /von 3 Plätzen/);
+
+    // Ansage an alle, live bei Cleo
+    await cleo.page.goto(`${base}/chat/${id}`);
+    await cleo.page.waitForTimeout(1500);
+    await anna.page.goto(`${base}/chat/${id}`);
+    await anna.page.waitForTimeout(1500);
+    await anna.page.getByRole("button", { name: "Ansage an alle" }).click();
+    await anna.page.getByPlaceholder("Ansage an alle").fill("Wir treffen uns am Eingang");
+    await anna.page.getByRole("button", { name: "Ansage senden" }).click();
+    await cleo.page.waitForFunction(() => document.body.innerText.includes("Ansage: Wir treffen uns am Eingang"), null, { timeout: 15000 });
+
+    // Anna nimmt Cleo heraus: kann nicht erneut anfragen
+    await anna.page.goto(url);
+    await anna.page.waitForTimeout(1500);
+    await anna.page.getByRole("button", { name: "Entfernen" }).click();
+    await anna.page.getByRole("button", { name: "Wirklich?" }).click();
+    await anna.page.waitForTimeout(1500);
+    await cleo.page.goto(url);
+    await cleo.page.waitForTimeout(1500);
+    await cleo.page.getByRole("button", { name: "Anfragen" }).click();
+    await cleo.page.waitForTimeout(1500);
+    assert.match(await text(cleo.page), /aus diesem Treffen genommen/);
+
+    // Sortierung nach Passung
+    await ben.page.goto(`${base}/`);
+    await ben.page.waitForTimeout(1500);
+    await ben.page.getByRole("button", { name: "Passend für dich" }).click();
+    await ben.page.waitForTimeout(1800);
+    assert.equal(await ben.page.getByRole("button", { name: "Passend für dich" }).getAttribute("aria-pressed"), "true");
+    const sorted = await text(ben.page);
+    assert.ok((await ben.page.locator("article").count()) > 0 || /nichts|Das ändern wir/.test(sorted), "sortierter Feed lädt ohne Fehler");
+    assert.ok(!/Unauthorized|Fehler/.test(sorted));
+    await anna.context.close();
+    await ben.context.close();
+    await cleo.context.close();
   });
 });
 

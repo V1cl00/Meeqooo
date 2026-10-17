@@ -66,12 +66,27 @@ function Feed() {
   const [gone, setGone] = useState<{ id: string; title: string } | null>(null);
   const [days, setDays] = useState<string[]>(() => [berlinDay()]);
   const [soon, setSoon] = useState(false);
-  const viewKey = `${filter}|${sub}|${days.join(",")}|${soon}`;
+  const [sort, setSort] = useState<"time" | "fit">(() => {
+    try {
+      return window.localStorage.getItem("meeqo-sort") === "fit" ? "fit" : "time";
+    } catch {
+      return "time";
+    }
+  });
+  function chooseSort(next: "time" | "fit") {
+    setSort(next);
+    try {
+      window.localStorage.setItem("meeqo-sort", next);
+    } catch {
+      /* the choice just does not persist */
+    }
+  }
+  const viewKey = `${filter}|${sub}|${days.join(",")}|${soon}|${sort}`;
   const [more, setMore] = useState({ key: "", limit: 30 });
   const limit = more.key === viewKey ? more.limit : 30;
   const { data, error, loading, reload: reloadFeed } = useLoad(
-    () => takeFeed(filter, sub, days, limit, soon),
-    [filter, sub, days.join(","), limit, soon, profile?.radiusKm, profile?.lat, profile?.city, profile?.areas.join(","), profile?.openTo, profile?.requireTraits.join(",")],
+    () => takeFeed(filter, sub, days, limit, soon, sort),
+    [filter, sub, days.join(","), limit, soon, sort, profile?.radiusKm, profile?.lat, profile?.city, profile?.areas.join(","), profile?.openTo, profile?.requireTraits.join(",")],
   );
 
   async function hide(item: Card) {
@@ -152,6 +167,13 @@ function Feed() {
             Gleich in der Nähe
           </button>
           {soon ? <p className="text-sm text-muted">Was in den nächsten vier Stunden anfängt, das Nächstgelegene zuerst.</p> : <WhenBar days={days} onChange={setDays} />}
+          {soon ? null : (
+            <div className="flex items-center gap-2" role="group" aria-label="Sortierung">
+              {([["time", "Nach Zeit"], ["fit", "Passend für dich"]] as const).map(([id, label]) => (
+                <button key={id} type="button" aria-pressed={sort === id} onClick={() => chooseSort(id)} className={`inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold ${sort === id ? "bg-ink text-onaccent" : "border border-line bg-card text-ink"}`}>{label}</button>
+              ))}
+            </div>
+          )}
         </div>
       )}
       {!profile?.avatarUrl ? (

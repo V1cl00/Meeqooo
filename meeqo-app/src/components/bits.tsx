@@ -198,6 +198,7 @@ export function ActivityCard({ item, onHide, onChanged }: { item: Activity; onHi
           ) : item.matchesInterest ? (
             <p className="text-sm font-semibold text-accent-deep">Passt zu deinen Interessen</p>
           ) : null}
+          {item.fitReason ? <p className="text-xs text-muted">Weit oben: {item.fitReason}</p> : null}
           <div className="flex items-center gap-2 pt-1">
             {item.hostAvatar ? (
               <img src={item.hostAvatar} alt="" className="h-8 w-8 rounded-full object-cover" />

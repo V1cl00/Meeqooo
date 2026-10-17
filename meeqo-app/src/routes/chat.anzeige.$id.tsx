@@ -7,7 +7,7 @@ import { listAdMessages, sendAdMessage } from "@/lib/meeqo/api";
 import { errText, formatWhen, HANDOVER_SPOTS } from "@/lib/meeqo/labels";
 import { buzz } from "@/lib/meeqo/feel";
 import type { ChatMessage } from "@/lib/meeqo/types";
-import { useLoad, usePolling } from "@/lib/meeqo/use-load";
+import { useLiveChat, useLoad, usePolling } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/chat/anzeige/$id")({ component: Page });
 
@@ -26,7 +26,8 @@ function Thread({ id }: { id: string }) {
   const [fail, setFail] = useState("");
   const seen = useRef(0);
   const [pending, setPending] = useState<ChatMessage[]>([]);
-  usePolling(refresh);
+  useLiveChat(id, "ad", refresh);
+  usePolling(refresh, 30);
 
   useEffect(() => {
     const count = (data?.messages.length ?? 0) + pending.length;

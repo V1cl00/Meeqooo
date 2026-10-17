@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { waitChat } from "@/lib/meeqo/api";
 import { errText } from "@/lib/meeqo/labels";
 
 export function useLoad<T>(loader: () => Promise<T>, deps: unknown[]) {
@@ -59,4 +60,48 @@ export function usePolling(tick: () => void, seconds = 4) {
     // tick is a fresh closure every render; the interval only needs to exist once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seconds]);
+}
+
+/**
+ * Live updates for an open chat. The request waits on the server and returns at once when something
+ * changed, then the screen refreshes. Paused while the tab is hidden, retried quietly after errors.
+ */
+export function useLiveChat(id: string, kind: "activity" | "ad", refresh: () => void) {
+  useEffect(() => {
+    let stop = false;
+    let version = "";
+    const visible = () => document.visibilityState === "visible";
+    const whenVisible = () =>
+      new Promise<void>((resolve) => {
+        const onChange = () => {
+          if (visible()) {
+            document.removeEventListener("visibilitychange", onChange);
+            resolve();
+          }
+        };
+        document.addEventListener("visibilitychange", onChange);
+      });
+    (async () => {
+      while (!stop) {
+        if (!visible()) {
+          await whenVisible();
+          version = "";
+          continue;
+        }
+        try {
+          const result = await waitChat({ data: { id, kind, version } });
+          if (stop) break;
+          if (version !== "" && result.changed) refresh();
+          version = result.version;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+      }
+    })();
+    return () => {
+      stop = true;
+    };
+    // refresh is a fresh closure each render; the loop only restarts for another chat
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, kind]);
 }

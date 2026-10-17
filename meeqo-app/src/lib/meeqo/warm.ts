@@ -33,8 +33,9 @@ export function takeProfile(): Promise<Profile> {
   return warm && Date.now() - warm.at < FRESH_MS ? warm.promise : getProfile();
 }
 
-export function takeFeed(filter: string, sub: string, days: string[], limit = 30, soon = false): Promise<FeedResult> {
+export function takeFeed(filter: string, sub: string, days: string[], limit = 30, soon = false, sort: "time" | "fit" = "time"): Promise<FeedResult> {
   if (soon) return getFeed({ data: { filter, sub, days: [], limit, soon: true } });
+  if (sort === "fit") return getFeed({ data: { filter, sub, days, limit, sort } });
   const warm = feedWarm;
   feedWarm = null;
   if (warm && Date.now() - warm.at < FRESH_MS && warm.key === feedKey(filter, sub, days, limit)) return warm.promise;

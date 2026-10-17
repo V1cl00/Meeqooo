@@ -6,7 +6,7 @@ import { SafetyMenu } from "@/components/safety";
 import { icsFor, mapUrl } from "@/lib/meeqo/ics";
 import { ShareSheet } from "@/components/share";
 import { Shell } from "@/components/shell";
-import { checkIn, confirmAttendance, confirmSafe, createInvite, createSafetyLink, getActivity, hideActivity, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
+import { checkIn, confirmAttendance, confirmSafe, createInvite, createSafetyLink, getActivity, hideActivity, leaveActivity, removeGuest, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
 import { bookingLabel, countdownLabel, errText, formatWhen, MOODS, replyLabel, sparteOf } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -31,6 +31,8 @@ function Detail({ id }: { id: string }) {
   const [mood, setMood] = useState<string>(MOODS[0]);
   const [trust, setTrust] = useState<{ title: string; text: string } | null>(null);
   const [weeks, setWeeks] = useState(1);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const item = data?.activity;
 
   async function join() {
@@ -40,7 +42,7 @@ function Detail({ id }: { id: string }) {
     try {
       const result = await requestJoin({ data: { id: item.id, mood } });
       const reply = data?.hostReplyHours != null ? ` ${item.hostName.split(" ")[0]} antwortet meist in ${replyLabel(data.hostReplyHours)}.` : "";
-      notice(result.status === "accepted" ? "Du bist dabei. Der Chat ist offen." : `Anfrage ist raus.${reply} Du bekommst eine Mitteilung, sobald es eine Antwort gibt.`);
+      notice(result.status === "waitlist" ? "Du stehst auf der Warteliste. Wenn ein Platz frei wird, rückst du nach." : result.status === "accepted" ? "Du bist dabei. Der Chat ist offen." : `Anfrage ist raus.${reply} Du bekommst eine Mitteilung, sobald es eine Antwort gibt.`);
       reload();
     } catch (err) {
       setFail(errText(err));
@@ -111,6 +113,38 @@ function Detail({ id }: { id: string }) {
     try {
       await confirmSafe({ data: { id: item.id } });
       notice("Gut. Deine Vertrauensperson sieht es.");
+      reload();
+    } catch (err) {
+      setFail(errText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function leave() {
+    if (!item) return;
+    setBusy(true);
+    setFail("");
+    try {
+      await leaveActivity({ data: { id: item.id } });
+      notice(item.myStatus === "waitlist" ? "Du bist nicht mehr auf der Warteliste." : "Du bist raus. Der Platz ist wieder frei.");
+      setConfirmLeave(false);
+      reload();
+    } catch (err) {
+      setFail(errText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function takeOut(userId: string) {
+    if (!item) return;
+    setBusy(true);
+    setFail("");
+    try {
+      await removeGuest({ data: { id: item.id, userId } });
+      notice("Die Person ist nicht mehr dabei.");
+      setConfirmRemove(null);
       reload();
     } catch (err) {
       setFail(errText(err));
@@ -254,12 +288,19 @@ function Detail({ id }: { id: string }) {
                   <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-sand-deep text-lg font-semibold">{person.name.slice(0, 1)}</span>
                 )}
                 <span className="mt-1 block truncate text-xs font-bold">{person.me ? "Du" : person.name.split(" ")[0]}</span>
+                {item.isHost && !person.me ? (
+                  confirmRemove === person.id ? (
+                    <button type="button" disabled={busy} onClick={() => takeOut(person.id)} className="mt-1 text-xs font-bold text-accent-deep underline">Wirklich?</button>
+                  ) : (
+                    <button type="button" onClick={() => setConfirmRemove(person.id)} className="mt-1 text-xs font-semibold text-muted underline">Entfernen</button>
+                  )
+                ) : null}
               </div>
             ))}
           </div>
         </div>
       ) : null}
-      {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" ? (
+      {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" && item.myStatus !== "waitlist" ? (
         <div className="card space-y-3 p-4">
           <h2 className="font-display text-2xl">Was erwartest du heute?</h2>
           <div className="flex flex-wrap gap-2">
@@ -316,14 +357,24 @@ function Detail({ id }: { id: string }) {
           <Button type="button" tone="ghost" disabled={busy} onClick={reveal}>Wieder zeigen</Button>
         ) : null}
         {item.myStatus === "pending" ? <Note>Wartet auf Freigabe.</Note> : null}
+        {item.myStatus === "waitlist" ? <Note>Du bist auf der Warteliste{data.waitlistPosition ? `, Platz ${data.waitlistPosition}` : ""}. Sagt jemand ab, rückst du nach.</Note> : null}
+        {!item.isHost && !item.cancelled && (item.myStatus === "accepted" || item.myStatus === "pending" || item.myStatus === "waitlist") ? (
+          confirmLeave ? (
+            <Button type="button" tone="ink" disabled={busy} onClick={leave}>{item.myStatus === "waitlist" ? "Ja, von der Warteliste" : "Ja, ich sage ab"}</Button>
+          ) : (
+            <Button type="button" tone="ghost" disabled={busy} onClick={() => setConfirmLeave(true)}>{item.myStatus === "waitlist" ? "Warteliste verlassen" : "Absagen"}</Button>
+          )
+        ) : null}
+        {item.isHost && !item.cancelled ? <Link to="/bearbeiten/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-full border border-line bg-card px-5 text-sm font-semibold">Bearbeiten</Link> : null}
+        {item.isHost && data.waitlistCount > 0 ? <Note>{data.waitlistCount} {data.waitlistCount === 1 ? "Person wartet" : "Leute warten"} auf einen Platz.</Note> : null}
         {(item.myStatus === "accepted" || item.isHost) && !data.checkedIn ? <Button type="button" tone="ghost" disabled={busy} onClick={arrive}>Check-in</Button> : null}
         {(item.myStatus === "accepted" || item.isHost) && data.checkedIn ? <Link to="/rating/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-full border border-line bg-card px-5 text-sm font-semibold">Bewerten</Link> : null}
       </div>
       <div className="fixed inset-x-0 bottom-[5.4rem] z-20 px-3 md:bottom-6">
         <div className="mx-auto flex max-w-lg gap-2">
-          {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" ? (
-            <Button type="button" disabled={busy || item.spotsLeft < 1} className="h-12 flex-1" onClick={join}>
-              {item.bookingMode === "instant" ? "Sofort dabei" : business ? "Kontakt anfragen" : "Anfragen"}
+          {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" && item.myStatus !== "waitlist" ? (
+            <Button type="button" disabled={busy} className="h-12 flex-1" onClick={join}>
+              {item.spotsLeft < 1 ? "Auf die Warteliste" : item.bookingMode === "instant" ? "Sofort dabei" : business ? "Kontakt anfragen" : "Anfragen"}
             </Button>
           ) : null}
           {item.myStatus === "accepted" || item.isHost ? (

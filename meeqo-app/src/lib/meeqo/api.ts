@@ -23,6 +23,7 @@ import type {
   AdminReport,
   AdminStats,
   NextUp,
+  WeekSummary,
   PollView,
   RideView,
   VenueHit,
@@ -2755,9 +2756,10 @@ export const listAdMessages = createServerFn({ method: "POST" })
     const seller = thread.seller_id === context.userId;
     const peerId = seller ? thread.buyer_id : thread.seller_id;
     const peer = await sql<{ display_name: string | null; avatar_url: string | null }>`select display_name, avatar_url from profiles where user_id = ${peerId}`;
-    const rows = await sql<{ id: string; sender_id: string; body: string; created_at: unknown; display_name: string | null; avatar_url: string | null }>`
+    const rows = await sql<{ id: string; sender_id: string; body: string; created_at: unknown; display_name: string | null; avatar_url: string | null; attachment_name: string | null; attachment_type: string | null; attachment_size: number | null }>`
       select * from (
-        select m.id, m.sender_id, m.body, m.created_at, p.display_name, p.avatar_url
+        select m.id, m.sender_id, m.body, m.created_at, p.display_name, p.avatar_url,
+          m.attachment_name, m.attachment_type, length(m.attachment_data) as attachment_size
         from classified_messages m left join profiles p on p.user_id = m.sender_id
         where m.thread_id = ${data.id} order by m.created_at desc limit 200
       ) latest order by created_at asc
@@ -2779,26 +2781,49 @@ export const listAdMessages = createServerFn({ method: "POST" })
         body: row.body,
         createdAt: iso(row.created_at),
         mine: row.sender_id === context.userId,
+        attachment: row.attachment_type ? { name: row.attachment_name || "Datei", type: row.attachment_type, size: Math.round((num(row.attachment_size) * 3) / 4) } : null,
       })),
     };
   });
 
+/** Loads the file of one message in an ad chat, only for the two people in it. */
+export const getAdAttachment = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
+  .handler(async ({ data, context }): Promise<{ name: string; type: string; data: string }> => {
+    const sql = await getSql();
+    const rows = await sql<{ thread_id: string; attachment_name: string | null; attachment_type: string | null; attachment_data: string | null }>`
+      select thread_id, attachment_name, attachment_type, attachment_data from classified_messages where id = ${data.id}
+    `;
+    const row = rows[0];
+    if (!row || !row.attachment_data || !row.attachment_type) throw new Error("Nicht gefunden.");
+    await assertAdThread(sql, row.thread_id, context.userId);
+    return { name: row.attachment_name || "Datei", type: row.attachment_type, data: row.attachment_data };
+  });
+
 export const sendAdMessage = createServerFn({ method: "POST" })
   .middleware([memberMiddleware])
-  .validator((input: { id: string; body: string }) => ({ id: clean(input.id, 80), body: clean(input.body, 1000) }))
+  .validator((input: { id: string; body: string; attachment?: { name: string; type: string; data: string } | null }) => ({
+    id: clean(input.id, 80),
+    body: clean(input.body, 1000),
+    attachment: input.attachment ? { name: clean(input.attachment.name, 80).replace(/[\\/<>"]/g, "_") || "Datei", type: String(input.attachment.type), data: String(input.attachment.data) } : null,
+  }))
   .handler(async ({ data, context }) => {
-    if (data.body.length < 1) throw new Error("Nachricht ist leer.");
+    if (data.body.length < 1 && !data.attachment) throw new Error("Nachricht ist leer.");
+    if (data.attachment && !validAttachment(data.attachment)) throw new Error("Die Datei muss ein Bild (JPEG, PNG) oder PDF sein, höchstens etwa 2 MB.");
     const sql = await getSql();
     const thread = await assertAdThread(sql, data.id, context.userId);
     const other = thread.seller_id === context.userId ? thread.buyer_id : thread.seller_id;
     if ((await blockedWith(sql, context.userId)).has(other)) throw new Error("Das geht nicht.");
     await throttle(sql, context.userId, "message", 40, 60);
+    if (data.attachment) await throttle(sql, context.userId, "attachment", 12, 600);
+    const text = data.body || `📎 ${data.attachment?.name ?? ""}`;
     await sql`
-      insert into classified_messages (id, thread_id, sender_id, body)
-      values (${crypto.randomUUID()}, ${data.id}, ${context.userId}, ${data.body})
+      insert into classified_messages (id, thread_id, sender_id, body, attachment_name, attachment_type, attachment_data)
+      values (${crypto.randomUUID()}, ${data.id}, ${context.userId}, ${text}, ${data.attachment?.name ?? null}, ${data.attachment?.type ?? null}, ${data.attachment?.data ?? null})
     `;
     bump(data.id);
-    await notify(sql, other, "ad", thread.title, data.body, `/chat/anzeige/${data.id}`, data.id);
+    await notify(sql, other, "ad", thread.title, data.body || "Hat eine Datei geschickt.", `/chat/anzeige/${data.id}`, data.id);
     return { ok: true as const };
   });
 
@@ -3489,6 +3514,45 @@ async function otherMembers(sql: Sql, activityId: string, exceptId: string) {
   `;
   return rows.map((row) => row.user_id);
 }
+
+export const weekSummary = createServerFn({ method: "GET" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }): Promise<WeekSummary> => {
+    const sql = await getSql();
+    const me = context.userId;
+    const year = `${berlinDay().slice(0, 4)}-01-01T00:00:00+01:00`;
+    const [ahead, regulars, met] = await Promise.all([
+      sql<{ n: number }>`
+        select count(*)::int as n from activities a
+        where a.cancelled = false and a.starts_at > now() and a.starts_at < now() + interval '7 days'
+          and (a.host_id = ${me} or exists (select 1 from join_requests j where j.activity_id = a.id and j.requester_id = ${me} and j.status = 'accepted'))
+      `,
+      sql<{ id: string; title: string; starts_at: unknown }>`
+        select distinct on (a.title) a.id, a.title, a.starts_at from activities a
+        where a.cancelled = false and a.starts_at > now() and a.starts_at < now() + interval '30 days'
+          and (a.host_id = ${me} or exists (select 1 from join_requests j where j.activity_id = a.id and j.requester_id = ${me} and j.status = 'accepted'))
+          and exists (select 1 from activities b where b.host_id = a.host_id and b.title = a.title and b.starts_at < a.starts_at and b.cancelled = false)
+        order by a.title, a.starts_at asc
+      `,
+      sql<{ meetups: number; people: number }>`
+        select count(distinct c.activity_id)::int as meetups,
+          count(distinct other.user_id) filter (where other.user_id <> ${me})::int as people
+        from checkins c
+        join activities a on a.id = c.activity_id
+        left join checkins other on other.activity_id = c.activity_id
+        where c.user_id = ${me} and a.starts_at >= ${year}
+      `,
+    ]);
+    return {
+      ahead: num(ahead[0]?.n),
+      regulars: regulars
+        .map((row) => ({ id: row.id, title: row.title, startsAt: iso(row.starts_at) }))
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+        .slice(0, 2),
+      yearMeetups: num(met[0]?.meetups),
+      yearPeople: num(met[0]?.people),
+    };
+  });
 
 export const nextUp = createServerFn({ method: "GET" })
   .middleware([memberMiddleware])

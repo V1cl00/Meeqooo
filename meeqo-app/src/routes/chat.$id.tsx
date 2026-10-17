@@ -4,7 +4,7 @@ import { Button, Note, Skeleton, TextInput } from "@/components/bits";
 import { Shell } from "@/components/shell";
 import { listMessages, sendMessage } from "@/lib/meeqo/api";
 import { Attachment } from "@/components/attachment";
-import { compress } from "@/lib/meeqo/image";
+import { readAttachment } from "@/lib/meeqo/attach";
 import { icebreakersFor } from "@/lib/meeqo/icebreakers";
 import { useVoice } from "@/lib/meeqo/voice";
 import { PollCard, PollForm } from "@/components/poll";
@@ -76,24 +76,8 @@ function Thread({ id }: { id: string }) {
     setFail("");
     setSending(true);
     try {
-      let type = file.type;
-      let dataUrl: string;
-      if (type === "application/pdf") {
-        if (file.size > 2_000_000) throw new Error("Die Datei ist zu groß. Höchstens etwa 2 MB.");
-        dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result));
-          reader.onerror = () => reject(new Error("Datei konnte nicht gelesen werden."));
-          reader.readAsDataURL(file);
-        });
-      } else if (type.startsWith("image/")) {
-        dataUrl = await compress(file);
-        type = "image/jpeg";
-      } else {
-        throw new Error("Nur Bilder und PDF-Dateien.");
-      }
-      const name = type === "image/jpeg" ? file.name.replace(/\.\w+$/, "") + ".jpg" : file.name;
-      await sendMessage({ data: { id, body: "", attachment: { name, type, data: dataUrl.slice(dataUrl.indexOf(",") + 1) } } });
+      const attachment = await readAttachment(file);
+      await sendMessage({ data: { id, body: "", attachment } });
       buzz(8);
       refresh();
     } catch (err) {

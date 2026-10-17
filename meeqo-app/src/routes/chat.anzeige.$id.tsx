@@ -4,6 +4,9 @@ import { Button, Note, Skeleton, TextInput } from "@/components/bits";
 import { SafetyMenu } from "@/components/safety";
 import { Shell } from "@/components/shell";
 import { listAdMessages, sendAdMessage } from "@/lib/meeqo/api";
+import { Attachment } from "@/components/attachment";
+import { readAttachment } from "@/lib/meeqo/attach";
+import { useVoice } from "@/lib/meeqo/voice";
 import { errText, formatWhen, HANDOVER_SPOTS } from "@/lib/meeqo/labels";
 import { buzz } from "@/lib/meeqo/feel";
 import type { ChatMessage } from "@/lib/meeqo/types";
@@ -27,6 +30,9 @@ function Thread({ id }: { id: string }) {
   const [fail, setFail] = useState("");
   const seen = useRef(0);
   const [pending, setPending] = useState<ChatMessage[]>([]);
+  const [sending, setSending] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const voice = useVoice((text) => setBody((current) => (current ? `${current} ${text}` : text)));
   useLiveChat(id, "ad", refresh);
   usePolling(refresh, 30);
 
@@ -60,6 +66,22 @@ function Thread({ id }: { id: string }) {
     }
   }
 
+  async function sendFile(file: File) {
+    setFail("");
+    setSending(true);
+    try {
+      const attachment = await readAttachment(file);
+      await sendAdMessage({ data: { id, body: "", attachment } });
+      buzz(8);
+      refresh();
+    } catch (err) {
+      setFail(errText(err));
+    } finally {
+      setSending(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
     void send(body);
@@ -88,7 +110,8 @@ function Thread({ id }: { id: string }) {
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sand-deep text-xs font-semibold">{message.senderName.slice(0, 1)}</span>
             )}
             <div className={`rounded-3xl px-4 py-2 text-sm ${message.mine ? "bg-ink text-onaccent" : "bg-card"}`}>
-              <p>{message.body}</p>
+              {message.attachment && message.body.startsWith("📎 ") ? null : <p>{message.body}</p>}
+              {message.attachment ? <Attachment id={message.id} file={message.attachment} mine={message.mine} ad /> : null}
               <p className={`mt-1 text-[11px] ${message.mine ? "text-onaccent/80" : "text-muted"}`}>{formatWhen(message.createdAt)}</p>
             </div>
           </div>
@@ -111,9 +134,18 @@ function Thread({ id }: { id: string }) {
           </div>
         </div>
       ) : null}
-      {fail ? <Note>{fail}</Note> : null}
+      {fail || voice.problem ? <Note>{t(fail || voice.problem)}</Note> : null}
       <form onSubmit={submit} className="mt-3 flex gap-2">
+        <input ref={fileInput} type="file" accept="image/jpeg,image/png,application/pdf,image/*" className="sr-only" tabIndex={-1} onChange={(event) => { const file = event.target.files?.[0]; if (file) void sendFile(file); }} />
+        <button type="button" aria-label={t("Datei senden")} disabled={sending} onClick={() => fileInput.current?.click()} className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-line bg-card disabled:opacity-50">
+          <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.5l-8.6 8.6a5.5 5.5 0 01-7.8-7.8l9.2-9.2a3.7 3.7 0 015.2 5.2l-9.2 9.2a1.8 1.8 0 01-2.6-2.6l8.3-8.3" /></svg>
+        </button>
         <TextInput value={body} onChange={(event) => setBody(event.target.value)} placeholder={t("Nachricht")} />
+        {voice.supported ? (
+          <button type="button" aria-label={voice.listening ? t("Aufnahme beenden") : t("Sprechen")} aria-pressed={voice.listening} onClick={voice.toggle} className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${voice.listening ? "animate-pulse border-accent bg-accent text-onfill" : "border-line bg-card"}`}>
+            <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0014 0M12 18v3" /></svg>
+          </button>
+        ) : null}
         <Button type="submit">{t("Senden")}</Button>
       </form>
       <div className="mt-4">

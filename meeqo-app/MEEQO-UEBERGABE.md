@@ -232,3 +232,9 @@ Deutsch, kurz, konkret. Er testet auf dem Handy und vergleicht mit Hinge, Tinder
 - **Eisbrecher:** `icebreakers.ts`, Fragen nach Kategorie. Im Chat tippbar, füllen nur das Feld, solange man noch nichts geschrieben hat.
 - **Sprache:** `voice.ts` nutzt die Spracherkennung des Browsers (Chrome, Edge, Safari). Ohne Unterstützung fehlt der Knopf. Der Ton läuft über den Dienst des Browsers, nicht über MeeQo; das gehört in die Datenschutzerklärung.
 - **Dateien:** Migration 0023. JPEG/PNG (vorher verkleinert) oder PDF bis etwa 2 MB, Typ und Dateianfang werden serverseitig geprüft, 12 Dateien je 10 Minuten. Der Inhalt liegt in der Datenbank und wird nur über `getAttachment` an Chat-Mitglieder ausgeliefert. Für viel Verkehr gehört das in einen Objektspeicher. Noch nicht in Kleinanzeigen-Chats.
+
+## Deine Woche und Dateien in Anzeigen-Chats
+
+- **Deine Woche** (`week-card.tsx`, `weekSummary` in api.ts): Karte oben im Feed mit Treffen der nächsten 7 Tage, Stammtreffen (gleicher Gastgeber und Titel wie ein früheres Treffen), Treffen und kennengelernte Menschen seit 1. Januar (aus Check-ins). Ohne Inhalt erscheint sie nicht; es gibt bewusst keine Serien oder Zähler, die eine Pause bestrafen.
+- Noch offen: eine Wochenmail oder Push dazu. Dafür fehlen Mail-/VAPID-Schlüssel und ein Zeitplan (Cron) beim Hoster.
+- Dateien gehen jetzt auch in Anzeigen-Chats (Migration 0024, `getAdAttachment`), gleiche Regeln wie im Treffen-Chat.

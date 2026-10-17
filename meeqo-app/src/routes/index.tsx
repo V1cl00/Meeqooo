@@ -9,6 +9,7 @@ import { WhenBar } from "@/components/when-bar";
 import { hideActivity, makeWish, setRadius, setRequireTraits, unhideActivity, wishInfo } from "@/lib/meeqo/api";
 import { TRAITS, berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
+import { WeekCard } from "@/components/week-card";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { takeFeed } from "@/lib/meeqo/warm";
 import { locale, t } from "@/lib/meeqo/i18n";
@@ -126,6 +127,7 @@ function Feed() {
   return (
     <div className="space-y-5">
       <NextUpCard />
+      <WeekCard nearby={(data?.items ?? []).filter((item) => !item.isHost && !item.myStatus && !item.cancelled && new Date(item.startsAt).getTime() < Date.now() + 7 * 86_400_000).length} />
       <div className="space-y-3">
         <h1 className="font-display text-4xl leading-none">{t("Treffen in der Nähe")}</h1>
         <PlaceBar onChange={reloadFeed} />

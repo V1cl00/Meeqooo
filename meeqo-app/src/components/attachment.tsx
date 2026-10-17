@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getAttachment } from "@/lib/meeqo/api";
+import { getAdAttachment, getAttachment } from "@/lib/meeqo/api";
 import { t } from "@/lib/meeqo/i18n";
 import type { ChatMessage } from "@/lib/meeqo/types";
 
@@ -8,7 +8,8 @@ function sizeLabel(bytes: number) {
 }
 
 /** A file in a chat bubble: images show up in place, PDFs open on tap. The content is only fetched when needed. */
-export function Attachment({ id, file, mine }: { id: string; file: NonNullable<ChatMessage["attachment"]>; mine: boolean }) {
+export function Attachment({ id, file, mine, ad = false }: { id: string; file: NonNullable<ChatMessage["attachment"]>; mine: boolean; ad?: boolean }) {
+  const load = ad ? getAdAttachment : getAttachment;
   const [src, setSrc] = useState("");
   const [fail, setFail] = useState(false);
   const image = file.type.startsWith("image/");
@@ -16,17 +17,17 @@ export function Attachment({ id, file, mine }: { id: string; file: NonNullable<C
   useEffect(() => {
     if (!image || id.startsWith("tmp-")) return;
     let alive = true;
-    getAttachment({ data: { id } })
+    load({ data: { id } })
       .then((result) => alive && setSrc(`data:${result.type};base64,${result.data}`))
       .catch(() => alive && setFail(true));
     return () => {
       alive = false;
     };
-  }, [id, image]);
+  }, [id, image, ad]);
 
   async function open() {
     try {
-      const result = await getAttachment({ data: { id } });
+      const result = await load({ data: { id } });
       const bytes = Uint8Array.from(atob(result.data), (char) => char.charCodeAt(0));
       const url = URL.createObjectURL(new Blob([bytes], { type: result.type }));
       const link = document.createElement("a");

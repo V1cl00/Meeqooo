@@ -316,6 +316,16 @@ export type MyData = {
   json: string;
 };
 
+export type WeekSummary = {
+  /** Meetups in the next 7 days that I host or am accepted to. */
+  ahead: number;
+  /** Repeating meetups (same host and title as an earlier one) coming up, soonest first, at most 2. */
+  regulars: { id: string; title: string; startsAt: string }[];
+  /** Meetups I checked in to since 1 January, and how many different people were there with me. */
+  yearMeetups: number;
+  yearPeople: number;
+};
+
 export type NextUp = {
   id: string;
   title: string;

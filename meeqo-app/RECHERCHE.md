@@ -74,3 +74,31 @@ Belegt ist wenig; vieles sind Startup-Unterlagen ohne Quelle. Rahmen von MeeQo: 
 - **Messen:** Anfrage → Zusage → Erscheinen → Wiederkommen pro Stadt.
 
 Quellen (zusätzlich): https://www.datingnews.com/apps-and-sites/66-of-users-dont-trust-dating-apps-to-keep-them-safe/ , https://transunion.com/report/online-dating-2025 , https://www.globaldatinginsights.com/featured/gen-z-shifts-from-dating-apps-to-hobby-groups/ , https://www.ticketnews.com/2025/01/eventbrite-study-finds-gen-z-millennials-are-seeking-in-person-events-to-bridge-gap-from-digital-world , https://www.zdfheute.de/politik/deutschland/generation-z-einsamkeit-brandenburg-initiative-lehnitz-connect-sport-picknick-spieleabend-100.html , https://paperjam.lu/article/timeleft-ou-comment-contrer-so
+
+## 10. Was Spitzen-Entwickler, Gestalter und Querdenker erfinden würden
+Das ist keine Recherche, sondern mein Denken, gestützt auf die Funde oben. Nach Aufwand und Wirkung geordnet.
+
+**Entwickler (Technik, die man spürt)**
+- **Treffen als lebendige Karte:** Alle Treffen der nächsten Stunden auf einer Karte, Pins wachsen, wenn sich Plätze füllen. Schneller Blick „Was geht jetzt in 10 Minuten Entfernung?“ (Vorarbeit: „Gleich in der Nähe“ gibt es).
+- **Offline-first:** Ticket, Ort, Vertrauenslink und Chat funktionieren ohne Netz im Keller der Kletterhalle (Service Worker ist da).
+- **Ende-zu-Ende-verschlüsselte Chats** für Dating-Treffen: Datenschutz als Verkaufsargument, wenn nach Grindr jeder fragt. Aufwand hoch, Wirkung nur bei bewusster Zielgruppe.
+- **Lokale KI ohne Server:** Satz-Eingabe, Eisbrecher-Vorschläge und Übersetzung laufen im Browser, es verlassen keine Chats das Gerät. Passt zur Skepsis gegenüber KI in der Liebe.
+- **Offene Kalender-Anbindung:** Treffen automatisch im eigenen Kalender (gibt es als Link), umgekehrt „freie Zeit“ nur als Zeitfenster teilen, nie als Inhalt.
+
+**Gestalter (Gefühl)**
+- **Der Abend als Ablauf:** Vorfreude (Countdown, Wetter) → Ankunft (ein großer „Ich bin da“-Knopf) → Treffen (Eisbrecher, keine Ablenkung) → danach (ein ruhiger Abschluss, Wiedersehen). Jede Phase ein eigener Bildschirm, der nur das Nötige zeigt.
+- **Ruhemodus:** Während eines Treffens schweigt die App außer für Sicherheit. Das Gegenteil von Engagement-Druck, und genau das Verkaufsargument gegen Dating-Burnout.
+- **Haptik und Ton sparsam, aber bewusst:** Ein leiser „Platz sicher“-Moment, eine ruhige Bestätigung statt Konfetti.
+- **Mood statt Filter:** Statt 14 Filtern ein Satz: „Heute eher ruhig, draußen, ohne Alkohol“. Die App ordnet die Treffen danach (Relevanz-Sortierung ist die Grundlage).
+- **Gesichter erst spät:** Auf Karten Aktivität und Ort zuerst, Menschen erst nach der Zusage ganz. Gegen Oberflächlichkeit, die drei Viertel der Nutzer beklagen.
+
+**Freigeister (Ideen, die anders sind)**
+- **Eine Bitte pro Woche:** Jede Woche eine kleine Einladung („Geh heute mit jemand Neuem spazieren“), die mit einem Treffen in der Nähe verknüpft ist. Gemeinsame Rituale statt Feed.
+- **Wiedersehen mit Vorlauf:** Nach einem guten Treffen schlägt die App beiden dasselbe Treffen in zwei Wochen vor, nur wenn beide ja sagen (die Mechanik gibt es schon, nur als Vorschlag mit Datum).
+- **Gastgeber-Patenschaft:** Erfahrene Gastgeber begleiten neue beim ersten Treffen (Schatten-Gastgeber). Qualität wächst von innen.
+- **Das Café als Mitspieler:** Betriebe stellen freie Tische für Gruppen bereit („Dienstag 18 Uhr, 6 Plätze“); Gastgeber buchen mit einem Tipp. Löst das Angebotsproblem in der Anfangsphase.
+- **Zeitbank:** Wer viel hostet, bekommt Vorrang bei vollen Treffen. Belohnt Geben statt Konsumieren, ohne Geld oder Tokens.
+- **Nachbarschaftsmodus:** Treffen nur im Umkreis von 1 km für Eltern, Ältere oder neu Zugezogene. Eine eigene Zielgruppe, die kaum bedient wird.
+- **Gemeinsames Foto-Album nach dem Treffen:** nur für Anwesende, löscht sich nach 30 Tagen, wenn niemand es behält. Erinnerung ohne öffentliche Spuren.
+
+**Was ich davon zuerst bauen würde:** Ruhemodus beim Treffen, Wiedersehen mit Vorschlag, „+1“ und „Neulinge willkommen“, die Mood-Eingabe. Alles klein, alles ohne neue Konten oder Schlüssel, und alles stärkt den Kern: echte Treffen statt Bildschirmzeit.

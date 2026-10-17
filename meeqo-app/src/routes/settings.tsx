@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea } from "@/components/bits";
 import { Shell, useMe } from "@/components/shell";
-import { deleteAccount, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
+import { adminStatus, deleteAccount, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
 import { signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -25,6 +25,7 @@ function Settings() {
   const [pending, setPending] = useState(false);
   const hidden = useLoad(() => listHidden(), []);
   const blocked = useLoad(() => listBlocked(), []);
+  const admin = useLoad(() => adminStatus(), []);
   const [confirm, setConfirm] = useState("");
   if (!profile) return null;
 
@@ -229,6 +230,7 @@ function Settings() {
         <Link to="/datenschutz" className="underline">Datenschutz</Link>
         <Link to="/impressum" className="underline">Impressum</Link>
         <Link to="/support" className="underline">Hilfe</Link>
+        {admin.data?.admin ? <Link to="/admin/meldungen" className="font-semibold text-ink underline">Meldungen bearbeiten</Link> : null}
       </p>
       {error ? <Note>{error}</Note> : null}
       {info ? <p className="text-sm text-friend">{info}</p> : null}

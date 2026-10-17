@@ -257,3 +257,20 @@ export type InviteView = {
   spotsLeft: number;
   imageUrl: string;
 };
+
+export type AdminReport = {
+  id: string;
+  kind: string;
+  targetId: string;
+  targetLabel: string;
+  ownerId: string;
+  ownerName: string;
+  ownerSuspended: boolean;
+  reason: string;
+  note: string;
+  reporterName: string;
+  createdAt: string;
+  status: "open" | "done";
+  action: string;
+  sameTarget: number;
+};

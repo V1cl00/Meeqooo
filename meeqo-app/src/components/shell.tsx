@@ -5,7 +5,7 @@ import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getProfile, listNotifications } from "@/lib/meeqo/api";
 import { takeProfile } from "@/lib/meeqo/warm";
-import { isUnauthorized } from "@/lib/meeqo/labels";
+import { errText, isUnauthorized } from "@/lib/meeqo/labels";
 import type { Profile } from "@/lib/meeqo/types";
 import { themeStyle } from "@/lib/meeqo/theme";
 import { WelcomeHero, Wordmark } from "@/components/bits";
@@ -71,7 +71,7 @@ export function Shell({
         }
       })
       .catch((err: unknown) => {
-        if (live) setError(isUnauthorized(err) ? "Unauthorized" : "Profil konnte nicht geladen werden.");
+        if (live) setError(isUnauthorized(err) ? "Unauthorized" : /gesperrt/.test(errText(err)) ? errText(err) : "Profil konnte nicht geladen werden.");
       })
       .finally(() => window.clearTimeout(timer));
     return () => {

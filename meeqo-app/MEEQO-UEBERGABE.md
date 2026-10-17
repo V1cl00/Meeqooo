@@ -145,6 +145,13 @@ Liste und einzelne Nachrichten zeigen das Profilfoto, sonst den Anfangsbuchstabe
 - Karten-Chip „N Treffen geleitet“ ab zwei vergangenen Treffen.
 - Anlegen in drei Schritten. Wichtig: die Knöpfe haben `key`, sonst wird „Weiter“ zum Absenden-Knopf und veröffentlicht sofort.
 
+## Moderation (Migration 0017)
+
+- Admin ist, wessen E-Mail in `ADMIN_EMAILS` steht (kommagetrennt, nur Umgebungsvariable, nicht in der Datenbank). Seite `/admin/meldungen`, Link in den Einstellungen nur für Admins.
+- Aktionen: Abweisen, Inhalt entfernen (Treffen wird abgesagt, Anzeige gelöscht), Konto sperren und Entsperren. Wer meldet, bekommt danach eine Mitteilung.
+- Gesperrte Konten werfen in `ensureProfile` den Fehler „Dein Konto ist gesperrt“ und kommen nicht mehr in die App.
+- Erledigte Meldungen stehen nur im Reiter „Alle“.
+
 ## Noch schwach, nicht anfassen ohne Auftrag
 
 - Menschen ohne Foto bleiben Buchstaben. Foto ist Pflicht zum Anfragen und zum Veröffentlichen, nicht zum Reinschauen.

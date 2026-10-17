@@ -16,6 +16,7 @@ import type {
   CircleMember,
   SafetyView,
   BlockedUser,
+  AdminReport,
   InviteView,
   ChatThread,
   Classified,
@@ -30,6 +31,7 @@ import type {
 } from "@/lib/meeqo/types";
 
 type ProfileRow = {
+  suspended?: boolean;
   user_id: string;
   display_name: string;
   bio: string;
@@ -261,6 +263,7 @@ async function ensureProfile(userId: string) {
     sql<ProfileRow>`select * from profiles where user_id = ${userId}`,
     ratingStats(sql, userId),
   ]);
+  if (first[0] && flag(first[0].suspended)) throw new Error("Dein Konto ist gesperrt. Schreib dem Support.");
   if (first[0] && first[0].display_name && first[0].display_name !== "Neu hier") {
     return { sql, profile: mapProfile(first[0], firstStats) };
   }
@@ -2705,5 +2708,135 @@ export const savePush = createServerFn({ method: "POST" })
       values (${data.endpoint}, ${context.userId}, ${data.p256dh}, ${data.auth})
       on conflict (endpoint) do update set user_id = ${context.userId}, p256dh = ${data.p256dh}, auth = ${data.auth}
     `;
+    return { ok: true as const };
+  });
+
+// ---------------------------------------------------------------------------
+// Moderation: wer Admin ist, steht in ADMIN_EMAILS (kommagetrennt), nicht in der Datenbank.
+
+async function isAdminUser(sql: Sql, userId: string) {
+  const allowed = (process.env.ADMIN_EMAILS || "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+  if (!allowed.length) return false;
+  const rows = await sql<{ email: string }>`select email from "user" where id = ${userId}`;
+  return allowed.includes((rows[0]?.email || "").toLowerCase());
+}
+
+async function requireAdmin(sql: Sql, userId: string) {
+  if (!(await isAdminUser(sql, userId))) throw new Error("Nicht gefunden.");
+}
+
+export const adminStatus = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => ({ admin: await isAdminUser(await getSql(), context.userId) }));
+
+export const listReports = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<AdminReport[]> => {
+    const sql = await getSql();
+    await requireAdmin(sql, context.userId);
+    const rows = await sql<{
+      id: string; kind: string; target_id: string; reason: string; note: string; created_at: unknown; status: string; action: string;
+      reporter_name: string | null; same_target: number;
+      label: string | null; owner_id: string | null; owner_name: string | null; owner_suspended: boolean | null;
+    }>`
+      select r.id, r.kind, r.target_id, r.reason, r.note, r.created_at, r.status, r.action,
+        rp.display_name as reporter_name,
+        (select count(*)::int from reports x where x.kind = r.kind and x.target_id = r.target_id) as same_target,
+        case r.kind
+          when 'activity' then a.title
+          when 'ad' then coalesce(c.title, c2.title)
+          when 'person' then tp.display_name
+          else r.target_id
+        end as label,
+        case r.kind
+          when 'activity' then a.host_id
+          when 'ad' then coalesce(c.author_id, c2.author_id)
+          when 'person' then r.target_id
+          else null
+        end as owner_id
+      from reports r
+      left join profiles rp on rp.user_id = r.reporter_id
+      left join activities a on r.kind = 'activity' and a.id = r.target_id
+      left join classifieds c on r.kind = 'ad' and c.id = r.target_id
+      left join classified_threads t on r.kind = 'ad' and t.id = r.target_id
+      left join classifieds c2 on c2.id = t.classified_id
+      left join profiles tp on r.kind = 'person' and tp.user_id = r.target_id
+      order by (r.status = 'open') desc, r.created_at desc
+      limit 100
+    `;
+    const owners = new Map<string, { name: string; suspended: boolean }>();
+    for (const id of new Set(rows.map((row) => row.owner_id).filter((id): id is string => Boolean(id)))) {
+      const found = await sql<{ display_name: string; suspended: boolean }>`select display_name, suspended from profiles where user_id = ${id}`;
+      owners.set(id, { name: found[0]?.display_name || "Gelöscht", suspended: flag(found[0]?.suspended) });
+    }
+    return rows.map((row) => ({
+      id: row.id,
+      kind: row.kind,
+      targetId: row.target_id,
+      targetLabel: row.label || "Nicht mehr da",
+      ownerId: row.owner_id || "",
+      ownerName: row.owner_id ? owners.get(row.owner_id)?.name || "Gelöscht" : "",
+      ownerSuspended: row.owner_id ? owners.get(row.owner_id)?.suspended ?? false : false,
+      reason: row.reason,
+      note: row.note,
+      reporterName: row.reporter_name || "Gelöscht",
+      createdAt: iso(row.created_at),
+      status: row.status === "done" ? "done" : "open",
+      action: row.action,
+      sameTarget: num(row.same_target),
+    }));
+  });
+
+export const handleReport = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string; action: string }) => ({ id: clean(input.id, 80), action: clean(input.action, 12) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    await requireAdmin(sql, context.userId);
+    if (!["dismiss", "remove", "suspend", "restore"].includes(data.action)) throw new Error("Unbekannte Aktion.");
+    const found = await sql<{ kind: string; target_id: string; reporter_id: string }>`select kind, target_id, reporter_id from reports where id = ${data.id}`;
+    const report = found[0];
+    if (!report) throw new Error("Meldung nicht gefunden.");
+    let ownerId = "";
+    if (report.kind === "activity") {
+      ownerId = (await sql<{ host_id: string }>`select host_id from activities where id = ${report.target_id}`)[0]?.host_id ?? "";
+    } else if (report.kind === "ad") {
+      ownerId = (await sql<{ author_id: string }>`
+        select coalesce(c.author_id, c2.author_id) as author_id
+        from (select 1) x
+        left join classifieds c on c.id = ${report.target_id}
+        left join classified_threads t on t.id = ${report.target_id}
+        left join classifieds c2 on c2.id = t.classified_id
+      `)[0]?.author_id ?? "";
+    } else if (report.kind === "person") {
+      ownerId = report.target_id;
+    }
+    if (data.action === "remove") {
+      if (report.kind === "activity") {
+        await sql`update activities set cancelled = true where id = ${report.target_id}`;
+      } else if (report.kind === "ad") {
+        const adId = (await sql<{ id: string }>`
+          select coalesce(c.id, c2.id) as id
+          from (select 1) x
+          left join classifieds c on c.id = ${report.target_id}
+          left join classified_threads t on t.id = ${report.target_id}
+          left join classifieds c2 on c2.id = t.classified_id
+        `)[0]?.id;
+        if (adId) {
+          await sql`delete from classified_messages where thread_id in (select id from classified_threads where classified_id = ${adId})`;
+          await sql`delete from classified_threads where classified_id = ${adId}`;
+          await sql`delete from classifieds where id = ${adId}`;
+        }
+      } else {
+        throw new Error("Bei Personen: Konto sperren.");
+      }
+    }
+    if ((data.action === "suspend" || data.action === "restore") && !ownerId) throw new Error("Hier gibt es keine Person zum Sperren.");
+    if (data.action === "suspend") await sql`update profiles set suspended = true where user_id = ${ownerId}`;
+    if (data.action === "restore") await sql`update profiles set suspended = false where user_id = ${ownerId}`;
+    if (data.action !== "restore") {
+      await sql`update reports set status = 'done', action = ${data.action}, handled_at = now() where id = ${data.id}`;
+      await notify(sql, report.reporter_id, "report", "Deine Meldung ist bearbeitet", "Danke, dass du Bescheid gesagt hast.", "/", data.id);
+    }
     return { ok: true as const };
   });

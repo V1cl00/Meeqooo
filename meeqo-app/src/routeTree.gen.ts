@@ -29,6 +29,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as ActivityIdRouteImport } from './routes/activity.$id'
+import { Route as AdminMeldungenRouteImport } from './routes/admin.meldungen'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as CommunitiesIdRouteImport } from './routes/communities.$id'
 import { Route as EinladungTokenRouteImport } from './routes/einladung.$token'
@@ -142,6 +143,11 @@ const ActivityIdRoute = ActivityIdRouteImport.update({
   path: '/activity/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminMeldungenRoute = AdminMeldungenRouteImport.update({
+  id: '/admin/meldungen',
+  path: '/admin/meldungen',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatIdRoute = ChatIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -224,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/support': typeof SupportRoute
   '/activity/$id': typeof ActivityIdRoute
+  '/admin/meldungen': typeof AdminMeldungenRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
@@ -258,6 +265,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/support': typeof SupportRoute
   '/activity/$id': typeof ActivityIdRoute
+  '/admin/meldungen': typeof AdminMeldungenRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
@@ -293,6 +301,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/support': typeof SupportRoute
   '/activity/$id': typeof ActivityIdRoute
+  '/admin/meldungen': typeof AdminMeldungenRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
@@ -329,6 +338,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/support'
     | '/activity/$id'
+    | '/admin/meldungen'
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
@@ -363,6 +373,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/support'
     | '/activity/$id'
+    | '/admin/meldungen'
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/support'
     | '/activity/$id'
+    | '/admin/meldungen'
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
@@ -432,6 +444,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SupportRoute: typeof SupportRoute
   ActivityIdRoute: typeof ActivityIdRoute
+  AdminMeldungenRoute: typeof AdminMeldungenRoute
   EinladungTokenRoute: typeof EinladungTokenRoute
   RatingIdRoute: typeof RatingIdRoute
   RatingCompleteRoute: typeof RatingCompleteRoute
@@ -580,6 +593,13 @@ declare module '@tanstack/react-router' {
       path: '/activity/$id'
       fullPath: '/activity/$id'
       preLoaderRoute: typeof ActivityIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/meldungen': {
+      id: '/admin/meldungen'
+      path: '/admin/meldungen'
+      fullPath: '/admin/meldungen'
+      preLoaderRoute: typeof AdminMeldungenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat/$id': {
@@ -739,6 +759,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SupportRoute: SupportRoute,
   ActivityIdRoute: ActivityIdRoute,
+  AdminMeldungenRoute: AdminMeldungenRoute,
   EinladungTokenRoute: EinladungTokenRoute,
   RatingIdRoute: RatingIdRoute,
   RatingCompleteRoute: RatingCompleteRoute,

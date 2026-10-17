@@ -12,8 +12,8 @@ const FRESH_MS = 15_000;
 let profileWarm: { at: number; promise: Promise<Profile> } | null = null;
 let feedWarm: { at: number; key: string; promise: Promise<FeedResult> } | null = null;
 
-function feedKey(filter: string, sub: string, days: string[]) {
-  return `${filter}|${sub}|${days.join(",")}`;
+function feedKey(filter: string, sub: string, days: string[], limit: number) {
+  return `${filter}|${sub}|${days.join(",")}|${limit}`;
 }
 
 export function warmStart() {
@@ -22,9 +22,9 @@ export function warmStart() {
   profile.catch(() => {});
   profileWarm = { at: Date.now(), promise: profile };
   const days = [berlinDay()];
-  const feed = getFeed({ data: { filter: "all", sub: "", days } });
+  const feed = getFeed({ data: { filter: "all", sub: "", days, limit: 30 } });
   feed.catch(() => {});
-  feedWarm = { at: Date.now(), key: feedKey("all", "", days), promise: feed };
+  feedWarm = { at: Date.now(), key: feedKey("all", "", days, 30), promise: feed };
 }
 
 export function takeProfile(): Promise<Profile> {
@@ -33,9 +33,9 @@ export function takeProfile(): Promise<Profile> {
   return warm && Date.now() - warm.at < FRESH_MS ? warm.promise : getProfile();
 }
 
-export function takeFeed(filter: string, sub: string, days: string[]): Promise<FeedResult> {
+export function takeFeed(filter: string, sub: string, days: string[], limit = 30): Promise<FeedResult> {
   const warm = feedWarm;
   feedWarm = null;
-  if (warm && Date.now() - warm.at < FRESH_MS && warm.key === feedKey(filter, sub, days)) return warm.promise;
-  return getFeed({ data: { filter, sub, days } });
+  if (warm && Date.now() - warm.at < FRESH_MS && warm.key === feedKey(filter, sub, days, limit)) return warm.promise;
+  return getFeed({ data: { filter, sub, days, limit } });
 }

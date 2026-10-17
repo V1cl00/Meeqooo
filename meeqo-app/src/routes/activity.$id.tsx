@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BadgeRow, Button, IntentPill, Note, SparteStrip, StatusLine } from "@/components/bits";
 import { SafetyMenu } from "@/components/safety";
+import { icsFor, mapUrl } from "@/lib/meeqo/ics";
 import { ShareSheet } from "@/components/share";
 import { Shell } from "@/components/shell";
 import { checkIn, confirmAttendance, createInvite, createSafetyLink, getActivity, hideActivity, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
@@ -74,6 +75,16 @@ function Detail({ id }: { id: string }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  function addToCalendar() {
+    if (!item) return;
+    const blob = new Blob([icsFor(item)], { type: "text/calendar;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "meeqo-treffen.ics";
+    link.click();
+    URL.revokeObjectURL(link.href);
   }
 
   async function invite() {
@@ -245,6 +256,12 @@ function Detail({ id }: { id: string }) {
             : "Schick das Treffen an jemanden, der dazugehört."}
         </p>
         <Button type="button" tone="ghost" className="w-full" onClick={() => { setTrust(null); setShareOpen(true); }}>Teilen</Button>
+        <div className="flex gap-2">
+          <a href={mapUrl(item.lat, item.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold">Karte öffnen</a>
+          {item.myStatus === "accepted" || item.isHost ? (
+            <button type="button" onClick={addToCalendar} className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold">Zum Kalender</button>
+          ) : null}
+        </div>
         {item.myStatus === "accepted" || item.isHost ? (
           <Button type="button" tone="ghost" className="w-full" disabled={busy} onClick={invite}>Mit Link einladen</Button>
         ) : null}

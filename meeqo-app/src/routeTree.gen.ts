@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AlterRouteImport } from './routes/alter'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as ChatRouteImport } from './routes/chat'
@@ -21,15 +22,19 @@ import { Route as ImpressumRouteImport } from './routes/impressum'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyActivitiesRouteImport } from './routes/my-activities'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as NutzungsbedingungenRouteImport } from './routes/nutzungsbedingungen'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as OrganizerRouteImport } from './routes/organizer'
+import { Route as PasswortRouteImport } from './routes/passwort'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as RegelnRouteImport } from './routes/regeln'
 import { Route as RequestsRouteImport } from './routes/requests'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as ActivityIdRouteImport } from './routes/activity.$id'
 import { Route as AdminMeldungenRouteImport } from './routes/admin.meldungen'
+import { Route as AdminZahlenRouteImport } from './routes/admin.zahlen'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as CommunitiesIdRouteImport } from './routes/communities.$id'
 import { Route as EinladungTokenRouteImport } from './routes/einladung.$token'
@@ -46,6 +51,11 @@ import { Route as MediaActivityIdRouteImport } from './routes/media.activity.$id
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlterRoute = AlterRouteImport.update({
+  id: '/alter',
+  path: '/alter',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalendarRoute = CalendarRouteImport.update({
@@ -103,6 +113,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
   path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NutzungsbedingungenRoute = NutzungsbedingungenRouteImport.update({
+  id: '/nutzungsbedingungen',
+  path: '/nutzungsbedingungen',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
@@ -113,9 +128,19 @@ const OrganizerRoute = OrganizerRouteImport.update({
   path: '/organizer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PasswortRoute = PasswortRouteImport.update({
+  id: '/passwort',
+  path: '/passwort',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegelnRoute = RegelnRouteImport.update({
+  id: '/regeln',
+  path: '/regeln',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RequestsRoute = RequestsRouteImport.update({
@@ -146,6 +171,11 @@ const ActivityIdRoute = ActivityIdRouteImport.update({
 const AdminMeldungenRoute = AdminMeldungenRouteImport.update({
   id: '/admin/meldungen',
   path: '/admin/meldungen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminZahlenRoute = AdminZahlenRouteImport.update({
+  id: '/admin/zahlen',
+  path: '/admin/zahlen',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatIdRoute = ChatIdRouteImport.update({
@@ -211,6 +241,7 @@ const MediaActivityIdRoute = MediaActivityIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/alter': typeof AlterRoute
   '/calendar': typeof CalendarRoute
   '/categories': typeof CategoriesRoute
   '/chat': typeof ChatRouteWithChildren
@@ -222,15 +253,19 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/my-activities': typeof MyActivitiesRoute
   '/notifications': typeof NotificationsRoute
+  '/nutzungsbedingungen': typeof NutzungsbedingungenRoute
   '/onboarding': typeof OnboardingRoute
   '/organizer': typeof OrganizerRouteWithChildren
+  '/passwort': typeof PasswortRoute
   '/profile': typeof ProfileRouteWithChildren
+  '/regeln': typeof RegelnRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/support': typeof SupportRoute
   '/activity/$id': typeof ActivityIdRoute
   '/admin/meldungen': typeof AdminMeldungenRoute
+  '/admin/zahlen': typeof AdminZahlenRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
@@ -246,6 +281,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/alter': typeof AlterRoute
   '/calendar': typeof CalendarRoute
   '/categories': typeof CategoriesRoute
   '/chat': typeof ChatRouteWithChildren
@@ -257,15 +293,19 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/my-activities': typeof MyActivitiesRoute
   '/notifications': typeof NotificationsRoute
+  '/nutzungsbedingungen': typeof NutzungsbedingungenRoute
   '/onboarding': typeof OnboardingRoute
   '/organizer': typeof OrganizerRouteWithChildren
+  '/passwort': typeof PasswortRoute
   '/profile': typeof ProfileRouteWithChildren
+  '/regeln': typeof RegelnRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/support': typeof SupportRoute
   '/activity/$id': typeof ActivityIdRoute
   '/admin/meldungen': typeof AdminMeldungenRoute
+  '/admin/zahlen': typeof AdminZahlenRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
@@ -282,6 +322,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/alter': typeof AlterRoute
   '/calendar': typeof CalendarRoute
   '/categories': typeof CategoriesRoute
   '/chat': typeof ChatRouteWithChildren
@@ -293,15 +334,19 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/my-activities': typeof MyActivitiesRoute
   '/notifications': typeof NotificationsRoute
+  '/nutzungsbedingungen': typeof NutzungsbedingungenRoute
   '/onboarding': typeof OnboardingRoute
   '/organizer': typeof OrganizerRouteWithChildren
+  '/passwort': typeof PasswortRoute
   '/profile': typeof ProfileRouteWithChildren
+  '/regeln': typeof RegelnRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/support': typeof SupportRoute
   '/activity/$id': typeof ActivityIdRoute
   '/admin/meldungen': typeof AdminMeldungenRoute
+  '/admin/zahlen': typeof AdminZahlenRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
@@ -319,6 +364,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/alter'
     | '/calendar'
     | '/categories'
     | '/chat'
@@ -330,15 +376,19 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-activities'
     | '/notifications'
+    | '/nutzungsbedingungen'
     | '/onboarding'
     | '/organizer'
+    | '/passwort'
     | '/profile'
+    | '/regeln'
     | '/requests'
     | '/search'
     | '/settings'
     | '/support'
     | '/activity/$id'
     | '/admin/meldungen'
+    | '/admin/zahlen'
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
@@ -354,6 +404,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/alter'
     | '/calendar'
     | '/categories'
     | '/chat'
@@ -365,15 +416,19 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-activities'
     | '/notifications'
+    | '/nutzungsbedingungen'
     | '/onboarding'
     | '/organizer'
+    | '/passwort'
     | '/profile'
+    | '/regeln'
     | '/requests'
     | '/search'
     | '/settings'
     | '/support'
     | '/activity/$id'
     | '/admin/meldungen'
+    | '/admin/zahlen'
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
@@ -389,6 +444,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/alter'
     | '/calendar'
     | '/categories'
     | '/chat'
@@ -400,15 +456,19 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-activities'
     | '/notifications'
+    | '/nutzungsbedingungen'
     | '/onboarding'
     | '/organizer'
+    | '/passwort'
     | '/profile'
+    | '/regeln'
     | '/requests'
     | '/search'
     | '/settings'
     | '/support'
     | '/activity/$id'
     | '/admin/meldungen'
+    | '/admin/zahlen'
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
@@ -425,6 +485,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AlterRoute: typeof AlterRoute
   CalendarRoute: typeof CalendarRoute
   CategoriesRoute: typeof CategoriesRoute
   ChatRoute: typeof ChatRouteWithChildren
@@ -436,15 +497,19 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MyActivitiesRoute: typeof MyActivitiesRoute
   NotificationsRoute: typeof NotificationsRoute
+  NutzungsbedingungenRoute: typeof NutzungsbedingungenRoute
   OnboardingRoute: typeof OnboardingRoute
   OrganizerRoute: typeof OrganizerRouteWithChildren
+  PasswortRoute: typeof PasswortRoute
   ProfileRoute: typeof ProfileRouteWithChildren
+  RegelnRoute: typeof RegelnRoute
   RequestsRoute: typeof RequestsRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   SupportRoute: typeof SupportRoute
   ActivityIdRoute: typeof ActivityIdRoute
   AdminMeldungenRoute: typeof AdminMeldungenRoute
+  AdminZahlenRoute: typeof AdminZahlenRoute
   EinladungTokenRoute: typeof EinladungTokenRoute
   RatingIdRoute: typeof RatingIdRoute
   RatingCompleteRoute: typeof RatingCompleteRoute
@@ -460,6 +525,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alter': {
+      id: '/alter'
+      path: '/alter'
+      fullPath: '/alter'
+      preLoaderRoute: typeof AlterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calendar': {
@@ -539,6 +611,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/nutzungsbedingungen': {
+      id: '/nutzungsbedingungen'
+      path: '/nutzungsbedingungen'
+      fullPath: '/nutzungsbedingungen'
+      preLoaderRoute: typeof NutzungsbedingungenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding': {
       id: '/onboarding'
       path: '/onboarding'
@@ -553,11 +632,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrganizerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/passwort': {
+      id: '/passwort'
+      path: '/passwort'
+      fullPath: '/passwort'
+      preLoaderRoute: typeof PasswortRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/regeln': {
+      id: '/regeln'
+      path: '/regeln'
+      fullPath: '/regeln'
+      preLoaderRoute: typeof RegelnRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/requests': {
@@ -600,6 +693,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/meldungen'
       fullPath: '/admin/meldungen'
       preLoaderRoute: typeof AdminMeldungenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/zahlen': {
+      id: '/admin/zahlen'
+      path: '/admin/zahlen'
+      fullPath: '/admin/zahlen'
+      preLoaderRoute: typeof AdminZahlenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat/$id': {
@@ -740,6 +840,7 @@ const ProfileRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AlterRoute: AlterRoute,
   CalendarRoute: CalendarRoute,
   CategoriesRoute: CategoriesRoute,
   ChatRoute: ChatRouteWithChildren,
@@ -751,15 +852,19 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MyActivitiesRoute: MyActivitiesRoute,
   NotificationsRoute: NotificationsRoute,
+  NutzungsbedingungenRoute: NutzungsbedingungenRoute,
   OnboardingRoute: OnboardingRoute,
   OrganizerRoute: OrganizerRouteWithChildren,
+  PasswortRoute: PasswortRoute,
   ProfileRoute: ProfileRouteWithChildren,
+  RegelnRoute: RegelnRoute,
   RequestsRoute: RequestsRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   SupportRoute: SupportRoute,
   ActivityIdRoute: ActivityIdRoute,
   AdminMeldungenRoute: AdminMeldungenRoute,
+  AdminZahlenRoute: AdminZahlenRoute,
   EinladungTokenRoute: EinladungTokenRoute,
   RatingIdRoute: RatingIdRoute,
   RatingCompleteRoute: RatingCompleteRoute,

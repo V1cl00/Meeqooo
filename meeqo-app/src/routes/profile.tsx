@@ -7,7 +7,7 @@ import { PostBoard } from "@/components/posts";
 import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
 import { Shell, useMe } from "@/components/shell";
-import { confirmIdentity, listCategories, setAvatar, updateProfile } from "@/lib/meeqo/api";
+import { listCategories, setAvatar, updateProfile } from "@/lib/meeqo/api";
 import { AreaPicker } from "@/components/areas";
 import { areaSummary, errText } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -75,6 +75,7 @@ function ProfilePage() {
             <input
               type="file"
               accept="image/*"
+              aria-label="Profilfoto wählen"
               className="absolute inset-0 cursor-pointer opacity-0"
               onChange={async (event) => {
                 const file = event.target.files?.[0];
@@ -150,10 +151,8 @@ function ProfilePage() {
       </form>
       <div className="card space-y-2 p-4">
         <h2 className="font-display text-2xl">Vertrauen</h2>
-        <p className="text-sm text-muted">„Profil bestätigt“ ist eine Selbstauskunft, keine Ausweisprüfung. Bewertungen kommen erst nach einem echten Check-in.</p>
-        {profile.identityConfirmed ? <p className="text-sm font-semibold">Profil bestätigt</p> : (
-          <Button type="button" tone="ghost" onClick={async () => { await confirmIdentity(); await reload(); }}>Angaben bestätigen</Button>
-        )}
+        <p className="text-sm text-muted">Bewertungen kommen erst nach einem echten Check-in. „Profil bestätigt“ setzt MeeQo selbst nach einer Prüfung, du kannst es nicht anklicken.</p>
+        {profile.identityConfirmed ? <p className="text-sm font-semibold">Profil bestätigt</p> : null}
       </div>
       <div className="grid gap-2">
         {LINKS.map(([to, label]) => (

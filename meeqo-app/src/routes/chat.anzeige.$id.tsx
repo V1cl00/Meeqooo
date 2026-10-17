@@ -1,11 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Button, Note, TextInput } from "@/components/bits";
 import { SafetyMenu } from "@/components/safety";
 import { Shell } from "@/components/shell";
 import { listAdMessages, sendAdMessage } from "@/lib/meeqo/api";
 import { errText, formatWhen, HANDOVER_SPOTS } from "@/lib/meeqo/labels";
-import { useLoad } from "@/lib/meeqo/use-load";
+import { useLoad, usePolling } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/chat/anzeige/$id")({ component: Page });
 
@@ -19,16 +19,24 @@ function Page() {
 }
 
 function Thread({ id }: { id: string }) {
-  const { data, error, loading, reload } = useLoad(() => listAdMessages({ data: { id } }), [id]);
+  const { data, error, loading, reload, refresh } = useLoad(() => listAdMessages({ data: { id } }), [id]);
   const [body, setBody] = useState("");
   const [fail, setFail] = useState("");
+  const seen = useRef(0);
+  usePolling(refresh);
+
+  useEffect(() => {
+    const count = data?.messages.length ?? 0;
+    if (count > seen.current) window.scrollTo({ top: document.body.scrollHeight, behavior: seen.current === 0 ? "auto" : "smooth" });
+    seen.current = count;
+  }, [data?.messages.length]);
 
   async function send(text: string) {
     setFail("");
     try {
       await sendAdMessage({ data: { id, body: text } });
       setBody("");
-      reload();
+      refresh();
     } catch (err) {
       setFail(errText(err));
     }

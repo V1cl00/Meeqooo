@@ -152,6 +152,23 @@ Liste und einzelne Nachrichten zeigen das Profilfoto, sonst den Anfangsbuchstabe
 - Gesperrte Konten werfen in `ensureProfile` den Fehler „Dein Konto ist gesperrt“ und kommen nicht mehr in die App.
 - Erledigte Meldungen stehen nur im Reiter „Alle“.
 
+## Startreife-Runde (Migrationen 0018, 0019)
+
+- 18+: Seite `/alter` (Geburtsjahr, Haken, Zustimmung) sperrt die App, bis `profiles.age_confirmed_at` gesetzt ist. Server prüft in `requestJoin`, `createActivity`, `expressInterest`, `createClassified` über `assertAdult`. Das Geburtsjahr ist eine Selbstauskunft, keine Prüfung.
+- „Profil bestätigt“ ist nicht mehr anklickbar. Nur ein Admin setzt es (`setVerified`, Knopf auf dem Profil). Beispiel-Profile tragen es nicht mehr.
+- Begrenzung: `throttle()` über `rate_events` (Anfragen 20/Std., Nachrichten 40/Min., Treffen 10/Tag, Anzeigen 10/Tag, Meldungen 10/Std., Wünsche 20/Std.).
+- Bilder: `validImage` prüft Typ, Magic Bytes und Größe. Es gibt keine automatische Inhaltsprüfung (nackt, Gewalt).
+- `memberMiddleware` statt `authMiddleware` in `api.ts`: sperrt gesperrte Konten bei jedem Aufruf (30 Sekunden Zwischenspeicher je Server).
+- Chat lädt alle 4 Sekunden nach (`usePolling`, `refresh` ohne Flackern). Nachrichten: die letzten 200.
+- Feed blättert (`limit`, „Mehr zeigen“).
+- E-Mail über Resend, nur mit `RESEND_API_KEY` und `MAIL_FROM` (und `APP_URL` für Links). Passwort vergessen läuft über eigene Funktionen (`requestPasswordReset`, `resetPassword`, Seite `/passwort`), weil `server.ts` eingefroren ist. Mails zu Anfragen und Zusagen sind in den Einstellungen abschaltbar.
+- Admin: `/admin/zahlen` (Konten, Anfragen, unbeantwortet über 24 Std., Fehler) und `/admin/meldungen`. Fehler aus dem Browser landen in `error_log`.
+- Termin: „Zum Kalender“ (.ics) und „Karte öffnen“ am Treffen.
+- Seiten: Nutzungsbedingungen, Community-Regeln (beide Entwürfe).
+- Tests: `npm run test:unit` (Orte, Kalender), `npm run test:e2e` (vier Browser-Durchläufe, siehe `e2e/README.md`). CI in `.github/workflows/ci.yml`, auf GitHub noch nicht gelaufen. `npm test` bleibt rot wegen Grok-Umgebungstests.
+- Barrierefreiheit mit axe geprüft: keine Befunde auf den geprüften Seiten. Das ersetzt keine Prüfung mit Screenreader.
+- Sicherheit: Review der Serverfunktionen. Behoben: Bewertungsabfrage nur für Beteiligte, Weiterleitung nach Login lässt `/\` nicht mehr durch, gesperrte Konten überall draußen.
+
 ## Noch schwach, nicht anfassen ohne Auftrag
 
 - Menschen ohne Foto bleiben Buchstaben. Foto ist Pflicht zum Anfragen und zum Veröffentlichen, nicht zum Reinschauen.

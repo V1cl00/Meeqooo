@@ -1,10 +1,22 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { logClientError } from "@/lib/meeqo/api";
 import { warmStart } from "@/lib/meeqo/warm";
 import appCss from "../styles.css?url";
 
 warmStart();
+
+if (typeof window !== "undefined") {
+  let sent = 0;
+  const report = (message: unknown) => {
+    if (sent >= 5) return;
+    sent += 1;
+    void logClientError({ data: { message: String(message ?? "Unbekannter Fehler"), path: window.location.pathname } }).catch(() => {});
+  };
+  window.addEventListener("error", (event) => report(event.message));
+  window.addEventListener("unhandledrejection", (event) => report((event.reason as Error | undefined)?.message ?? event.reason));
+}
 
 export const Route = createRootRoute({
   head: () => ({

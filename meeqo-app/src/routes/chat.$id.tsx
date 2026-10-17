@@ -1,10 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, Note, TextInput } from "@/components/bits";
 import { Shell } from "@/components/shell";
 import { listMessages, sendMessage } from "@/lib/meeqo/api";
 import { errText, formatWhen } from "@/lib/meeqo/labels";
-import { useLoad } from "@/lib/meeqo/use-load";
+import { useLoad, usePolling } from "@/lib/meeqo/use-load";
 
 export const Route = createFileRoute("/chat/$id")({ component: Page });
 
@@ -18,9 +18,17 @@ function Page() {
 }
 
 function Thread({ id }: { id: string }) {
-  const { data, error, loading, reload } = useLoad(() => listMessages({ data: { id } }), [id]);
+  const { data, error, loading, reload, refresh } = useLoad(() => listMessages({ data: { id } }), [id]);
   const [body, setBody] = useState("");
   const [fail, setFail] = useState("");
+  const seen = useRef(0);
+  usePolling(refresh);
+
+  useEffect(() => {
+    const count = data?.messages.length ?? 0;
+    if (count > seen.current) window.scrollTo({ top: document.body.scrollHeight, behavior: seen.current === 0 ? "auto" : "smooth" });
+    seen.current = count;
+  }, [data?.messages.length]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -28,7 +36,7 @@ function Thread({ id }: { id: string }) {
     try {
       await sendMessage({ data: { id, body } });
       setBody("");
-      reload();
+      refresh();
     } catch (err) {
       setFail(errText(err));
     }

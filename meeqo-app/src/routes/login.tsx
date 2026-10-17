@@ -2,12 +2,14 @@ import { useState, type FormEvent } from "react";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { authClient, authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { Link } from "@tanstack/react-router";
 import { Button, Field, Note, TextInput, WelcomeHero } from "@/components/bits";
+import { requestPasswordReset } from "@/lib/meeqo/api";
 import { errText } from "@/lib/meeqo/labels";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
-    next: typeof search.next === "string" && search.next.startsWith("/") && !search.next.startsWith("//") ? search.next : undefined,
+    next: typeof search.next === "string" && /^\/(?![/\\])/.test(search.next) ? search.next : undefined,
   }),
   component: LoginPage,
 });
@@ -21,6 +23,8 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [forgot, setForgot] = useState(false);
+  const [resetInfo, setResetInfo] = useState("");
 
   if (isPending) {
     return (
@@ -84,6 +88,33 @@ function LoginPage() {
             <Button type="submit" disabled={pending} className="w-full">
               {pending ? "Moment…" : mode === "up" ? "Konto anlegen" : "Einloggen"}
             </Button>
+            {mode === "up" ? (
+              <p className="text-xs text-muted">
+                Mit dem Konto stimmst du den <Link to="/nutzungsbedingungen" className="underline">Nutzungsbedingungen</Link> und dem <Link to="/datenschutz" className="underline">Datenschutz</Link> zu. MeeQo ist ab 18.
+              </p>
+            ) : (
+              <>
+                <button type="button" className="text-sm font-semibold underline" onClick={() => setForgot((value) => !value)}>Passwort vergessen?</button>
+                {forgot ? (
+                  <div className="space-y-2 rounded-2xl bg-sand-deep p-3">
+                    <p className="text-sm">Schreib deine E-Mail. Wenn es das Konto gibt, schicken wir dir einen Link.</p>
+                    <Button
+                      type="button"
+                      tone="ghost"
+                      className="w-full"
+                      disabled={!email}
+                      onClick={async () => {
+                        await requestPasswordReset({ data: { email } }).catch(() => {});
+                        setResetInfo("Wenn es die Adresse gibt, ist eine Mail unterwegs. Sie gilt eine Stunde.");
+                      }}
+                    >
+                      Link schicken
+                    </Button>
+                    {resetInfo ? <p className="text-sm text-friend">{resetInfo}</p> : null}
+                  </div>
+                ) : null}
+              </>
+            )}
           </form>
         ) : (
           <Note>Anmeldung ist aus.</Note>

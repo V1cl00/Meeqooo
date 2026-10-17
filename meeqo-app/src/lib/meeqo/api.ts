@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql, type Sql } from "@/lib/db";
 import { kmBetween, cityCoords, matchCities } from "@/lib/meeqo/geo";
@@ -17,6 +17,7 @@ import type {
   SafetyView,
   BlockedUser,
   AdminReport,
+  AdminStats,
   InviteView,
   ChatThread,
   Classified,
@@ -29,6 +30,29 @@ import type {
   PublicProfile,
   RequestItem,
 } from "@/lib/meeqo/types";
+
+/**
+ * authMiddleware plus: suspended accounts are shut out of every call, not only the ones that load a profile.
+ * The flag is cached for 30 seconds per server, so a suspension reaches other servers within that time.
+ */
+const suspendedCache = new Map<string, { at: number; value: boolean }>();
+
+const memberMiddleware = createMiddleware({ type: "function" })
+  .middleware([authMiddleware])
+  .server(async ({ next, context }) => {
+    const hit = suspendedCache.get(context.userId);
+    let suspended: boolean;
+    if (hit && Date.now() - hit.at < 30_000) {
+      suspended = hit.value;
+    } else {
+      const sql = await getSql();
+      const rows = await sql<{ suspended: boolean }>`select suspended from profiles where user_id = ${context.userId}`;
+      suspended = flag(rows[0]?.suspended);
+      suspendedCache.set(context.userId, { at: Date.now(), value: suspended });
+    }
+    if (suspended) throw new Error("Dein Konto ist gesperrt. Schreib dem Support.");
+    return next();
+  });
 
 type ProfileRow = {
   suspended?: boolean;
@@ -50,6 +74,8 @@ type ProfileRow = {
   trusted_label: string;
   onboarding_done: boolean;
   notify_push: boolean;
+  age_confirmed_at?: unknown;
+  notify_email?: boolean;
   avatar_url: string;
   theme: string;
   traits: string;
@@ -191,6 +217,31 @@ function passesFilter(filter: string, intent: string) {
   return true;
 }
 
+function assertAdult(profile: { ageConfirmed: boolean }) {
+  if (!profile.ageConfirmed) throw new Error("Bestätige zuerst, dass du mindestens 18 bist.");
+}
+
+/** At most `max` actions of one kind per user in `seconds`. Counts are kept in the database, so they hold across servers. */
+async function throttle(sql: Sql, userId: string, kind: string, max: number, seconds: number) {
+  const rows = await sql<{ n: number }>`
+    select count(*)::int as n from rate_events
+    where user_id = ${userId} and kind = ${kind} and created_at > now() - (${seconds}::int * interval '1 second')
+  `;
+  if (num(rows[0]?.n) >= max) throw new Error("Langsam. Das passiert gerade sehr oft. Versuch es in ein paar Minuten nochmal.");
+  await sql`insert into rate_events (user_id, kind) values (${userId}, ${kind})`;
+  if (Math.random() < 0.02) await sql`delete from rate_events where created_at < now() - interval '2 days'`;
+}
+
+/** A real image, not a text that merely starts like one: right type, right magic bytes, sane size. */
+function validImage(value: string) {
+  const match = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/.exec(value);
+  if (!match || value.length > 450_000) return false;
+  const head = Buffer.from(match[2].slice(0, 24), "base64");
+  return match[1] === "jpeg"
+    ? head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff
+    : head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+}
+
 async function blockedWith(sql: Sql, userId: string) {
   const rows = await sql<{ other: string }>`
     select case when blocker_id = ${userId} then blocked_id else blocker_id end as other
@@ -241,6 +292,8 @@ function mapProfile(row: ProfileRow, stats: { n: number; yes: number; hosted: nu
     audienceIds: parseList(row.audience_ids),
     onboardingDone: flag(row.onboarding_done),
     notifyPush: flag(row.notify_push),
+    ageConfirmed: Boolean(row.age_confirmed_at),
+    notifyEmail: row.notify_email !== false,
     avatarUrl: row.avatar_url || "",
     badges: badgesFrom(
       flag(row.identity_confirmed),
@@ -484,6 +537,25 @@ async function notify(sql: Sql, userId: string, kind: string, title: string, bod
     values (${crypto.randomUUID()}, ${userId}, ${kind}, ${title}, ${body}, ${href}, ${refId})
   `;
   await sendPush(sql, userId, title, body, href);
+  if (EMAIL_KINDS.has(kind)) await sendEmail(sql, userId, title, body, href);
+}
+
+const EMAIL_KINDS = new Set(["request", "accepted", "withdrawn", "wish", "ad"]);
+
+/** Only with a mail service set up and only if the person left mails on. */
+async function sendEmail(sql: Sql, userId: string, title: string, body: string, href: string) {
+  try {
+    const { mailConfigured, sendMail, appUrl } = await import("@/lib/mail.server");
+    if (!mailConfigured) return;
+    const rows = await sql<{ email: string; notify_email: boolean }>`
+      select u.email, p.notify_email from "user" u join profiles p on p.user_id = u.id where u.id = ${userId}
+    `;
+    if (!rows[0] || rows[0].notify_email === false) return;
+    const link = appUrl() ? `\n\n${appUrl()}${href}` : "";
+    await sendMail(rows[0].email, `MeeQo: ${title}`, `${title}\n${body}${link}\n\nMails zu Anfragen und Zusagen kannst du in den Einstellungen ausschalten.`);
+  } catch {
+    /* a mail is a bonus; the notification row is already saved */
+  }
 }
 
 /** Needs VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT. Without them nothing is sent and nothing breaks. */
@@ -521,7 +593,7 @@ function clean(value: unknown, max: number) {
 }
 
 export const getProfile = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }) => {
     const { profile } = await ensureProfile(context.userId);
     return profile;
@@ -548,7 +620,7 @@ const profileInput = (input: {
 }) => input;
 
 export const saveOnboarding = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator(profileInput)
   .handler(async ({ data, context }) => {
     const { profile } = await ensureProfile(context.userId);
@@ -596,7 +668,7 @@ export const saveOnboarding = createServerFn({ method: "POST" })
   });
 
 export const updateProfile = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator(profileInput)
   .handler(async ({ data, context }) => {
     const { profile } = await ensureProfile(context.userId);
@@ -657,7 +729,7 @@ export const updateProfile = createServerFn({ method: "POST" })
   });
 
 export const setLocation = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { lat: number; lng: number; city?: string }) => input)
   .handler(async ({ data, context }) => {
     const lat = Number(data.lat);
@@ -691,7 +763,7 @@ export const setLocation = createServerFn({ method: "POST" })
 export type PlaceHit = { city: string; label: string; detail: string; lat: number; lng: number };
 
 export const suggestPlaces = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { q: string }) => ({ q: clean(input.q, 80) }))
   .handler(async ({ data }): Promise<PlaceHit[]> => {
     const q = data.q.trim();
@@ -728,7 +800,7 @@ export const suggestPlaces = createServerFn({ method: "POST" })
   });
 
 export const setPlace = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { city: string; lat?: number; lng?: number }) => ({
     city: clean(input.city, 60),
     lat: Number(input.lat),
@@ -753,16 +825,8 @@ export const setPlace = createServerFn({ method: "POST" })
     return { ok: true as const, city };
   });
 
-export const confirmIdentity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
-  .handler(async ({ context }) => {
-    const sql = await getSql();
-    await sql`update profiles set identity_confirmed = true where user_id = ${context.userId}`;
-    return { ok: true as const };
-  });
-
 export const setNotify = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { enabled: boolean }) => ({ enabled: Boolean(input.enabled) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -771,7 +835,7 @@ export const setNotify = createServerFn({ method: "POST" })
   });
 
 export const setRequireTraits = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { traits: string[] }) => ({
     traits: Array.isArray(input.traits) ? input.traits.map((item) => clean(item, 40)).filter(Boolean).slice(0, 12) : [],
   }))
@@ -782,7 +846,7 @@ export const setRequireTraits = createServerFn({ method: "POST" })
   });
 
 export const setRadius = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { radiusKm: number }) => input)
   .handler(async ({ data, context }) => {
     const radius = Number(data.radiusKm);
@@ -793,7 +857,7 @@ export const setRadius = createServerFn({ method: "POST" })
   });
 
 export const hideActivity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -809,7 +873,7 @@ export const hideActivity = createServerFn({ method: "POST" })
   });
 
 export const unhideActivity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -820,7 +884,7 @@ export const unhideActivity = createServerFn({ method: "POST" })
   });
 
 export const listHidden = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<ActivityCard[]> => {
     const { sql, profile } = await ensureProfile(context.userId);
     const hidden = await hiddenSet(sql, context.userId);
@@ -830,7 +894,7 @@ export const listHidden = createServerFn({ method: "GET" })
   });
 
 export const registerOrganizer = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { name: string; city: string; bookingMode: string; bio: string }) => input)
   .handler(async ({ data, context }) => {
     const name = clean(data.name, 60);
@@ -866,6 +930,7 @@ type FeedInput = {
   mineOnly?: boolean;
   includePast?: boolean;
   days?: string[];
+  limit?: number;
 };
 
 function searchPlace(data: FeedInput) {
@@ -877,10 +942,11 @@ function searchPlace(data: FeedInput) {
 }
 
 export const getFeed = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: FeedInput) => input ?? {})
   .handler(async ({ data, context }): Promise<FeedResult> => {
     const { sql, profile } = await ensureProfile(context.userId);
+    const limit = Math.min(200, Math.max(1, Math.round(Number(data.limit)) || 30));
     const place = searchPlace(data);
     const cutoff = Date.now() - 2 * 60 * 60 * 1000;
     const [hidden, blocked, audience, rows, looked, againRows] = await Promise.all([
@@ -966,17 +1032,17 @@ export const getFeed = createServerFn({ method: "POST" })
     if (place && !looked) {
       const named = matched.filter((item) => item.city.trim().toLowerCase() === place.toLowerCase());
       named.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-      return { items: named, missed: 0, hasLocation: true, around: place, ...hint(named) };
+      return { items: named.slice(0, limit), total: named.length, missed: 0, hasLocation: true, around: place, ...hint(named) };
     }
-    if (!origin || data.mineOnly) return { items: matched, missed: 0, hasLocation: Boolean(origin), around: place || undefined, ...hint(matched) };
+    if (!origin || data.mineOnly) return { items: matched.slice(0, limit), total: matched.length, missed: 0, hasLocation: Boolean(origin), around: place || undefined, ...hint(matched) };
     const near = matched.filter((item) => item.km != null && item.km <= radius);
     const missed = matched.filter((item) => item.km != null && item.km > radius && item.km <= 120).length;
     near.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-    return { items: near, missed, hasLocation: true, around: place || undefined, ...hint(near) };
+    return { items: near.slice(0, limit), total: near.length, missed, hasLocation: true, around: place || undefined, ...hint(near) };
   });
 
 export const getActivity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }): Promise<ActivityDetail> => {
     const { sql, profile } = await ensureProfile(context.userId);
@@ -1047,7 +1113,7 @@ export const getActivity = createServerFn({ method: "POST" })
   });
 
 export const confirmAttendance = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string; coming: boolean }) => ({ id: clean(input.id, 80), coming: Boolean(input.coming) }))
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
@@ -1067,7 +1133,7 @@ export const confirmAttendance = createServerFn({ method: "POST" })
   });
 
 export const createActivity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: {
     title: string;
     description: string;
@@ -1089,6 +1155,8 @@ export const createActivity = createServerFn({ method: "POST" })
   }) => input)
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
+    assertAdult(profile);
+    await throttle(sql, context.userId, "activity", 10, 86_400);
     const title = clean(data.title, 80);
     const description = clean(data.description, 800);
     const category = assertCategory(clean(data.category, 48));
@@ -1122,7 +1190,7 @@ export const createActivity = createServerFn({ method: "POST" })
       if (!member.length) throw new Error("Tritt der Community zuerst bei.");
     }
     let imageUrl = clean(data.imageUrl, 450_000);
-    if (imageUrl && !imageUrl.startsWith("data:image/jpeg") && !imageUrl.startsWith("data:image/png") && !imageUrl.startsWith("/activities/")) {
+    if (imageUrl && !imageUrl.startsWith("/activities/") && !validImage(imageUrl)) {
       imageUrl = "";
     }
     if (!imageUrl) throw new Error("Ohne Foto wird nichts veröffentlicht.");
@@ -1146,7 +1214,7 @@ export const createActivity = createServerFn({ method: "POST" })
   });
 
 export const cancelActivity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -1164,7 +1232,7 @@ export const cancelActivity = createServerFn({ method: "POST" })
   });
 
 export const requestJoin = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string; mood?: string }) => ({
     id: clean(input.id, 80),
     mood: (MOODS as readonly string[]).includes(input.mood ?? "") ? (input.mood as string) : "",
@@ -1172,7 +1240,9 @@ export const requestJoin = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
     if (!profile.onboardingDone) throw new Error("Schließ zuerst das Onboarding ab.");
+    assertAdult(profile);
     if (!profile.avatarUrl) throw new Error("Ohne Foto kannst du nicht anfragen. Lad eins im Profil hoch.");
+    await throttle(sql, context.userId, "request", 20, 3600);
     const rows = await loadRows(sql, context.userId, null, data.id);
     const row = rows.find((item) => item.id === data.id);
     if (!row) throw new Error("Aktivität nicht gefunden.");
@@ -1207,7 +1277,7 @@ export const requestJoin = createServerFn({ method: "POST" })
   });
 
 export const respondRequest = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string; accept: boolean }) => ({ id: clean(input.id, 80), accept: Boolean(input.accept) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -1240,7 +1310,7 @@ export const respondRequest = createServerFn({ method: "POST" })
   });
 
 export const listRequests = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<RequestItem[]> => {
     const sql = await getSql();
     const incoming = await sql<{ id: string; activity_id: string; title: string; display_name: string; status: string; created_at: unknown; mood: string }>`
@@ -1284,7 +1354,7 @@ export const listRequests = createServerFn({ method: "GET" })
   });
 
 export const listChats = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<ChatThread[]> => {
     const sql = await getSql();
     const blocked = await blockedWith(sql, context.userId);
@@ -1363,17 +1433,20 @@ async function assertChat(sql: Sql, activityId: string, userId: string) {
 }
 
 export const listMessages = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }): Promise<{ title: string; group: boolean; people: ChatPerson[]; messages: ChatMessage[] }> => {
     const sql = await getSql();
     const activity = await assertChat(sql, data.id, context.userId);
     const rows = await sql<{ id: string; sender_id: string; body: string; created_at: unknown; display_name: string | null; avatar_url: string | null }>`
-      select m.id, m.sender_id, m.body, m.created_at, p.display_name, p.avatar_url
-      from messages m
-      left join profiles p on p.user_id = m.sender_id
-      where m.activity_id = ${data.id}
-      order by m.created_at asc
+      select * from (
+        select m.id, m.sender_id, m.body, m.created_at, p.display_name, p.avatar_url
+        from messages m
+        left join profiles p on p.user_id = m.sender_id
+        where m.activity_id = ${data.id}
+        order by m.created_at desc
+        limit 200
+      ) latest order by created_at asc
     `;
     const members = await sql<{ user_id: string; display_name: string | null; avatar_url: string | null; is_host: boolean }>`
       select a.host_id as user_id, p.display_name, p.avatar_url, true as is_host
@@ -1411,12 +1484,13 @@ export const listMessages = createServerFn({ method: "POST" })
   });
 
 export const sendMessage = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string; body: string }) => ({ id: clean(input.id, 80), body: clean(input.body, 1000) }))
   .handler(async ({ data, context }) => {
     if (data.body.length < 1) throw new Error("Nachricht ist leer.");
     const sql = await getSql();
     const activity = await assertChat(sql, data.id, context.userId);
+    await throttle(sql, context.userId, "message", 40, 60);
     await sql`
       insert into messages (id, activity_id, sender_id, body)
       values (${crypto.randomUUID()}, ${data.id}, ${context.userId}, ${data.body})
@@ -1433,7 +1507,7 @@ export const sendMessage = createServerFn({ method: "POST" })
   });
 
 export const checkIn = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -1453,7 +1527,7 @@ export const checkIn = createServerFn({ method: "POST" })
   });
 
 export const rateMeet = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { activityId: string; rateeId: string; punctual: number; respectful: number; matches: number; wantAgain: boolean }) => input)
   .handler(async ({ data, context }) => {
     const punctual = Math.round(Number(data.punctual));
@@ -1494,7 +1568,7 @@ export const rateMeet = createServerFn({ method: "POST" })
   });
 
 export const ratingTargets = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -1505,6 +1579,9 @@ export const ratingTargets = createServerFn({ method: "POST" })
     `;
     const act = acts[0];
     if (!act) throw new Error("Aktivität nicht gefunden.");
+    const belongs = act.host_id === context.userId
+      || (await sql`select 1 as ok from join_requests where activity_id = ${data.id} and requester_id = ${context.userId} and status = 'accepted'`).length > 0;
+    if (!belongs) throw new Error("Aktivität nicht gefunden.");
     const checked = await sql`select 1 as ok from checkins where activity_id = ${data.id} and user_id = ${context.userId}`;
     const guests = await sql<{ user_id: string; display_name: string }>`
       select j.requester_id as user_id, p.display_name
@@ -1518,7 +1595,7 @@ export const ratingTargets = createServerFn({ method: "POST" })
   });
 
 export const listNotifications = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<Notice[]> => {
     const sql = await getSql();
     const soon = await sql<{ id: string; title: string }>`
@@ -1556,7 +1633,7 @@ export const listNotifications = createServerFn({ method: "GET" })
   });
 
 export const markNotificationsRead = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
     await sql`update notifications set read = true where user_id = ${context.userId} and read = false`;
@@ -1564,7 +1641,7 @@ export const markNotificationsRead = createServerFn({ method: "POST" })
   });
 
 export const getPublicProfile = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }): Promise<PublicProfile> => {
     await ensureProfile(context.userId);
@@ -1598,18 +1675,18 @@ export const getPublicProfile = createServerFn({ method: "POST" })
   });
 
 export const setAvatar = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { imageUrl: string }) => ({ imageUrl: clean(input.imageUrl, 450_000) }))
   .handler(async ({ data, context }) => {
     const imageUrl = data.imageUrl;
-    if (!imageUrl.startsWith("data:image/jpeg") && !imageUrl.startsWith("data:image/png")) throw new Error("Das Foto muss ein Bild sein.");
+    if (!validImage(imageUrl)) throw new Error("Das Foto muss ein JPEG- oder PNG-Bild sein und darf nicht zu groß sein.");
     const sql = await getSql();
     await sql`update profiles set avatar_url = ${imageUrl} where user_id = ${context.userId}`;
     return { ok: true as const };
   });
 
 export const toggleFavorite = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { userId: string }) => ({ userId: clean(input.userId, 80) }))
   .handler(async ({ data, context }) => {
     if (!data.userId || data.userId === context.userId) throw new Error("Diese Person kannst du nicht merken.");
@@ -1624,7 +1701,7 @@ export const toggleFavorite = createServerFn({ method: "POST" })
   });
 
 export const listFavorites = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<FriendPerson[]> => {
     const sql = await getSql();
     const rows = await sql<{ user_id: string; display_name: string; city: string }>`
@@ -1637,7 +1714,7 @@ export const listFavorites = createServerFn({ method: "GET" })
   });
 
 export const organizerStats = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
     const upcoming = await sql<{ n: number }>`
@@ -1658,7 +1735,7 @@ export const organizerStats = createServerFn({ method: "GET" })
   });
 
 export const listPosts = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { userId?: string; communityId?: string }) => ({
     userId: clean(input?.userId, 80),
     communityId: clean(input?.communityId, 80),
@@ -1708,7 +1785,7 @@ export const listPosts = createServerFn({ method: "POST" })
   });
 
 export const createPost = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { body: string; audience?: string; communityId?: string; requireTraits?: string[]; visibility?: string; communityIds?: string[] }) => input)
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
@@ -1733,7 +1810,7 @@ export const createPost = createServerFn({ method: "POST" })
   });
 
 export const deletePost = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -1743,7 +1820,7 @@ export const deletePost = createServerFn({ method: "POST" })
   });
 
 export const listCommunities = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<CommunityCard[]> => {
     const { sql, profile } = await ensureProfile(context.userId);
     const rows = await sql<{
@@ -1772,7 +1849,7 @@ export const listCommunities = createServerFn({ method: "GET" })
   });
 
 export const getCommunity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
@@ -1795,7 +1872,7 @@ export const getCommunity = createServerFn({ method: "POST" })
   });
 
 export const joinCommunity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -1809,7 +1886,7 @@ export const joinCommunity = createServerFn({ method: "POST" })
   });
 
 export const createCommunity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { name: string; topic: string; city: string; description: string }) => input)
   .handler(async ({ data, context }) => {
     const name = clean(data.name, 60);
@@ -1828,7 +1905,7 @@ export const createCommunity = createServerFn({ method: "POST" })
   });
 
 export const listCategories = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
     const rows = await sql<{ id: string; name: string; parent: string | null }>`
@@ -1838,7 +1915,7 @@ export const listCategories = createServerFn({ method: "GET" })
   });
 
 export const addCategory = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { name: string; parent: string }) => ({
     name: clean(input.name, 30).replace(/·/g, "").trim(),
     parent: clean(input.parent, 30),
@@ -1861,7 +1938,7 @@ export const addCategory = createServerFn({ method: "POST" })
   });
 
 export const removeCategory = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -1879,7 +1956,7 @@ function readTheme(raw: string | null | undefined) {
 }
 
 export const designTheme = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { note?: string }) => ({ note: clean(input.note, 240) }))
   .handler(async ({ data, context }) => {
     if (data.note.length < 2) throw new Error("Beschreib kurz, wie es aussehen soll.");
@@ -1925,7 +2002,7 @@ export const designTheme = createServerFn({ method: "POST" })
   });
 
 export const resetTheme = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
     await sql`update profiles set theme = '' where user_id = ${context.userId}`;
@@ -1933,7 +2010,7 @@ export const resetTheme = createServerFn({ method: "POST" })
   });
 
 export const suggestActivities = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { note?: string; city?: string }) => ({ note: clean(input.note, 300), city: clean(input.city, 60) }))
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
@@ -2006,7 +2083,7 @@ export const suggestActivities = createServerFn({ method: "POST" })
   });
 
 export const supportAsk = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { question: string }) => ({ question: clean(input.question, 500) }))
   .handler(async ({ data }) => {
     if (data.question.length < 4) throw new Error("Schreib eine kurze Frage.");
@@ -2033,7 +2110,7 @@ export const supportAsk = createServerFn({ method: "POST" })
   });
 
 export const searchCategories = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { q?: string }) => ({ q: clean(input?.q, 40).toLowerCase() }))
   .handler(async ({ data }): Promise<{ hits: CategoryHit[]; promoted: CategoryHit[] }> => {
     const sql = await getSql();
@@ -2124,14 +2201,16 @@ async function loadClassifieds(userId: string): Promise<Classified[]> {
 }
 
 export const listClassifieds = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<Classified[]> => loadClassifieds(context.userId));
 
 export const createClassified = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { title: string; body: string; category: string; city: string; price?: string; traits?: string[]; visibility?: string; communityIds?: string[] }) => input)
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
+    assertAdult(profile);
+    await throttle(sql, context.userId, "classified", 10, 86_400);
     const title = clean(data.title, 80);
     const body = clean(data.body, 400);
     const category = clean(data.category, 40);
@@ -2151,7 +2230,7 @@ export const createClassified = createServerFn({ method: "POST" })
   });
 
 export const requestFriend = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { userId: string }) => ({ userId: clean(input.userId, 80) }))
   .handler(async ({ data, context }) => {
     if (!data.userId || data.userId === context.userId) throw new Error("Das geht nicht.");
@@ -2183,7 +2262,7 @@ export const requestFriend = createServerFn({ method: "POST" })
   });
 
 export const respondFriend = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { userId: string; accept: boolean }) => ({ userId: clean(input.userId, 80), accept: Boolean(input.accept) }))
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
@@ -2205,7 +2284,7 @@ export const respondFriend = createServerFn({ method: "POST" })
   });
 
 export const removeFriend = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { userId: string }) => ({ userId: clean(input.userId, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -2218,7 +2297,7 @@ export const removeFriend = createServerFn({ method: "POST" })
   });
 
 export const friendOverview = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
     const links = await sql<{ other: string; status: string; requester_id: string; display_name: string; city: string }>`
@@ -2274,7 +2353,7 @@ export const friendOverview = createServerFn({ method: "GET" })
   });
 
 export const listPersonActivity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }): Promise<ActivityCard[]> => {
     const { sql, profile } = await ensureProfile(context.userId);
@@ -2294,11 +2373,13 @@ export const listPersonActivity = createServerFn({ method: "POST" })
 // Kleinanzeigen: Interesse melden und chatten
 
 export const expressInterest = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string; body?: string }) => ({ id: clean(input.id, 80), body: clean(input.body, 500) }))
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
+    assertAdult(profile);
     if (!profile.avatarUrl) throw new Error("Ohne Foto kannst du nicht anfragen. Lad eins im Profil hoch.");
+    await throttle(sql, context.userId, "interest", 20, 3600);
     const ad = (await loadClassifieds(context.userId)).find((item) => item.id === data.id);
     if (!ad) throw new Error("Anzeige nicht gefunden.");
     if (ad.mine) throw new Error("Das ist deine eigene Anzeige.");
@@ -2335,7 +2416,7 @@ async function assertAdThread(sql: Sql, threadId: string, userId: string) {
 }
 
 export const listAdMessages = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }): Promise<AdChat> => {
     const sql = await getSql();
@@ -2344,9 +2425,11 @@ export const listAdMessages = createServerFn({ method: "POST" })
     const peerId = seller ? thread.buyer_id : thread.seller_id;
     const peer = await sql<{ display_name: string | null; avatar_url: string | null }>`select display_name, avatar_url from profiles where user_id = ${peerId}`;
     const rows = await sql<{ id: string; sender_id: string; body: string; created_at: unknown; display_name: string | null; avatar_url: string | null }>`
-      select m.id, m.sender_id, m.body, m.created_at, p.display_name, p.avatar_url
-      from classified_messages m left join profiles p on p.user_id = m.sender_id
-      where m.thread_id = ${data.id} order by m.created_at asc
+      select * from (
+        select m.id, m.sender_id, m.body, m.created_at, p.display_name, p.avatar_url
+        from classified_messages m left join profiles p on p.user_id = m.sender_id
+        where m.thread_id = ${data.id} order by m.created_at desc limit 200
+      ) latest order by created_at asc
     `;
     return {
       title: thread.title,
@@ -2370,7 +2453,7 @@ export const listAdMessages = createServerFn({ method: "POST" })
   });
 
 export const sendAdMessage = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string; body: string }) => ({ id: clean(input.id, 80), body: clean(input.body, 1000) }))
   .handler(async ({ data, context }) => {
     if (data.body.length < 1) throw new Error("Nachricht ist leer.");
@@ -2378,6 +2461,7 @@ export const sendAdMessage = createServerFn({ method: "POST" })
     const thread = await assertAdThread(sql, data.id, context.userId);
     const other = thread.seller_id === context.userId ? thread.buyer_id : thread.seller_id;
     if ((await blockedWith(sql, context.userId)).has(other)) throw new Error("Das geht nicht.");
+    await throttle(sql, context.userId, "message", 40, 60);
     await sql`
       insert into classified_messages (id, thread_id, sender_id, body)
       values (${crypto.randomUUID()}, ${data.id}, ${context.userId}, ${data.body})
@@ -2390,7 +2474,7 @@ export const sendAdMessage = createServerFn({ method: "POST" })
 // Treffen wiederholen
 
 export const repeatActivity = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string; weeks?: number }) => ({
     id: clean(input.id, 80),
     weeks: Math.min(12, Math.max(1, Math.round(Number(input.weeks)) || 1)),
@@ -2429,7 +2513,7 @@ function wishCategory(value: unknown) {
 }
 
 export const wishInfo = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { category: string }) => ({ category: wishCategory(input.category) }))
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
@@ -2441,11 +2525,12 @@ export const wishInfo = createServerFn({ method: "POST" })
   });
 
 export const makeWish = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { category: string; day?: string }) => ({ category: wishCategory(input.category), day: clean(input.day, 10) }))
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
     if (!profile.city) throw new Error("Stell zuerst deinen Ort ein.");
+    await throttle(sql, context.userId, "wish", 20, 3600);
     await sql`
       insert into wishes (id, user_id, category, city, day)
       values (${crypto.randomUUID()}, ${context.userId}, ${data.category}, ${profile.city}, ${data.day})
@@ -2466,7 +2551,7 @@ export const makeWish = createServerFn({ method: "POST" })
 // Vertrauensperson: Link mit Zeit, Ort und Check-in-Status
 
 export const createSafetyLink = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -2516,7 +2601,7 @@ export const getSafetyView = createServerFn({ method: "POST" })
 // Wieder getroffen: nur gegenseitiges Ja
 
 export const listCircle = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<CircleMember[]> => {
     const sql = await getSql();
     const rows = await sql<{ user_id: string; display_name: string | null; avatar_url: string | null; n: number }>`
@@ -2537,7 +2622,7 @@ export const listCircle = createServerFn({ method: "GET" })
 const REPORT_KINDS = ["person", "activity", "ad", "message"] as const;
 
 export const reportItem = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { kind: string; targetId: string; reason: string; note?: string }) => ({
     kind: clean(input.kind, 12),
     targetId: clean(input.targetId, 80),
@@ -2548,6 +2633,7 @@ export const reportItem = createServerFn({ method: "POST" })
     if (!(REPORT_KINDS as readonly string[]).includes(data.kind) || !data.targetId) throw new Error("Das lässt sich nicht melden.");
     if (!(REPORT_REASONS as readonly string[]).includes(data.reason)) throw new Error("Wähl einen Grund.");
     const sql = await getSql();
+    await throttle(sql, context.userId, "report", 10, 3600);
     await sql`
       insert into reports (id, reporter_id, kind, target_id, reason, note)
       values (${crypto.randomUUID()}, ${context.userId}, ${data.kind}, ${data.targetId}, ${data.reason}, ${data.note})
@@ -2556,7 +2642,7 @@ export const reportItem = createServerFn({ method: "POST" })
   });
 
 export const blockUser = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { userId: string }) => ({ userId: clean(input.userId, 80) }))
   .handler(async ({ data, context }) => {
     if (!data.userId || data.userId === context.userId) throw new Error("Das geht nicht.");
@@ -2578,7 +2664,7 @@ export const blockUser = createServerFn({ method: "POST" })
   });
 
 export const unblockUser = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { userId: string }) => ({ userId: clean(input.userId, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -2587,7 +2673,7 @@ export const unblockUser = createServerFn({ method: "POST" })
   });
 
 export const listBlocked = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<BlockedUser[]> => {
     const sql = await getSql();
     const rows = await sql<{ blocked_id: string; display_name: string | null; avatar_url: string | null }>`
@@ -2602,7 +2688,7 @@ export const listBlocked = createServerFn({ method: "GET" })
 // Konto und Daten loeschen
 
 export const deleteAccount = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { confirm: string }) => ({ confirm: clean(input.confirm, 20) }))
   .handler(async ({ data, context }) => {
     if (data.confirm !== "LÖSCHEN") throw new Error("Tipp zur Bestätigung: LÖSCHEN");
@@ -2643,7 +2729,7 @@ export const deleteAccount = createServerFn({ method: "POST" })
 // Einladung per Link
 
 export const createInvite = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -2690,11 +2776,11 @@ export const getInvite = createServerFn({ method: "POST" })
 // Web-Push
 
 export const pushKey = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async () => ({ key: process.env.VAPID_PUBLIC_KEY || "" }));
 
 export const savePush = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { endpoint: string; p256dh: string; auth: string }) => ({
     endpoint: clean(input.endpoint, 600),
     p256dh: clean(input.p256dh, 200),
@@ -2726,11 +2812,11 @@ async function requireAdmin(sql: Sql, userId: string) {
 }
 
 export const adminStatus = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }) => ({ admin: await isAdminUser(await getSql(), context.userId) }));
 
 export const listReports = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<AdminReport[]> => {
     const sql = await getSql();
     await requireAdmin(sql, context.userId);
@@ -2788,7 +2874,7 @@ export const listReports = createServerFn({ method: "GET" })
   });
 
 export const handleReport = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([memberMiddleware])
   .validator((input: { id: string; action: string }) => ({ id: clean(input.id, 80), action: clean(input.action, 12) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
@@ -2832,11 +2918,151 @@ export const handleReport = createServerFn({ method: "POST" })
       }
     }
     if ((data.action === "suspend" || data.action === "restore") && !ownerId) throw new Error("Hier gibt es keine Person zum Sperren.");
+    if (data.action === "remove" && ownerId) {
+      await notify(sql, ownerId, "removed", "Dein Inhalt wurde entfernt", "Er verstößt gegen die Community-Regeln. Wenn du das für falsch hältst, schreib dem Support.", "/support", data.id);
+    }
     if (data.action === "suspend") await sql`update profiles set suspended = true where user_id = ${ownerId}`;
     if (data.action === "restore") await sql`update profiles set suspended = false where user_id = ${ownerId}`;
+    if (ownerId) suspendedCache.delete(ownerId);
     if (data.action !== "restore") {
       await sql`update reports set status = 'done', action = ${data.action}, handled_at = now() where id = ${data.id}`;
       await notify(sql, report.reporter_id, "report", "Deine Meldung ist bearbeitet", "Danke, dass du Bescheid gesagt hast.", "/", data.id);
     }
     return { ok: true as const };
+  });
+
+// ---------------------------------------------------------------------------
+// 18+ und Bestaetigt
+
+export const confirmAge = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { year: number; adult: boolean }) => ({ year: Math.round(Number(input.year)), adult: Boolean(input.adult) }))
+  .handler(async ({ data, context }) => {
+    const thisYear = new Date().getFullYear();
+    if (!data.adult) throw new Error("MeeQo ist erst ab 18.");
+    if (!Number.isFinite(data.year) || data.year < thisYear - 110 || data.year > thisYear - 18) throw new Error("Mit diesem Geburtsjahr bist du noch nicht 18.");
+    const { sql } = await ensureProfile(context.userId);
+    await sql`update profiles set birth_year = ${data.year}, age_confirmed_at = now() where user_id = ${context.userId}`;
+    return { ok: true as const };
+  });
+
+/** The Bestaetigt badge is never self-service. An admin sets it after checking. */
+export const setVerified = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { userId: string; value: boolean }) => ({ userId: clean(input.userId, 80), value: Boolean(input.value) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    await requireAdmin(sql, context.userId);
+    await sql`update profiles set identity_confirmed = ${data.value} where user_id = ${data.userId}`;
+    return { ok: true as const };
+  });
+
+export const setNotifyEmail = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { enabled: boolean }) => ({ enabled: Boolean(input.enabled) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    await sql`update profiles set notify_email = ${data.enabled} where user_id = ${context.userId}`;
+    return { ok: true as const };
+  });
+
+// ---------------------------------------------------------------------------
+// Passwort vergessen. Oeffentlich, antwortet immer gleich, damit niemand Adressen erraten kann.
+
+export const requestPasswordReset = createServerFn({ method: "POST" })
+  .validator((input: { email: string }) => ({ email: clean(input.email, 200).toLowerCase() }))
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) return { ok: true as const };
+    await throttle(sql, `mail:${data.email}`, "reset", 3, 3600);
+    const users = await sql<{ id: string }>`select id from "user" where lower(email) = ${data.email}`;
+    const user = users[0];
+    if (!user) return { ok: true as const };
+    const { createHash, randomBytes } = await import("node:crypto");
+    const token = randomBytes(32).toString("hex");
+    const hash = createHash("sha256").update(token).digest("hex");
+    await sql`
+      insert into password_resets (token_hash, user_id, expires_at)
+      values (${hash}, ${user.id}, now() + interval '1 hour')
+    `;
+    const { sendMail, appUrl } = await import("@/lib/mail.server");
+    const link = `${appUrl()}/passwort?token=${token}`;
+    await sendMail(data.email, "MeeQo: Neues Passwort", `Du hast ein neues Passwort angefordert. Der Link gilt eine Stunde:\n\n${link}\n\nWar das nicht du, ignorier diese Mail.`);
+    return { ok: true as const };
+  });
+
+export const resetPassword = createServerFn({ method: "POST" })
+  .validator((input: { token: string; password: string }) => ({ token: clean(input.token, 100), password: String(input.password ?? "").slice(0, 200) }))
+  .handler(async ({ data }) => {
+    if (data.password.length < 8) throw new Error("Das Passwort braucht mindestens 8 Zeichen.");
+    const sql = await getSql();
+    const { createHash } = await import("node:crypto");
+    const hash = createHash("sha256").update(data.token).digest("hex");
+    const rows = await sql<{ user_id: string }>`
+      select user_id from password_resets where token_hash = ${hash} and used = false and expires_at > now()
+    `;
+    const row = rows[0];
+    if (!row) throw new Error("Dieser Link gilt nicht mehr. Fordere einen neuen an.");
+    const { auth } = await import("@/lib/auth/server");
+    const context = await auth.$context;
+    const password = await context.password.hash(data.password);
+    await sql`update "account" set "password" = ${password}, "updatedAt" = now() where "userId" = ${row.user_id} and "providerId" = 'credential'`;
+    await sql`delete from "session" where "userId" = ${row.user_id}`;
+    await sql`update password_resets set used = true where token_hash = ${hash}`;
+    return { ok: true as const };
+  });
+
+// ---------------------------------------------------------------------------
+// Zahlen und Fehler, ohne fremden Dienst
+
+export const logClientError = createServerFn({ method: "POST" })
+  .validator((input: { message: string; path?: string }) => ({ message: clean(input.message, 300), path: clean(input.path, 120) }))
+  .handler(async ({ data }) => {
+    if (!data.message) return { ok: true as const };
+    const sql = await getSql();
+    try {
+      await throttle(sql, "global", "client-error", 60, 60);
+    } catch {
+      return { ok: true as const };
+    }
+    await sql`insert into error_log (path, message) values (${data.path}, ${data.message})`;
+    if (Math.random() < 0.02) await sql`delete from error_log where created_at < now() - interval '30 days'`;
+    return { ok: true as const };
+  });
+
+export const adminStats = createServerFn({ method: "GET" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }): Promise<AdminStats> => {
+    const sql = await getSql();
+    await requireAdmin(sql, context.userId);
+    const one = async (query: Promise<{ n: number }[]>) => num((await query)[0]?.n);
+    const [users, newUsers7, onboarded, activities7, requests7, messages7, answered, total7, accepted, unanswered24h, openReports, errors24, errorList] = await Promise.all([
+      one(sql<{ n: number }>`select count(*)::int as n from "user"`),
+      one(sql<{ n: number }>`select count(*)::int as n from "user" where "createdAt" > now() - interval '7 days'`),
+      one(sql<{ n: number }>`select count(*)::int as n from profiles where onboarding_done and user_id not like 'seed:%'`),
+      one(sql<{ n: number }>`select count(*)::int as n from activities where created_at > now() - interval '7 days' and host_id not like 'seed:%'`),
+      one(sql<{ n: number }>`select count(*)::int as n from join_requests where created_at > now() - interval '7 days'`),
+      one(sql<{ n: number }>`select count(*)::int as n from messages where created_at > now() - interval '7 days'`),
+      one(sql<{ n: number }>`select count(*)::int as n from join_requests where created_at > now() - interval '30 days' and status <> 'pending' and responded_at is not null`),
+      one(sql<{ n: number }>`select count(*)::int as n from join_requests where created_at > now() - interval '30 days' and created_at < now() - interval '24 hours'`),
+      one(sql<{ n: number }>`select count(*)::int as n from join_requests where created_at > now() - interval '30 days' and status = 'accepted' and responded_at is not null`),
+      one(sql<{ n: number }>`select count(*)::int as n from join_requests where status = 'pending' and created_at < now() - interval '24 hours'`),
+      one(sql<{ n: number }>`select count(*)::int as n from reports where status = 'open'`),
+      one(sql<{ n: number }>`select count(*)::int as n from error_log where created_at > now() - interval '24 hours'`),
+      sql<{ path: string; message: string; created_at: unknown }>`select path, message, created_at from error_log order by created_at desc limit 8`,
+    ]);
+    return {
+      users,
+      newUsers7,
+      onboarded,
+      activities7,
+      requests7,
+      messages7,
+      answeredRate: total7 ? Math.round((answered / total7) * 100) : null,
+      acceptRate: answered ? Math.round((accepted / answered) * 100) : null,
+      unanswered24h,
+      openReports,
+      errors24,
+      errorList: errorList.map((row) => ({ path: row.path, message: row.message, createdAt: iso(row.created_at) })),
+    };
   });

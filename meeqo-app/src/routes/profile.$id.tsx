@@ -5,7 +5,7 @@ import { ActivityCard } from "@/components/bits";
 import { PostBoard } from "@/components/posts";
 import { SafetyMenu } from "@/components/safety";
 import { Shell, useMe } from "@/components/shell";
-import { getPublicProfile, listPersonActivity, removeFriend, requestFriend, respondFriend, toggleFavorite } from "@/lib/meeqo/api";
+import { adminStatus, getPublicProfile, setVerified, listPersonActivity, removeFriend, requestFriend, respondFriend, toggleFavorite } from "@/lib/meeqo/api";
 import { areaSummary, errText } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 
@@ -24,6 +24,7 @@ function Person({ id }: { id: string }) {
   const { profile } = useMe();
   const navigate = useNavigate();
   const { data, error, loading, reload } = useLoad(() => getPublicProfile({ data: { id } }), [id]);
+  const admin = useLoad(() => adminStatus(), []);
   const doing = useLoad(() => listPersonActivity({ data: { id } }), [id]);
   const [fail, setFail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -81,6 +82,18 @@ function Person({ id }: { id: string }) {
         <Link to="/friends" className="inline-flex h-12 items-center rounded-full border-2 border-line bg-card px-5 text-sm font-semibold">Was Freunde machen</Link>
       </div>
       {fail ? <Note>{fail}</Note> : null}
+      {admin.data?.admin ? (
+        <Button
+          type="button"
+          tone="ghost"
+          onClick={async () => {
+            await setVerified({ data: { userId: data.userId, value: !data.badges.includes("Profil bestätigt") } });
+            reload();
+          }}
+        >
+          {data.badges.includes("Profil bestätigt") ? "Admin: Bestätigung aufheben" : "Admin: als bestätigt markieren"}
+        </Button>
+      ) : null}
       <SafetyMenu kind="person" targetId={data.userId} personId={data.userId} personName={data.displayName.split(" ")[0]} onBlocked={() => navigate({ to: "/" })} />
       <section className="space-y-3">
         <h2 className="font-display text-2xl">Was gerade ansteht</h2>

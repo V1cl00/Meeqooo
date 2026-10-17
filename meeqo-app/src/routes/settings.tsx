@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea } from "@/components/bits";
 import { Shell, useMe } from "@/components/shell";
-import { adminStatus, deleteAccount, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
+import { adminStatus, deleteAccount, setNotifyEmail, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
 import { signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -161,6 +161,17 @@ function Settings() {
         <h2 className="font-display text-2xl">Mitteilungen</h2>
         <p className="text-sm text-muted">Anfragen, Zusagen und Erinnerungen 36 Stunden vorher. Mitteilungen kommen auch bei geschlossener App, wenn dein Browser und der Server es können. Sonst nur, solange MeeQo offen ist.</p>
         <Button type="button" onClick={push}>{profile.notifyPush ? "Mitteilungen sind an" : "Mitteilungen erlauben"}</Button>
+        <Button
+          type="button"
+          tone="ghost"
+          onClick={async () => {
+            await setNotifyEmail({ data: { enabled: !profile.notifyEmail } });
+            await reload();
+            setInfo(profile.notifyEmail ? "Keine Mails mehr zu Anfragen und Zusagen." : "Mails zu Anfragen und Zusagen sind an.");
+          }}
+        >
+          {profile.notifyEmail ? "Mails zu Anfragen: an" : "Mails zu Anfragen: aus"}
+        </Button>
       </div>
       <div className="card space-y-3 p-4">
         <h2 className="font-display text-2xl">Ausgeblendet</h2>
@@ -229,8 +240,11 @@ function Settings() {
       <p className="flex flex-wrap gap-4 pb-4 text-sm text-muted">
         <Link to="/datenschutz" className="underline">Datenschutz</Link>
         <Link to="/impressum" className="underline">Impressum</Link>
+        <Link to="/nutzungsbedingungen" className="underline">Nutzungsbedingungen</Link>
+        <Link to="/regeln" className="underline">Regeln</Link>
         <Link to="/support" className="underline">Hilfe</Link>
         {admin.data?.admin ? <Link to="/admin/meldungen" className="font-semibold text-ink underline">Meldungen bearbeiten</Link> : null}
+        {admin.data?.admin ? <Link to="/admin/zahlen" className="font-semibold text-ink underline">Zahlen</Link> : null}
       </p>
       {error ? <Note>{error}</Note> : null}
       {info ? <p className="text-sm text-friend">{info}</p> : null}

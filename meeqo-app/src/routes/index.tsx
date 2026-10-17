@@ -64,9 +64,12 @@ function Feed() {
   const [locError, setLocError] = useState("");
   const [gone, setGone] = useState<{ id: string; title: string } | null>(null);
   const [days, setDays] = useState<string[]>(() => [berlinDay()]);
+  const viewKey = `${filter}|${sub}|${days.join(",")}`;
+  const [more, setMore] = useState({ key: "", limit: 30 });
+  const limit = more.key === viewKey ? more.limit : 30;
   const { data, error, loading, reload: reloadFeed } = useLoad(
-    () => takeFeed(filter, sub, days),
-    [filter, sub, days.join(","), profile?.radiusKm, profile?.lat, profile?.city, profile?.areas.join(","), profile?.openTo, profile?.requireTraits.join(",")],
+    () => takeFeed(filter, sub, days, limit),
+    [filter, sub, days.join(","), limit, profile?.radiusKm, profile?.lat, profile?.city, profile?.areas.join(","), profile?.openTo, profile?.requireTraits.join(",")],
   );
 
   async function hide(item: Card) {
@@ -154,6 +157,11 @@ function Feed() {
         {data?.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} />)}
       </div>
       )}
+      {filter !== "classifieds" && data && data.total > data.items.length ? (
+        <Button type="button" tone="ghost" className="w-full" onClick={() => setMore({ key: viewKey, limit: limit + 30 })}>
+          Mehr zeigen · noch {data.total - data.items.length}
+        </Button>
+      ) : null}
       {filter !== "classifieds" && data && data.items.length === 0 ? (
         data.nextDay ? (
           <Empty

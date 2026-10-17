@@ -1,6 +1,8 @@
 import type { AppTheme } from "@/lib/meeqo/theme";
 
 export type Profile = {
+  ageConfirmed: boolean;
+  notifyEmail: boolean;
   userId: string;
   displayName: string;
   bio: string;
@@ -65,6 +67,7 @@ export type ActivityCard = {
 
 export type FeedResult = {
   items: ActivityCard[];
+  total: number;
   missed: number;
   hasLocation: boolean;
   around?: string;
@@ -273,4 +276,19 @@ export type AdminReport = {
   status: "open" | "done";
   action: string;
   sameTarget: number;
+};
+
+export type AdminStats = {
+  users: number;
+  newUsers7: number;
+  onboarded: number;
+  activities7: number;
+  requests7: number;
+  messages7: number;
+  answeredRate: number | null;
+  acceptRate: number | null;
+  unanswered24h: number;
+  openReports: number;
+  errors24: number;
+  errorList: { path: string; message: string; createdAt: string }[];
 };

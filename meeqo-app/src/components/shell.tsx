@@ -38,10 +38,12 @@ export function Shell({
   children,
   bare = false,
   requireOnboarding = true,
+  requireAge = true,
 }: {
   children: ReactNode;
   bare?: boolean;
   requireOnboarding?: boolean;
+  requireAge?: boolean;
 }) {
   const { user, isPending } = useCurrentUserState();
   const path = useRouterState({ select: (state) => state.location.pathname });
@@ -149,6 +151,9 @@ export function Shell({
       </div>
     );
   }
+  if (requireAge && profile && !profile.ageConfirmed) {
+    return <Navigate to="/alter" />;
+  }
   if (requireOnboarding && profile && !profile.onboardingDone && path !== "/onboarding") {
     return <Navigate to="/onboarding" />;
   }
@@ -193,7 +198,7 @@ export function Shell({
                 <Wordmark className="text-[1.65rem]" />
               </Link>
               <p className="hidden text-sm text-muted md:block">Aktivitäten, nicht Profile.</p>
-              <Link to="/notifications" className="relative grid h-11 w-11 place-items-center rounded-full border border-line bg-card shadow-sm">
+              <Link to="/notifications" aria-label={unread > 0 ? `Benachrichtigungen, ${unread} neu` : "Benachrichtigungen"} className="relative grid h-11 w-11 place-items-center rounded-full border border-line bg-card shadow-sm">
                 <Bell className="h-5 w-5" />
                 {unread > 0 ? (
                   <span className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-onfill">

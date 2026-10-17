@@ -43,3 +43,34 @@ Webrecherche, Quellen am Ende. Vieles stammt aus Presse und Anbieter-Blogs; wo Z
 - Verifizierung: https://www.globaldatinginsights.com/featured/verification-becomes-integral-to-preventing-dating-app-impersonation/
 - Altersprüfung/DSA: https://www.bundestag.de/resource/blob/1108608/WD-8-049-25.pdf , https://www.bundestag.de/resource/blob/1149114/WD-7-088-25.pdf , https://www.dr-datenschutz.de/altersverifikation-per-eu-app-umsetzung-des-digital-services-act/
 - Grindr-Strafe: https://www.dr-datenschutz.de/millionenbussgeld-gegen-die-datenschleuder-dating-app-grindr/ , https://www.globaldatinginsights.com/featured/grindr-loses-appeal-as-norway-upholds-e5-5-million-gdpr-fine/
+
+## 7. Geld: wie sich so etwas trägt
+Belegt ist wenig; vieles sind Startup-Unterlagen ohne Quelle. Rahmen von MeeQo: kein Crypto, keine Tokens, keine Werbung, die das Vertrauen kostet.
+- **Preisanker:** Timeleft nimmt etwa 13,99 € pro Abendessen oder 19,99 € im Monat (Presse, 2023 noch 12,90 €; vor Ort prüfen). Die Teilnehmenden zahlen, Restaurants bekommen Gäste.
+- **Übliche Modelle für Treffen-Apps:** Provision auf Tickets (genannt: 7,5 %), Abo für Nutzer (genannt: 9,99 $/Monat), hervorgehobene Einträge, Werkzeuge oder Abo für Veranstalter, bezahlter Zugang von Betrieben zu ihrem Stammpublikum. Konversions- und Abwanderungszahlen sind unbelegt (genannt: 3 % zahlend, 5 % Abwanderung pro Monat).
+- **Was zu MeeQo passt, in dieser Reihenfolge:**
+  1. **Veranstalter-Tarif** (Kletterhallen, Cafés, Studios, Vereine): Sichtbarkeit als Veranstalter, Sofortbuchung, Teilnehmerliste, Serien, später Tickets mit Provision. Hier sitzt echtes Geld, und es belastet normale Nutzer nicht.
+  2. **Tickets mit Provision** für Veranstaltungen (über einen Zahlungsanbieter wie Stripe Connect; nur für Veranstalter).
+  3. **MeeQo Plus** für Nutzer, nur Komfort: größerer Radius, Merkliste mit Erinnerungen, Wochenübersicht per Mail, „Wer war schon dabei“. **Sicherheit bleibt immer kostenlos**, also Check-in, Vertrauenslink, Melden, Blockieren.
+  4. **Keine** bezahlten Matches, keine Boosts, keine Werbung zwischen Karten.
+- **Rechenbeispiel (eigene Annahme, kein Beleg):** 5.000 aktive Nutzer in der Region, 3 % zahlen 4,99 € = rund 750 € im Monat. Dazu 30 Veranstalter zu je 29 € = rund 870 €. Zusammen reicht das für Hosting, SMS und Mail, aber nicht für ein Team. Skalierung braucht mehrere Städte oder Ticketprovision.
+- **Kosten:** Datenbank, Hosting, SMS-Bestätigung, Mail, später Bildspeicher. Ohne Personal niedrig dreistellig im Monat.
+
+## 8. Was Nutzer sich wünschen (belegt)
+- Verifizierung: rund 81 bis 87 % wollen geprüfte Angaben zu Alter, Foto-Aktualität, Ort (DatingNews, TransUnion; Anbieter-Umfragen). Etwa 40 % würden dafür zahlen. Nur die Hälfte hält Profile für ehrlich. 84 % wollen bessere Erkennung von Fake-Profilen (Match Group, Europa).
+- Bewertung nach dem Date wünschen 62 %. Das hat MeeQo (Ja/Nein-Bewertungen).
+- Vorsicht vor dem Date: 97 % treffen Maßnahmen (öffentlicher Ort, Standort teilen). Das deckt MeeQo mit Check-in und Vertrauenslink ab.
+- Gen Z sucht echte Treffen: Laufclubs (72 % kommen, um Leute kennenzulernen, laut Markenstudie), Supper Clubs, Spieleabende, Treffen ohne Alkohol (Eventbrite, WGSN, ZDF 2026). Studien aus Deutschland mit Zahlen habe ich nicht gefunden (das Einsamkeitsbarometer wäre die nächste Quelle).
+
+## 9. Was ich darüber hinaus für nützlich halte
+- **Begleitung mitbringen („+1“):** senkt die Hürde für Schüchterne (222 macht das so). Für Gastgeber einstellbar.
+- **„Neulinge willkommen“** als Kennzeichen von Treffen und ein ruhiger Gastgeber-Hinweis „Du bist das erste Mal hier“.
+- **Kosten sichtbar machen** (Eintritt, ungefähr was ein Getränk kostet), ohne selbst Geld zu verwalten.
+- **Folgen:** Gastgeber oder Reihe folgen, Nachricht bei neuem Termin (Stammpublikum statt Feed-Suche).
+- **Gastgeber-Werkzeuge:** Teilnehmerliste zum Mitnehmen, Absage-Vorlage, Rückmeldung nach dem Treffen privat an den Gastgeber.
+- **Barrierefreiheit-Angaben** (Stufen, Toilette, Ruhe) statt eines einzelnen Hakens.
+- **Notfallpfad:** Ein Knopf im Treffen („Mir ist unwohl“), der den Vertrauenskontakt benachrichtigt, nicht die Polizei.
+- **Betriebe:** Cafés und Hallen als Partner mit Ort-Seite, Stammtreffen und Aktionen; so entsteht Angebot, ohne dass Privatleute alles anlegen.
+- **Messen:** Anfrage → Zusage → Erscheinen → Wiederkommen pro Stadt.
+
+Quellen (zusätzlich): https://www.datingnews.com/apps-and-sites/66-of-users-dont-trust-dating-apps-to-keep-them-safe/ , https://transunion.com/report/online-dating-2025 , https://www.globaldatinginsights.com/featured/gen-z-shifts-from-dating-apps-to-hobby-groups/ , https://www.ticketnews.com/2025/01/eventbrite-study-finds-gen-z-millennials-are-seeking-in-person-events-to-bridge-gap-from-digital-world , https://www.zdfheute.de/politik/deutschland/generation-z-einsamkeit-brandenburg-initiative-lehnitz-connect-sport-picknick-spieleabend-100.html , https://paperjam.lu/article/timeleft-ou-comment-contrer-so

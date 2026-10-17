@@ -53,3 +53,21 @@ test("nothing recognised leaves fields empty instead of guessing", () => {
   assert.equal(result.category, "");
   assert.equal(result.title, "Irgendwas Nettes");
 });
+
+test("English sentences work too", () => {
+  const result = parseMeetup("Saturday at 7pm bouldering at Ostkreuz for six people, 2 hours", now);
+  assert.equal(result.when, "2026-10-17T19:00");
+  assert.equal(result.spots, 6);
+  assert.equal(result.placeName, "Ostkreuz");
+  assert.equal(result.category, "Sport · Klettern");
+  assert.equal(result.durationMin, 120);
+  assert.equal(result.title, "Bouldering at Ostkreuz");
+});
+
+test("English tomorrow with 24-hour clock and coffee", () => {
+  const result = parseMeetup("Tomorrow 18:30 coffee in the Schlossgarten for 4", now);
+  assert.equal(result.when, "2026-10-17T18:30");
+  assert.equal(result.spots, 4);
+  assert.equal(result.category, "Essen · Kaffee");
+  assert.equal(result.placeName, "Schlossgarten");
+});

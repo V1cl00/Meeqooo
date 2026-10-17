@@ -8,6 +8,7 @@ import { errText, formatWhen, HANDOVER_SPOTS } from "@/lib/meeqo/labels";
 import { buzz } from "@/lib/meeqo/feel";
 import type { ChatMessage } from "@/lib/meeqo/types";
 import { useLiveChat, useLoad, usePolling } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/chat/anzeige/$id")({ component: Page });
 
@@ -65,17 +66,17 @@ function Thread({ id }: { id: string }) {
   }
 
   if (loading) return <Skeleton lines={5} />;
-  if (error || !data) return <Note>{error || "Chat nicht da."}</Note>;
+  if (error || !data) return <Note>{error || t("Chat nicht da.")}</Note>;
   const handover = data.category !== "Mitfahrgelegenheit";
 
   return (
     <div className="mx-auto flex min-h-[70dvh] max-w-lg flex-col">
       <div className="flex items-start justify-between gap-3">
         <h1 className="font-display text-3xl leading-none">{data.title}</h1>
-        <span className="mt-1 shrink-0 rounded-full border border-ink/40 px-2.5 py-1 text-[10px] font-bold tracking-wide">ANZEIGE</span>
+        <span className="mt-1 shrink-0 rounded-full border border-ink/40 px-2.5 py-1 text-[10px] font-bold tracking-wide">{t("ANZEIGE")}</span>
       </div>
       <p className="mt-2 text-sm text-muted">
-        {data.seller ? `${data.peerName} interessiert sich für deine Anzeige.` : `Du schreibst mit ${data.peerName}.`}
+        {data.seller ? t("{0} interessiert sich für deine Anzeige.", data.peerName) : t("Du schreibst mit {0}.", data.peerName)}
         {data.price ? ` · ${data.price}` : ""} · {data.city}
       </p>
       <div className="mt-4 flex flex-1 flex-col gap-2">
@@ -95,16 +96,16 @@ function Thread({ id }: { id: string }) {
       </div>
       {handover ? (
         <div className="mt-4">
-          <p className="text-xs font-semibold text-muted">Übergabe nur an einem öffentlichen Ort vorschlagen</p>
+          <p className="text-xs font-semibold text-muted">{t("Übergabe nur an einem öffentlichen Ort vorschlagen")}</p>
           <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1">
             {HANDOVER_SPOTS.map((spot) => (
               <button
                 key={spot}
                 type="button"
-                onClick={() => send(`Übergabe öffentlich, zum Beispiel am ${spot} in ${data.city}. Passt dir das?`)}
+                onClick={() => send(t("Übergabe öffentlich, zum Beispiel am {0} in {1}. Passt dir das?", t(spot), data.city))}
                 className="inline-flex h-10 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold"
               >
-                {spot}
+                {t(spot)}
               </button>
             ))}
           </div>
@@ -112,8 +113,8 @@ function Thread({ id }: { id: string }) {
       ) : null}
       {fail ? <Note>{fail}</Note> : null}
       <form onSubmit={submit} className="mt-3 flex gap-2">
-        <TextInput value={body} onChange={(event) => setBody(event.target.value)} placeholder="Nachricht" />
-        <Button type="submit">Senden</Button>
+        <TextInput value={body} onChange={(event) => setBody(event.target.value)} placeholder={t("Nachricht")} />
+        <Button type="submit">{t("Senden")}</Button>
       </form>
       <div className="mt-4">
         <SafetyMenu kind="ad" targetId={id} personId={data.peerId} personName={data.peerName.split(" ")[0]} onBlocked={reload} />

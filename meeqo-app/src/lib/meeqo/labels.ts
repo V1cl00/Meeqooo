@@ -1,3 +1,5 @@
+import { locale, t } from "@/lib/meeqo/i18n";
+
 export const CATEGORY_TREE = [
   { name: "Sport", subs: ["Laufen", "Calisthenics", "Klettern", "Radfahren", "Krafttraining", "Yoga", "Schwimmen", "Ballsport", "Kampfsport", "Tanzen"] },
   { name: "Essen", subs: ["Brunch", "Kochen", "Restaurant", "Kaffee", "Picknick", "Backen", "Streetfood"] },
@@ -44,7 +46,7 @@ export function categoryMatches(stored: string, selected: string) {
 
 export function categoryShort(value: string) {
   const { sub, parent } = splitCategory(value);
-  return sub || parent;
+  return t(sub || parent);
 }
 
 export function subsFor(parent: string, custom: CustomCategory[] = []) {
@@ -136,8 +138,8 @@ export function intentFromAreas(areas: string[]) {
 }
 
 export function areaSummary(areas: string[]) {
-  const titles = AREAS.filter((item) => areas.includes(item.id)).map((item) => item.title);
-  return titles.length ? titles.join(" · ") : "Noch nichts gewählt";
+  const titles = AREAS.filter((item) => areas.includes(item.id)).map((item) => t(item.title));
+  return titles.length ? titles.join(" · ") : t("Noch nichts gewählt");
 }
 
 export function seesByAreas(areas: string[], intent: string, category: string) {
@@ -177,25 +179,25 @@ export const INTENTS = [
 export const RADIUS_OPTIONS = [5, 10, 25, 40, 60, 100] as const;
 
 export function intentTitle(id: string) {
-  return INTENTS.find((item) => item.id === id)?.title ?? "Absicht fehlt";
+  return t(INTENTS.find((item) => item.id === id)?.title ?? "Absicht fehlt");
 }
 
 export function openLabel(openTo: string) {
-  if (openTo === "both") return "Dates und Freundschaft";
-  if (openTo === "dating") return "Dates";
-  if (openTo === "friends") return "Freundschaft";
-  return "Absicht offen";
+  if (openTo === "both") return t("Dates und Freundschaft");
+  if (openTo === "dating") return t("Dates");
+  if (openTo === "friends") return t("Freundschaft");
+  return t("Absicht offen");
 }
 
 export function activityIntentLabel(intent: string) {
-  if (intent === "date") return "Date";
-  if (intent === "friends") return "Freundschaft";
-  if (intent === "both") return "Beides";
+  if (intent === "date") return t("Date");
+  if (intent === "friends") return t("Freundschaft");
+  if (intent === "both") return t("Beides");
   return intentTitle(intent);
 }
 
 export function bookingLabel(mode: string) {
-  return mode === "instant" ? "Sofortbuchung" : "Anfrage";
+  return mode === "instant" ? t("Sofortbuchung") : t("Anfrage");
 }
 
 export function berlinDay(value: Date | string = new Date()) {
@@ -236,7 +238,7 @@ export const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
 export function formatWhen(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  const parts = new Intl.DateTimeFormat("de-DE", {
+  const parts = new Intl.DateTimeFormat(locale(), {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -246,15 +248,16 @@ export function formatWhen(value: string) {
   }).formatToParts(date);
   const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   const weekday = pick("weekday").replace(/\.$/, "");
+  if (locale() === "en-GB") return `${weekday} ${pick("day")} ${pick("month")}, ${pick("hour")}:${pick("minute")}`;
   return `${weekday}., ${pick("day")}. ${pick("month")}, ${pick("hour")}:${pick("minute")}`;
 }
 
 export function errText(error: unknown) {
-  if (error instanceof Error && error.message) return error.message;
+  if (error instanceof Error && error.message) return t(error.message);
   if (typeof error === "object" && error && "message" in error && typeof error.message === "string" && error.message) {
-    return error.message;
+    return t(error.message);
   }
-  return "Das hat nicht geklappt.";
+  return t("Das hat nicht geklappt.");
 }
 
 export function isUnauthorized(error: unknown) {
@@ -266,17 +269,17 @@ export function countdownLabel(startsAt: string, now = new Date()) {
   const ms = new Date(startsAt).getTime() - now.getTime();
   if (ms <= 0) return "";
   const hours = ms / 3_600_000;
-  if (hours < 1) return `in ${Math.max(1, Math.round(ms / 60_000))} Minuten`;
-  if (hours < 24) return `in ${Math.round(hours)} Stunden`;
+  if (hours < 1) return t("in {0} Minuten", Math.max(1, Math.round(ms / 60_000)));
+  if (hours < 24) return t("in {0} Stunden", Math.round(hours));
   const days = Math.round((new Date(`${berlinDay(startsAt)}T12:00:00Z`).getTime() - new Date(`${berlinDay(now)}T12:00:00Z`).getTime()) / 86_400_000);
-  if (days <= 1) return "morgen";
-  return `in ${days} Tagen`;
+  if (days <= 1) return t("morgen");
+  return t("in {0} Tagen", days);
 }
 
 export function replyLabel(hours: number) {
-  if (hours < 1) return "unter einer Stunde";
-  if (hours < 24) return `etwa ${Math.round(hours)} Std.`;
-  return `etwa ${Math.round(hours / 24)} Tagen`;
+  if (hours < 1) return t("unter einer Stunde");
+  if (hours < 24) return t("etwa {0} Std.", Math.round(hours));
+  return t("etwa {0} Tagen", Math.round(hours / 24));
 }
 
 /** Starting points for the create form: how many, how long, and a first sentence. Keyed by subcategory, then by parent. */
@@ -300,7 +303,8 @@ export const MEETUP_TEMPLATES: Record<string, { spots: number; durationMin: numb
 
 export function templateFor(category: string) {
   const { parent, sub } = splitCategory(category);
-  return MEETUP_TEMPLATES[sub] ?? MEETUP_TEMPLATES[parent] ?? null;
+  const found = MEETUP_TEMPLATES[sub] ?? MEETUP_TEMPLATES[parent];
+  return found ? { ...found, description: t(found.description) } : null;
 }
 
 export const ARRIVAL_REPLIES = ["Bin unterwegs", "5 Minuten später", "Bin da"] as const;

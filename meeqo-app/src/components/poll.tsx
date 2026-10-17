@@ -3,6 +3,7 @@ import { closePoll, createPoll, votePoll } from "@/lib/meeqo/api";
 import { notice } from "@/lib/meeqo/feel";
 import { errText, formatWhen } from "@/lib/meeqo/labels";
 import type { PollView } from "@/lib/meeqo/types";
+import { t } from "@/lib/meeqo/i18n";
 
 const chip = "inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold";
 
@@ -35,7 +36,7 @@ export function PollCard({ poll, onChanged }: { poll: PollView; onChanged: () =>
   return (
     <section className="card space-y-3 p-4" aria-label={poll.question}>
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Abstimmung von {poll.creatorName}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Abstimmung von {0}", poll.creatorName)}</p>
         <h3 className="font-display text-xl leading-tight">{poll.question}</h3>
       </div>
       <div className="space-y-2">
@@ -54,14 +55,14 @@ export function PollCard({ poll, onChanged }: { poll: PollView; onChanged: () =>
                 <span className={option.votes > 0 && option.votes === top ? "font-bold" : ""}>{option.votes}</span>
               </button>
               {poll.canClose && !poll.closed ? (
-                <button type="button" className={`${chip} shrink-0 border-ink bg-ink text-onaccent`} onClick={() => close(index)}>Festlegen</button>
+                <button type="button" className={`${chip} shrink-0 border-ink bg-ink text-onaccent`} onClick={() => close(index)}>{t("Festlegen")}</button>
               ) : null}
             </div>
           );
         })}
       </div>
-      {poll.closed ? <p className="text-sm font-semibold text-muted">Beendet</p> : null}
-      {poll.canClose && !poll.closed ? <button type="button" className="text-sm font-semibold underline" onClick={() => close()}>Ohne Änderung beenden</button> : null}
+      {poll.closed ? <p className="text-sm font-semibold text-muted">{t("Beendet")}</p> : null}
+      {poll.canClose && !poll.closed ? <button type="button" className="text-sm font-semibold underline" onClick={() => close()}>{t("Ohne Änderung beenden")}</button> : null}
       {fail ? <p className="text-sm text-accent-deep">{fail}</p> : null}
     </section>
   );
@@ -78,7 +79,7 @@ export function PollForm({ activityId, onDone }: { activityId: string; onDone: (
     try {
       const options = times.filter(Boolean).map((value) => new Date(value).toISOString());
       await createPoll({ data: { activityId, options } });
-      notice("Abstimmung ist raus.");
+      notice(t("Abstimmung ist raus."));
       onDone();
     } catch (err) {
       setFail(errText(err));
@@ -88,7 +89,7 @@ export function PollForm({ activityId, onDone }: { activityId: string; onDone: (
 
   return (
     <div className="card space-y-3 p-4">
-      <h3 className="font-display text-xl">Wann passt es euch?</h3>
+      <h3 className="font-display text-xl">{t("Wann passt es euch?")}</h3>
       {times.map((value, index) => (
         <input
           key={index}
@@ -100,9 +101,9 @@ export function PollForm({ activityId, onDone }: { activityId: string; onDone: (
         />
       ))}
       <div className="flex flex-wrap gap-2">
-        {times.length < 4 ? <button type="button" className={`${chip} border-line bg-card text-ink`} onClick={() => setTimes((list) => [...list, ""])}>Weitere Zeit</button> : null}
-        <button type="button" disabled={busy} className={`${chip} border-accent bg-accent text-onfill disabled:opacity-50`} onClick={submit}>Abstimmen lassen</button>
-        <button type="button" className={`${chip} border-transparent text-muted`} onClick={onDone}>Abbrechen</button>
+        {times.length < 4 ? <button type="button" className={`${chip} border-line bg-card text-ink`} onClick={() => setTimes((list) => [...list, ""])}>{t("Weitere Zeit")}</button> : null}
+        <button type="button" disabled={busy} className={`${chip} border-accent bg-accent text-onfill disabled:opacity-50`} onClick={submit}>{t("Abstimmen lassen")}</button>
+        <button type="button" className={`${chip} border-transparent text-muted`} onClick={onDone}>{t("Abbrechen")}</button>
       </div>
       {fail ? <p className="text-sm text-accent-deep">{fail}</p> : null}
     </div>

@@ -5,6 +5,7 @@ import { routeUrl } from "@/lib/meeqo/ics";
 import { errText, formatWhen, MOODS } from "@/lib/meeqo/labels";
 import type { ActivityCard as Activity } from "@/lib/meeqo/types";
 import { ShareSheet } from "@/components/share";
+import { t } from "@/lib/meeqo/i18n";
 
 const pill = "inline-flex h-12 w-full items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold text-ink";
 
@@ -21,7 +22,7 @@ export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity
     setFail("");
     try {
       const result = await requestJoin({ data: { id: item.id, mood } });
-      notice(result.status === "accepted" ? "Du bist dabei." : "Anfrage ist raus.");
+      notice(result.status === "accepted" ? "Du bist dabei." : t("Anfrage ist raus."));
       onChanged?.();
       onClose();
     } catch (err) {
@@ -35,7 +36,7 @@ export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity
       <ShareSheet
         open
         title={item.title}
-        text={`MeeQo: ${item.title}\n${formatWhen(item.startsAt)}\n${item.placeName}, ${item.city}\nMit ${item.hostName}.`}
+        text={t("MeeQo: {0}\n{1}\n{2}, {3}\nMit {4}.", item.title, formatWhen(item.startsAt), item.placeName, item.city, item.hostName)}
         onClose={() => {
           setShare(false);
           onClose();
@@ -53,27 +54,27 @@ export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity
         </div>
         {canRequest ? (
           <div className="space-y-2">
-            <p className="text-sm font-semibold">Was erwartest du?</p>
+            <p className="text-sm font-semibold">{t("Was erwartest du?")}</p>
             <div className="flex flex-wrap gap-2">
               {MOODS.map((option) => (
-                <button key={option} type="button" onClick={() => setMood(option)} className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${mood === option ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{option}</button>
+                <button key={option} type="button" onClick={() => setMood(option)} className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${mood === option ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{t(option)}</button>
               ))}
             </div>
             <button type="button" disabled={busy} onClick={request} className="inline-flex h-12 w-full items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill disabled:opacity-50">
-              {item.bookingMode === "instant" ? "Sofort dabei" : "Anfragen"}
+              {item.bookingMode === "instant" ? t("Sofort dabei") : t("Anfragen")}
             </button>
           </div>
         ) : null}
-        {item.myStatus === "pending" ? <p className="text-sm font-semibold">Du hast schon angefragt.</p> : null}
+        {item.myStatus === "pending" ? <p className="text-sm font-semibold">{t("Du hast schon angefragt.")}</p> : null}
         {fail ? <p className="text-sm text-accent-deep">{fail}</p> : null}
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" className={pill} onClick={() => setShare(true)}>Teilen</button>
-          <a className={pill} href={routeUrl(item.lat, item.lng)} target="_blank" rel="noopener noreferrer">Weg</a>
+          <button type="button" className={pill} onClick={() => setShare(true)}>{t("Teilen")}</button>
+          <a className={pill} href={routeUrl(item.lat, item.lng)} target="_blank" rel="noopener noreferrer">{t("Weg")}</a>
         </div>
         {onHide && !item.isHost ? (
-          <button type="button" className={pill} onClick={() => { onHide(); onClose(); }}>Ausblenden</button>
+          <button type="button" className={pill} onClick={() => { onHide(); onClose(); }}>{t("Ausblenden")}</button>
         ) : null}
-        <button type="button" className={`${pill} border-0 text-muted`} onClick={onClose}>Schließen</button>
+        <button type="button" className={`${pill} border-0 text-muted`} onClick={onClose}>{t("Schließen")}</button>
       </div>
     </div>
   );

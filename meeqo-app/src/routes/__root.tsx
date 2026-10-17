@@ -3,6 +3,8 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { logClientError } from "@/lib/meeqo/api";
 import { warmStart } from "@/lib/meeqo/warm";
+import { useEffect } from "react";
+import { initLang, useLang } from "@/lib/meeqo/i18n";
 import appCss from "../styles.css?url";
 
 warmStart();
@@ -34,18 +36,26 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
     ],
   }),
-  component: () => (
+  component: RootShell,
+});
+
+function RootShell() {
+  const lang = useLang();
+  useEffect(() => {
+    initLang();
+  }, []);
+  return (
     <html lang="de" className="antialiased" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
         <PreviewHostBridge />
-        <AuthProvider>
+        <AuthProvider key={lang}>
           <Outlet />
         </AuthProvider>
         <Scripts />
       </body>
     </html>
-  ),
-});
+  );
+}

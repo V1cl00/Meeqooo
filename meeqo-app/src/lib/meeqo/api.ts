@@ -2985,7 +2985,7 @@ export const deleteAccount = createServerFn({ method: "POST" })
   .middleware([memberMiddleware])
   .validator((input: { confirm: string }) => ({ confirm: clean(input.confirm, 20) }))
   .handler(async ({ data, context }) => {
-    if (data.confirm !== "LÖSCHEN") throw new Error("Tipp zur Bestätigung: LÖSCHEN");
+    if (!["LÖSCHEN", "DELETE"].includes(data.confirm.trim().toUpperCase())) throw new Error("Tipp zur Bestätigung: LÖSCHEN");
     const sql = await getSql();
     const me = context.userId;
     await sql`delete from join_requests where requester_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;

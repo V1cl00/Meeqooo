@@ -8,6 +8,7 @@ import { PlaceSuggest } from "@/components/place-bar";
 import { errText, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/search")({ component: Page });
 
@@ -73,8 +74,8 @@ function Search() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-4xl leading-none">Suche</h1>
-      <p className="text-sm text-muted">Bei dir oder in einer anderen Stadt. Es zählen nur Aktivitäten, die deine Absicht sehen darf.</p>
+      <h1 className="font-display text-4xl leading-none">{t("Suche")}</h1>
+      <p className="text-sm text-muted">{t("Bei dir oder in einer anderen Stadt. Es zählen nur Aktivitäten, die deine Absicht sehen darf.")}</p>
       <form
         className="space-y-3"
         onSubmit={(event) => {
@@ -82,45 +83,45 @@ function Search() {
           setSubmitted({ q, place, category, radius });
         }}
       >
-        <Field label="Wonach?">
-          <TextInput value={q} onChange={(event) => setQ(event.target.value)} placeholder="Klettern, Brunnen, Spaziergang" />
+        <Field label={t("Wonach?")}>
+          <TextInput value={q} onChange={(event) => setQ(event.target.value)} placeholder={t("Klettern, Brunnen, Spaziergang")} />
         </Field>
-        <Field label="Stadt">
+        <Field label={t("Stadt")}>
           <PlaceSuggest
             value={place}
             onChange={setPlace}
-            placeholder={profile?.city ? `Bei dir in ${profile.city}, oder PLZ und Ort` : "Postleitzahl, Stadt oder Dorf"}
+            placeholder={profile?.city ? t("Bei dir in {0}, oder PLZ und Ort", profile.city) : t("Postleitzahl, Stadt oder Dorf")}
           />
         </Field>
-        <button type="button" onClick={() => setPlace("")} className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${place === "" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>Bei mir</button>
+        <button type="button" onClick={() => setPlace("")} className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${place === "" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{t("Bei mir")}</button>
         <CategorySelect allowAll value={category} onChange={setCategory} custom={cats.data ?? []} />
         <div className="flex flex-wrap gap-2">
           {RADIUS_OPTIONS.map((item) => (
-            <button key={item} type="button" onClick={() => setRadius(item)} className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${radius === item ? "border-accent bg-accent text-onfill" : "border-ink/25 bg-card text-ink"}`}>{item} km</button>
+            <button key={item} type="button" onClick={() => setRadius(item)} className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${radius === item ? "border-accent bg-accent text-onfill" : "border-ink/25 bg-card text-ink"}`}>{t("{0} km", item)}</button>
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="submit">Suchen</Button>
-          <Button type="button" tone="ghost" disabled={aiPending} onClick={suggest}>{aiPending ? "Denkt nach…" : "Vorschläge"}</Button>
+          <Button type="submit">{t("Suchen")}</Button>
+          <Button type="button" tone="ghost" disabled={aiPending} onClick={suggest}>{aiPending ? t("Denkt nach…") : t("Vorschläge")}</Button>
         </div>
       </form>
       {error ? <Note>{error}</Note> : null}
       {aiError ? <Note>{aiError}</Note> : null}
       {gone ? (
         <div className="card flex items-center justify-between gap-3 p-4">
-          <p className="text-sm">„{gone.title}“ bleibt ausgeblendet.</p>
-          <button type="button" className={face} onClick={undoHide}>Rückgängig</button>
+          <p className="text-sm">{t("„{0}“ bleibt ausgeblendet.", gone.title)}</p>
+          <button type="button" className={face} onClick={undoHide}>{t("Rückgängig")}</button>
         </div>
       ) : null}
       {ideas ? (
         <div className="space-y-3">
           <p className="text-sm">{ideas.reason}</p>
-          <p className="text-xs text-muted">{ideas.source === "ai" ? "Vorschlag" : "Aus deinem Profil, ohne KI"}</p>
+          <p className="text-xs text-muted">{ideas.source === "ai" ? t("Vorschlag") : t("Aus deinem Profil, ohne KI")}</p>
           <div className="grid gap-4 md:grid-cols-2">{ideas.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} />)}</div>
         </div>
       ) : null}
-      {data?.around ? <p className="text-sm text-muted">Umkreis um {data.around}, nicht nur um deinen Standort.</p> : null}
-      {loading ? <p className="text-sm text-muted">Suche…</p> : null}
+      {data?.around ? <p className="text-sm text-muted">{t("Umkreis um {0}, nicht nur um deinen Standort.", data.around)}</p> : null}
+      {loading ? <p className="text-sm text-muted">{t("Suche…")}</p> : null}
       <div className="grid gap-4 md:grid-cols-2">{data?.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} />)}</div>
     </div>
   );

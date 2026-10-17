@@ -11,6 +11,7 @@ import { TRAITS, berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { takeFeed } from "@/lib/meeqo/warm";
+import { locale, t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -43,15 +44,13 @@ function WishPrompt({ category, day }: { category: string; day: string }) {
   return (
     <div className="space-y-3">
       {info.data?.mine ? (
-        <p className="text-sm font-semibold text-friend">
-          Du bist vorgemerkt. {count >= need ? `${count} Leute wollen ${category}.` : `Sobald ${need} Leute ${category} wollen, sagen wir dir Bescheid.`}
+        <p className="text-sm font-semibold text-friend">{t("Du bist vorgemerkt. {0}", count >= need ? t("{0} Leute wollen {1}.", count, category) : t("Sobald {0} Leute {1} wollen, sagen wir dir Bescheid.", need, category))}
         </p>
       ) : (
-        <Button type="button" className="w-full" onClick={wish}>
-          Ich hätte Lust auf {category}{count ? ` · ${count} schon` : ""}
+        <Button type="button" className="w-full" onClick={wish}>{t("Ich hätte Lust auf {0}{1}", category, count ? t(" · {0} schon", count) : "")}
         </Button>
       )}
-      <Link to="/create" search={{ community: "" }} className={`${face} w-full`}>Selbst anlegen</Link>
+      <Link to="/create" search={{ community: "" }} className={`${face} w-full`}>{t("Selbst anlegen")}</Link>
       {fail ? <p className="text-sm text-accent-deep">{fail}</p> : null}
     </div>
   );
@@ -128,7 +127,7 @@ function Feed() {
     <div className="space-y-5">
       <NextUpCard />
       <div className="space-y-3">
-        <h1 className="font-display text-4xl leading-none">Treffen in der Nähe</h1>
+        <h1 className="font-display text-4xl leading-none">{t("Treffen in der Nähe")}</h1>
         <PlaceBar onChange={reloadFeed} />
       </div>
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -142,20 +141,20 @@ function Feed() {
             }}
             className={`inline-flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold ${filter === id ? "bg-ink text-onaccent" : "border border-line bg-card text-ink"}`}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>
       {subs.length ? (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4">
-          <button type="button" onClick={() => setSub("")} className={`inline-flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold ${sub === "" ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}>Alle</button>
+          <button type="button" onClick={() => setSub("")} className={`inline-flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold ${sub === "" ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}>{t("Alle")}</button>
           {subs.map((item) => (
             <button key={item} type="button" onClick={() => setSub(item)} className={`inline-flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold ${sub === item ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}>{item}</button>
           ))}
         </div>
       ) : null}
-      {filter === "business" ? <p className="text-sm text-muted">Business: Kontakte und Kooperationen. Kein Date.</p> : null}
-      {filter === "classifieds" ? <p className="text-sm text-muted">Kleinanzeigen: Dinge und Angebote statt Verabredungen.</p> : null}
+      {filter === "business" ? <p className="text-sm text-muted">{t("Business: Kontakte und Kooperationen. Kein Date.")}</p> : null}
+      {filter === "classifieds" ? <p className="text-sm text-muted">{t("Kleinanzeigen: Dinge und Angebote statt Verabredungen.")}</p> : null}
       {filter === "classifieds" ? null : (
         <div className="space-y-3">
           <button
@@ -163,14 +162,12 @@ function Feed() {
             aria-pressed={soon}
             onClick={() => setSoon((value) => !value)}
             className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold ${soon ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}
-          >
-            Gleich in der Nähe
-          </button>
-          {soon ? <p className="text-sm text-muted">Was in den nächsten vier Stunden anfängt, das Nächstgelegene zuerst.</p> : <WhenBar days={days} onChange={setDays} />}
+          >{t("Gleich in der Nähe")}</button>
+          {soon ? <p className="text-sm text-muted">{t("Was in den nächsten vier Stunden anfängt, das Nächstgelegene zuerst.")}</p> : <WhenBar days={days} onChange={setDays} />}
           {soon ? null : (
-            <div className="flex items-center gap-2" role="group" aria-label="Sortierung">
+            <div className="flex items-center gap-2" role="group" aria-label={t("Sortierung")}>
               {([["time", "Nach Zeit"], ["fit", "Passend für dich"]] as const).map(([id, label]) => (
-                <button key={id} type="button" aria-pressed={sort === id} onClick={() => chooseSort(id)} className={`inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold ${sort === id ? "bg-ink text-onaccent" : "border border-line bg-card text-ink"}`}>{label}</button>
+                <button key={id} type="button" aria-pressed={sort === id} onClick={() => chooseSort(id)} className={`inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold ${sort === id ? "bg-ink text-onaccent" : "border border-line bg-card text-ink"}`}>{t(label)}</button>
               ))}
             </div>
           )}
@@ -178,8 +175,8 @@ function Feed() {
       )}
       {!profile?.avatarUrl ? (
         <Link to="/profile" className="flex items-center justify-between gap-3 rounded-2xl bg-sand-deep px-4 py-3 text-sm">
-          <span>Mit Foto kannst du anfragen und Treffen anlegen.</span>
-          <span className="shrink-0 font-semibold underline">Foto hinzufügen</span>
+          <span>{t("Mit Foto kannst du anfragen und Treffen anlegen.")}</span>
+          <span className="shrink-0 font-semibold underline">{t("Foto hinzufügen")}</span>
         </Link>
       ) : null}
       {loading ? (
@@ -195,42 +192,41 @@ function Feed() {
       </div>
       )}
       {filter !== "classifieds" && data && data.total > data.items.length ? (
-        <Button type="button" tone="ghost" className="w-full" onClick={() => setMore({ key: viewKey, limit: limit + 30 })}>
-          Mehr zeigen · noch {data.total - data.items.length}
+        <Button type="button" tone="ghost" className="w-full" onClick={() => setMore({ key: viewKey, limit: limit + 30 })}>{t("Mehr zeigen · noch {0}", data.total - data.items.length)}
         </Button>
       ) : null}
       {filter !== "classifieds" && data && data.items.length === 0 ? (
         soon ? (
           <Empty
             art="calendar"
-            title="Gleich ist nichts in der Nähe"
-            body="In den nächsten vier Stunden fängt nichts an. Schau, was heute oder morgen kommt."
-            action={<Button type="button" className="w-full" onClick={() => setSoon(false)}>Alle Treffen zeigen</Button>}
+            title={t("Gleich ist nichts in der Nähe")}
+            body={t("In den nächsten vier Stunden fängt nichts an. Schau, was heute oder morgen kommt.")}
+            action={<Button type="button" className="w-full" onClick={() => setSoon(false)}>{t("Alle Treffen zeigen")}</Button>}
           />
         ) : data.nextDay ? (
           <Empty
             art="calendar"
-            title="An diesem Tag ist nichts"
-            body={`Am ${new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Berlin" }).format(new Date(`${data.nextDay}T12:00:00`))} ${data.nextCount === 1 ? "ist ein Treffen" : `sind ${data.nextCount} Treffen`} in der Nähe.`}
+            title={t("An diesem Tag ist nichts")}
+            body={t("Am {0} {1} in der Nähe.", new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Berlin" }).format(new Date(`${data.nextDay}T12:00:00`)), data.nextCount === 1 ? t("ist ein Treffen") : t("sind {0} Treffen", data.nextCount))}
             action={
               <span className="flex flex-col gap-2">
-                <Button type="button" className="w-full" onClick={() => setDays([data.nextDay!])}>Diesen Tag zeigen</Button>
-                <Link to="/create" search={{ community: "" }} className={`${face} w-full`}>Selbst anlegen</Link>
+                <Button type="button" className="w-full" onClick={() => setDays([data.nextDay!])}>{t("Diesen Tag zeigen")}</Button>
+                <Link to="/create" search={{ community: "" }} className={`${face} w-full`}>{t("Selbst anlegen")}</Link>
               </span>
             }
           />
         ) : (
           <Empty
             art="meet"
-            title="Das ändern wir"
-            body={`Gerade bietet niemand ${sub || LENS_WISH[filter] || "etwas"} an. Sag, dass du Lust hast. Wenn genug Leute dasselbe wollen, melden wir uns, und du kannst es anlegen.`}
+            title={t("Das ändern wir")}
+            body={t("Gerade bietet niemand {0} an. Sag, dass du Lust hast. Wenn genug Leute dasselbe wollen, melden wir uns, und du kannst es anlegen.", t(sub || LENS_WISH[filter] || "etwas"))}
             action={<WishPrompt category={sub || LENS_WISH[filter] || "Treffen"} day={days[0] ?? ""} />}
           />
         )
       ) : null}
       {hosts.length ? (
         <div>
-          <h2 className="text-base font-semibold">Wer einlädt</h2>
+          <h2 className="text-base font-semibold">{t("Wer einlädt")}</h2>
           <div className="-mx-4 mt-3 flex gap-3 overflow-x-auto px-4">
             {hosts.map((item) => (
               <Link key={item.hostId} to="/activity/$id" params={{ id: item.id }} className="w-16 shrink-0 text-center">
@@ -246,12 +242,12 @@ function Feed() {
         </div>
       ) : null}
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Link to="/search" className={face}>Suche</Link>
-        <button type="button" className={face} onClick={() => setTraitsOpen((value) => !value)}>Mindestens</button>
+        <Link to="/search" className={face}>{t("Suche")}</Link>
+        <button type="button" className={face} onClick={() => setTraitsOpen((value) => !value)}>{t("Mindestens")}</button>
       </div>
       {traitsOpen ? (
         <div className="card space-y-2 p-3">
-          <p className="text-sm text-muted">Ohne diese Eigenschaft bleibt es unsichtbar. Gilt für Feed, Suche, Communities und Anzeigen.</p>
+          <p className="text-sm text-muted">{t("Ohne diese Eigenschaft bleibt es unsichtbar. Gilt für Feed, Suche, Communities und Anzeigen.")}</p>
           <div className="flex flex-wrap gap-2">
             {TRAITS.map((trait) => {
               const on = profile?.requireTraits.includes(trait) ?? false;
@@ -267,7 +263,7 @@ function Feed() {
                     reloadFeed();
                   }}
                 >
-                  {trait}
+                  {t(trait)}
                 </button>
               );
             })}
@@ -277,14 +273,14 @@ function Feed() {
       {locError ? <Note>{locError}</Note> : null}
       {gone ? (
         <div className="card flex items-center justify-between gap-3 p-4">
-          <p className="text-sm">„{gone.title}“ bleibt ausgeblendet.</p>
-          <button type="button" className={face} onClick={undoHide}>Rückgängig</button>
+          <p className="text-sm">{t("„{0}“ bleibt ausgeblendet.", gone.title)}</p>
+          <button type="button" className={face} onClick={undoHide}>{t("Rückgängig")}</button>
         </div>
       ) : null}
-      {!profile?.lat ? <Note>Ohne Standort zeige ich dir alles, was zu deiner Absicht passt. Mit Standort gilt der Radius.</Note> : null}
+      {!profile?.lat ? <Note>{t("Ohne Standort zeige ich dir alles, was zu deiner Absicht passt. Mit Standort gilt der Radius.")}</Note> : null}
       {data && data.missed > 0 ? (
         <div className="card flex items-center justify-between gap-3 p-4">
-          <p className="text-sm">{data.missed} {data.missed === 1 ? "Aktivität liegt" : "Aktivitäten liegen"} etwas weiter weg.</p>
+          <p className="text-sm">{t("{0} {1} etwas weiter weg.", data.missed, data.missed === 1 ? t("Aktivität liegt") : t("Aktivitäten liegen"))}</p>
           <Button
             type="button"
             tone="ghost"
@@ -294,13 +290,11 @@ function Feed() {
               await reload();
               reloadFeed();
             }}
-          >
-            Weiter fassen
-          </Button>
+          >{t("Weiter fassen")}</Button>
         </div>
       ) : null}
       {data?.againTitle ? (
-        <Note>Letzte Woche: {data.againTitle}. Diese Woche ist wieder etwas frei, oder du legst selbst eines an.</Note>
+        <Note>{t("Letzte Woche: {0}. Diese Woche ist wieder etwas frei, oder du legst selbst eines an.", data.againTitle)}</Note>
       ) : null}
     </div>
   );

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button, Note } from "@/components/bits";
 import { blockUser, reportItem } from "@/lib/meeqo/api";
 import { errText, REPORT_REASONS } from "@/lib/meeqo/labels";
+import { t } from "@/lib/meeqo/i18n";
 
 /** Melden und Blockieren an einer Stelle. `personId` schaltet Blockieren frei. */
 export function SafetyMenu({
@@ -27,7 +28,7 @@ export function SafetyMenu({
     setFail("");
     try {
       await reportItem({ data: { kind, targetId, reason, note } });
-      setInfo("Danke. Wir sehen uns das an.");
+      setInfo(t("Danke. Wir sehen uns das an."));
       setOpen(false);
     } catch (err) {
       setFail(errText(err));
@@ -39,7 +40,7 @@ export function SafetyMenu({
     setFail("");
     try {
       await blockUser({ data: { userId: personId } });
-      setInfo(`${personName || "Die Person"} ist blockiert.`);
+      setInfo(t("{0} ist blockiert.", personName || t("Die Person")));
       setOpen(false);
       onBlocked?.();
     } catch (err) {
@@ -49,21 +50,20 @@ export function SafetyMenu({
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex h-11 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold text-ink">
-        Melden{personId ? " oder blockieren" : ""}
+      <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex h-11 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold text-ink">{t("Melden{0}", personId ? t(" oder blockieren") : "")}
       </button>
       {open ? (
         <div className="card space-y-3 p-4">
-          <p className="text-sm font-semibold">Was stimmt nicht?</p>
+          <p className="text-sm font-semibold">{t("Was stimmt nicht?")}</p>
           <div className="flex flex-wrap gap-2">
             {REPORT_REASONS.map((item) => (
-              <button key={item} type="button" onClick={() => setReason(item)} className={`inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${reason === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{item}</button>
+              <button key={item} type="button" onClick={() => setReason(item)} className={`inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${reason === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{t(item)}</button>
             ))}
           </div>
-          <textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={400} placeholder="Optional: was ist passiert?" className="min-h-20 w-full rounded-2xl border border-line bg-sand px-4 py-3 text-base outline-none focus:border-accent" />
+          <textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={400} placeholder={t("Optional: was ist passiert?")} className="min-h-20 w-full rounded-2xl border border-line bg-sand px-4 py-3 text-base outline-none focus:border-accent" />
           <div className="flex flex-wrap gap-2">
-            <Button type="button" className="h-11" onClick={send}>Melden</Button>
-            {personId ? <Button type="button" tone="ink" className="h-11" onClick={block}>{personName ? `${personName} blockieren` : "Blockieren"}</Button> : null}
+            <Button type="button" className="h-11" onClick={send}>{t("Melden")}</Button>
+            {personId ? <Button type="button" tone="ink" className="h-11" onClick={block}>{personName ? t("{0} blockieren", personName) : t("Blockieren")}</Button> : null}
           </div>
         </div>
       ) : null}

@@ -20,7 +20,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test:unit": "node --experimental-strip-types --test src/lib/meeqo/places.test.ts src/lib/meeqo/ics.test.ts src/lib/meeqo/time.test.ts src/lib/meeqo/parse.test.ts src/lib/meeqo/fit.test.ts",
-    "test:e2e": "node --test e2e/smoke.test.mjs"
+    "test:e2e": "node --test e2e/smoke.test.mjs e2e/english.test.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",

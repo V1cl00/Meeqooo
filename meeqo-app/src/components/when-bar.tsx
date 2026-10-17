@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { WEEKDAYS, addDays, berlinDay, dayRange, weekdayMon, weekDates } from "@/lib/meeqo/labels";
+import { locale, t } from "@/lib/meeqo/i18n";
 
 function monthCells(year: number, month: number) {
   const key = `${year}-${String(month).padStart(2, "0")}`;
@@ -28,7 +29,7 @@ function monthsFrom(today: string) {
 }
 
 function monthTitle(year: number, month: number) {
-  return new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric", timeZone: "Europe/Berlin" }).format(
+  return new Intl.DateTimeFormat(locale(), { month: "long", year: "numeric", timeZone: "Europe/Berlin" }).format(
     new Date(Date.UTC(year, month - 1, 15, 12)),
   );
 }
@@ -84,14 +85,14 @@ export function WhenBar({ days, onChange }: { days: string[]; onChange: (days: s
               onClick={() => toggle(day)}
               className={`flex h-14 min-w-0 flex-1 flex-col items-center justify-center rounded-2xl text-ink ${on ? "bg-accent text-onfill shadow-[0_6px_14px_color-mix(in_srgb,var(--color-accent)_30%,transparent)]" : "border border-line bg-card"} ${past ? "opacity-40" : ""}`}
             >
-              <span className="text-[11px] font-semibold">{WEEKDAYS[weekdayMon(day)]}</span>
+              <span className="text-[11px] font-semibold">{t(WEEKDAYS[weekdayMon(day)])}</span>
               <span className="text-sm font-semibold tabular-nums">{Number(day.slice(8))}</span>
             </button>
           );
         })}
         <button
           type="button"
-          aria-label="Weiter voraus"
+          aria-label={t("Weiter voraus")}
           onClick={() => setOpen((value) => !value)}
           className={`grid h-14 w-12 shrink-0 place-items-center rounded-2xl ${open ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}
         >
@@ -101,7 +102,7 @@ export function WhenBar({ days, onChange }: { days: string[]; onChange: (days: s
           </svg>
         </button>
       </div>
-      {days.length > 1 ? <p className="text-sm text-muted">{days.length} Tage ausgewählt. Ziehen im Kalender markiert eine Woche oder zwei.</p> : null}
+      {days.length > 1 ? <p className="text-sm text-muted">{t("{0} Tage ausgewählt. Ziehen im Kalender markiert eine Woche oder zwei.", days.length)}</p> : null}
       {open ? (
         <div
           className="card space-y-4 p-3"
@@ -132,7 +133,7 @@ export function WhenBar({ days, onChange }: { days: string[]; onChange: (days: s
             <div key={`${year}-${month}`}>
               <p className="mb-2 font-display text-2xl capitalize">{monthTitle(year, month)}</p>
               <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-muted">
-                {WEEKDAYS.map((name) => <span key={name}>{name}</span>)}
+                {WEEKDAYS.map((name) => <span key={name}>{t(name)}</span>)}
               </div>
               <div className="mt-1 grid grid-cols-7 gap-1">
                 {monthCells(year, month).map((day, index) => {

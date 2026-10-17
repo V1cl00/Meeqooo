@@ -1,4 +1,5 @@
-export function ShareSheet({
+
+import { t } from "@/lib/meeqo/i18n";export function ShareSheet({
   open,
   title,
   text,
@@ -37,10 +38,10 @@ export function ShareSheet({
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-3" onClick={onClose}>
       <div className="card w-full max-w-lg space-y-3 p-4" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-2xl">Teilen</h2>
-          <button type="button" className="inline-flex h-11 items-center rounded-full border-2 border-line bg-card px-4 text-sm font-semibold" onClick={onClose}>Schließen</button>
+          <h2 className="font-display text-2xl">{t("Teilen")}</h2>
+          <button type="button" className="inline-flex h-11 items-center rounded-full border-2 border-line bg-card px-4 text-sm font-semibold" onClick={onClose}>{t("Schließen")}</button>
         </div>
-        <p className="text-sm text-muted">Instagram, TikTok und Nebenan.de bekommen den Text in die Zwischenablage.</p>
+        <p className="text-sm text-muted">{t("Instagram, TikTok und Nebenan.de bekommen den Text in die Zwischenablage.")}</p>
         <div className="grid grid-cols-2 gap-2">
           {channels.map((item) => (
             <button key={item.name} type="button" className="inline-flex h-12 items-center justify-center rounded-2xl border-2 border-line bg-card text-sm font-semibold" onClick={() => go(item)}>

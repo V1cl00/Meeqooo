@@ -1,3 +1,4 @@
+import { t } from "@/lib/meeqo/i18n";
 import { TRAITS } from "@/lib/meeqo/labels";
 
 function chip(active: boolean) {
@@ -28,7 +29,7 @@ export function TraitPicker({
       <div className="flex flex-wrap gap-2">
         {TRAITS.map((trait) => (
           <button key={trait} type="button" className={chip(selected.includes(trait))} onClick={() => toggle(trait)}>
-            {trait}
+            {t(trait)}
           </button>
         ))}
       </div>

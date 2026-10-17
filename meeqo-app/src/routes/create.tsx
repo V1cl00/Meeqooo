@@ -11,6 +11,7 @@ import { compress } from "@/lib/meeqo/image";
 import { parseMeetup } from "@/lib/meeqo/parse";
 import type { VenueHit } from "@/lib/meeqo/types";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/create")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -97,7 +98,7 @@ function Create({ communityId }: { communityId: string }) {
       setDurationMin(Math.min(480, Math.max(30, found.durationMin)));
       filled.push("Dauer");
     }
-    setSentenceNote(filled.length ? `Ausgefüllt: ${filled.join(", ")}. Prüf alles kurz, ein Foto fehlt noch.` : "Daraus konnte ich nichts herauslesen. Schreib zum Beispiel Tag, Uhrzeit und was ihr macht.");
+    setSentenceNote(filled.length ? t("Ausgefüllt: {0}. Prüf alles kurz, ein Foto fehlt noch.", filled.map((name) => t(name)).join(", ")) : t("Daraus konnte ich nichts herauslesen. Schreib zum Beispiel Tag, Uhrzeit und was ihr macht."));
   }
 
   function applyTemplate() {
@@ -125,10 +126,10 @@ function Create({ communityId }: { communityId: string }) {
   function problem(at: number) {
     if (at === 1) {
       if (title.trim().length < 3) return "Gib dem Treffen einen Titel.";
-      if (!imageUrl) return "Ohne Foto wird nichts veröffentlicht.";
+      if (!imageUrl) return t("Ohne Foto wird nichts veröffentlicht.");
     }
     if (at === 2) {
-      if (!placeName.trim() || !city.trim()) return "Ort und Stadt fehlen.";
+      if (!placeName.trim() || !city.trim()) return t("Ort und Stadt fehlen.");
       if (!when) return "Wann geht es los?";
     }
     return "";
@@ -184,23 +185,23 @@ function Create({ communityId }: { communityId: string }) {
     }
   }
 
-  const titles = ["Was", "Wann und wo", "Wer darf mit"] as const;
+  const titles = ["Was", t("Wann und wo"), "Wer darf mit"] as const;
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-lg space-y-4" noValidate>
       <div className="space-y-2">
-        <h1 className="font-display text-4xl leading-none">Aktivität anlegen</h1>
+        <h1 className="font-display text-4xl leading-none">{t("Aktivität anlegen")}</h1>
         <div className="flex gap-1.5" aria-hidden>
           {titles.map((_, index) => (
             <span key={index} className={`h-1.5 flex-1 rounded-full ${index < step ? "bg-accent" : "bg-sand-deep"}`} />
           ))}
         </div>
-        <p className="text-sm text-muted">Schritt {step} von 3: {titles[step - 1]}</p>
+        <p className="text-sm text-muted">{t("Schritt {0} von 3: {1}", step, titles[step - 1])}</p>
       </div>
       {step === 1 ? (
         <div className="space-y-4">
           <div className="card space-y-2 p-4">
-            <Field label="Beschreib es in einem Satz">
+            <Field label={t("Beschreib es in einem Satz")}>
               <TextInput
                 value={sentence}
                 onChange={(event) => setSentence(event.target.value)}
@@ -210,90 +211,87 @@ function Create({ communityId }: { communityId: string }) {
                     fillFromSentence();
                   }
                 }}
-                placeholder="Samstag 10 Uhr Bouldern am Ostkreuz, sechs Leute"
+                placeholder={t("Samstag 10 Uhr Bouldern am Ostkreuz, sechs Leute")}
               />
             </Field>
-            <Button type="button" tone="ghost" className="w-full" disabled={sentence.trim().length < 3} onClick={fillFromSentence}>Ausfüllen</Button>
+            <Button type="button" tone="ghost" className="w-full" disabled={sentence.trim().length < 3} onClick={fillFromSentence}>{t("Ausfüllen")}</Button>
             {sentenceNote ? <p className="text-sm text-muted">{sentenceNote}</p> : null}
           </div>
-          <Field label="Titel"><TextInput value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Zum Beispiel: Laufen, acht Kilometer" /></Field>
-          <Field label="Beschreibung"><TextArea value={description} onChange={(event) => setDescription(event.target.value)} /></Field>
-          <Field label="Kategorie">
+          <Field label={t("Titel")}><TextInput value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t("Zum Beispiel: Laufen, acht Kilometer")} /></Field>
+          <Field label={t("Beschreibung")}><TextArea value={description} onChange={(event) => setDescription(event.target.value)} /></Field>
+          <Field label={t("Kategorie")}>
             <CategorySelect value={category} onChange={setCategory} custom={cats.data ?? []} />
           </Field>
           {template ? (
-            <button type="button" onClick={applyTemplate} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold">
-              Vorlage einsetzen: {template.spots} Leute · {template.durationMin} Min.
-            </button>
+            <button type="button" onClick={applyTemplate} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t("Vorlage einsetzen: {0} Leute · {1} Min.", template.spots, template.durationMin)}</button>
           ) : null}
-          <p className="text-sm text-muted">
-            Fehlt deine Unterkategorie? <Link to="/categories" className={face}>Selbst anlegen</Link>
+          <p className="text-sm text-muted">{t("Fehlt deine Unterkategorie?")}{" "}<Link to="/categories" className={face}>{t("Selbst anlegen")}</Link>
           </p>
-          <Field label="Foto, Pflicht">
+          <Field label={t("Foto, Pflicht")}>
             <input type="file" accept="image/*" className="text-sm" onChange={(event) => onFile(event.target.files?.[0])} />
           </Field>
-          {imageUrl ? <img src={imageUrl} alt="Vorschau" className="aspect-[3/2] w-full rounded-card object-cover" /> : null}
+          {imageUrl ? <img src={imageUrl} alt={t("Vorschau")} className="aspect-[3/2] w-full rounded-card object-cover" /> : null}
         </div>
       ) : null}
       {step === 2 ? (
         <div className="space-y-4">
-          <Field label="Ort"><TextInput value={placeName} onChange={(event) => setPlaceName(event.target.value)} placeholder="Treffpunkt, zum Beispiel Schlossgarten" /></Field>
+          <Field label={t("Ort")}><TextInput value={placeName} onChange={(event) => setPlaceName(event.target.value)} placeholder={t("Treffpunkt, zum Beispiel Schlossgarten")} /></Field>
           {venues.length ? (
             <div className="space-y-2">
-              <p className="text-sm font-semibold">Öffentliche Orte in der Nähe</p>
+              <p className="text-sm font-semibold">{t("Öffentliche Orte in der Nähe")}</p>
               <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
                 {venues.map((venue) => (
                   <button key={venue.name} type="button" onClick={() => setPlaceName(venue.name)} className={`inline-flex min-h-11 shrink-0 flex-col items-start justify-center rounded-2xl border-2 px-3 py-1 text-left ${placeName === venue.name ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>
                     <span className="text-sm font-semibold">{venue.name}</span>
-                    <span className="text-xs opacity-80">{venue.kind} · {venue.meters < 1000 ? `${venue.meters} m` : `${(venue.meters / 1000).toFixed(1)} km`}</span>
+                    <span className="text-xs opacity-80">{venue.kind} · {venue.meters < 1000 ? `${venue.meters} m` : t("{0} km", (venue.meters / 1000).toFixed(1))}</span>
                   </button>
                 ))}
               </div>
             </div>
           ) : null}
-          <Field label="Stadt"><TextInput value={city} onChange={(event) => setCity(event.target.value)} /></Field>
-          <button type="button" className={face} onClick={locate}>{coords ? "Standort übernommen" : "Diesen Ort vom Handy nehmen"}</button>
-          <Field label="Beginn"><TextInput type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} /></Field>
-          <Field label="Dauer">
+          <Field label={t("Stadt")}><TextInput value={city} onChange={(event) => setCity(event.target.value)} /></Field>
+          <button type="button" className={face} onClick={locate}>{coords ? t("Standort übernommen") : t("Diesen Ort vom Handy nehmen")}</button>
+          <Field label={t("Beginn")}><TextInput type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} /></Field>
+          <Field label={t("Dauer")}>
             <select value={durationMin} onChange={(event) => setDurationMin(Number(event.target.value))} className="h-12 w-full rounded-2xl border border-line bg-sand px-4 text-base outline-none focus:border-accent">
-              {[30, 60, 90, 120, 180, 240, 360].map((minutes) => <option key={minutes} value={minutes}>{minutes < 60 ? `${minutes} Minuten` : minutes % 60 === 0 ? `${minutes / 60} Std.` : `${Math.floor(minutes / 60)} Std. ${minutes % 60} Min.`}</option>)}
+              {[30, 60, 90, 120, 180, 240, 360].map((minutes) => <option key={minutes} value={minutes}>{minutes < 60 ? t("{0} Minuten", minutes) : minutes % 60 === 0 ? t("{0} Std.", minutes / 60) : t("{0} Std. {1} Min.", Math.floor(minutes / 60), minutes % 60)}</option>)}
             </select>
           </Field>
-          <Field label="Plätze für Gäste"><TextInput type="number" min={1} max={40} value={spots} onChange={(event) => setSpots(Number(event.target.value))} /></Field>
+          <Field label={t("Plätze für Gäste")}><TextInput type="number" min={1} max={40} value={spots} onChange={(event) => setSpots(Number(event.target.value))} /></Field>
           <label className="flex items-start gap-3 text-sm">
             <input type="checkbox" className="mt-1 h-5 w-5" checked={intent === "date" ? true : publicPlace} disabled={intent === "date"} onChange={(event) => setPublicPlace(event.target.checked)} />
-            <span>{intent === "date" ? "Dates sind nur an öffentlichen Orten." : "Öffentlicher Ort."}</span>
+            <span>{intent === "date" ? t("Dates sind nur an öffentlichen Orten.") : t("Öffentlicher Ort.")}</span>
           </label>
           {profile?.isOrganizer ? (
             <div className="flex gap-2">
-              <button type="button" className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${bookingMode === "request" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("request")}>Anfrage</button>
-              <button type="button" className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${bookingMode === "instant" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("instant")}>Sofortbuchung</button>
+              <button type="button" className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${bookingMode === "request" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("request")}>{t("Anfrage")}</button>
+              <button type="button" className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${bookingMode === "instant" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("instant")}>{t("Sofortbuchung")}</button>
             </div>
-          ) : <p className="text-sm text-muted">Buchung: Anfrage mit deiner Freigabe.</p>}
+          ) : <p className="text-sm text-muted">{t("Buchung: Anfrage mit deiner Freigabe.")}</p>}
         </div>
       ) : null}
       {step === 3 ? (
         <div className="space-y-4">
-          <p className="text-sm text-muted">Wer sie sieht, hängt an der Absicht. Teilnehmen geht nur über Anfrage, außer du bist Veranstalter mit Sofortbuchung.</p>
+          <p className="text-sm text-muted">{t("Wer sie sieht, hängt an der Absicht. Teilnehmen geht nur über Anfrage, außer du bist Veranstalter mit Sofortbuchung.")}</p>
           <div className="flex flex-wrap gap-2">
             {(["friends", "date", "both"] as const).map((item) => (
               <button key={item} type="button" onClick={() => setIntent(item)} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${intent === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>
-                {item === "friends" ? "Nur Freundschaft" : item === "date" ? "Nur Dates" : "Alle"}
+                {item === "friends" ? t("Nur Freundschaft") : item === "date" ? t("Nur Dates") : t("Alle")}
               </button>
             ))}
           </div>
           <VisibilityPicker value={visibility} onChange={setVisibility} communityIds={communityIds} onCommunityIds={setCommunityIds} />
-          <TraitPicker label="Eigenschaften des Treffens" hint="Wer vegan oder queer als Pflicht gesetzt hat, sieht das Treffen nur mit dem passenden Haken." selected={traits} onChange={setTraits} />
-          {communityId ? <Note>Die Aktivität erscheint in deiner Community und im Feed.</Note> : null}
+          <TraitPicker label={t("Eigenschaften des Treffens")} hint={t("Wer vegan oder queer als Pflicht gesetzt hat, sieht das Treffen nur mit dem passenden Haken.")} selected={traits} onChange={setTraits} />
+          {communityId ? <Note>{t("Die Aktivität erscheint in deiner Community und im Feed.")}</Note> : null}
         </div>
       ) : null}
       {error ? <Note>{error}</Note> : null}
       <div className="flex gap-2">
-        {step > 1 ? <Button key="back" type="button" tone="ghost" className="flex-1" onClick={() => { setError(""); setStep((value) => value - 1); }}>Zurück</Button> : null}
+        {step > 1 ? <Button key="back" type="button" tone="ghost" className="flex-1" onClick={() => { setError(""); setStep((value) => value - 1); }}>{t("Zurück")}</Button> : null}
         {step < 3 ? (
-          <Button key="next" type="button" className="flex-1" onClick={next}>Weiter</Button>
+          <Button key="next" type="button" className="flex-1" onClick={next}>{t("Weiter")}</Button>
         ) : (
-          <Button key="publish" type="submit" disabled={pending} className="flex-1">{pending ? "Speichern…" : "Veröffentlichen"}</Button>
+          <Button key="publish" type="submit" disabled={pending} className="flex-1">{pending ? t("Speichern…") : t("Veröffentlichen")}</Button>
         )}
       </div>
     </form>

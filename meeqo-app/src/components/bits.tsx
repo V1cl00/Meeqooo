@@ -5,6 +5,7 @@ import { Briefcase, Calendar, MapPin, MoreHorizontal, Ticket, Users } from "luci
 import { CardSheet } from "@/components/card-menu";
 import { activityIntentLabel, formatWhen, sparteOf, type Sparte } from "@/lib/meeqo/labels";
 import type { ActivityCard as Activity } from "@/lib/meeqo/types";
+import { t } from "@/lib/meeqo/i18n";
 
 export function Mark({ className = "h-8 w-8" }: { className?: string }) {
   return (
@@ -22,8 +23,7 @@ export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={`inline-flex items-center gap-2 font-display tracking-tight ${className}`}>
       <Mark className="h-[1.05em] w-[1.05em] shrink-0" />
-      <span>
-        Mee<span className="text-accent">Q</span>o
+      <span>{t("Mee")}<span className="text-accent">Q</span>o
       </span>
     </span>
   );
@@ -39,17 +39,17 @@ export function WelcomeHero() {
               <Mark className="h-8 w-8" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-muted">Sonntag · Schlossgarten</p>
-              <p className="truncate font-display text-xl leading-none">Laufen, acht Kilometer</p>
+              <p className="text-xs font-semibold text-muted">{t("Sonntag · Schlossgarten")}</p>
+              <p className="truncate font-display text-xl leading-none">{t("Laufen, acht Kilometer")}</p>
             </div>
-            <span className="ml-auto rounded-full bg-card/90 px-2 py-0.5 text-[11px] font-bold text-ink">Beispiel</span>
+            <span className="ml-auto rounded-full bg-card/90 px-2 py-0.5 text-[11px] font-bold text-ink">{t("Beispiel")}</span>
           </div>
         </div>
       </div>
       <div className="space-y-3 px-4 pb-5 pt-12">
         <Wordmark className="text-2xl" />
-        <h1 className="font-display text-[1.85rem] leading-[1.05]">Treffen über etwas, das ihr wirklich tut.</h1>
-        <p className="text-sm leading-relaxed text-muted">Dating und Freundschaft bleiben getrennt. Absicht ist von Anfang an sichtbar.</p>
+        <h1 className="font-display text-[1.85rem] leading-[1.05]">{t("Treffen über etwas, das ihr wirklich tut.")}</h1>
+        <p className="text-sm leading-relaxed text-muted">{t("Dating und Freundschaft bleiben getrennt. Absicht ist von Anfang an sichtbar.")}</p>
       </div>
     </section>
   );
@@ -133,16 +133,16 @@ export function SparteStrip({ kind, sub }: { kind: Sparte; sub: string }) {
   return (
     <div className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wide text-onaccent ${business ? "bg-ink" : "bg-accent-deep"}`}>
       <Icon className="h-4 w-4 shrink-0" />
-      <span className="truncate">{business ? "Business" : "Veranstaltung"}{sub ? ` · ${sub}` : ""}</span>
-      <span className="ml-auto shrink-0 font-semibold normal-case tracking-normal opacity-80">{business ? "Kein Date" : "Vom Veranstalter"}</span>
+      <span className="truncate">{business ? t("Business") : t("Veranstaltung")}{sub ? ` · ${sub}` : ""}</span>
+      <span className="ml-auto shrink-0 font-semibold normal-case tracking-normal opacity-80">{business ? t("Kein Date") : t("Vom Veranstalter")}</span>
     </div>
   );
 }
 
 function friendsLine(names: string[]) {
-  if (names.length === 1) return `${names[0]} ist dabei`;
-  if (names.length === 2) return `${names[0]} und ${names[1]} sind dabei`;
-  return `${names[0]}, ${names[1]} und ${names.length - 2} weitere sind dabei`;
+  if (names.length === 1) return t("{0} ist dabei", names[0]);
+  if (names.length === 2) return t("{0} und {1} sind dabei", names[0], names[1]);
+  return t("{0}, {1} und {2} weitere sind dabei", names[0], names[1], names.length - 2);
 }
 
 export function ActivityCard({ item, onHide, onChanged }: { item: Activity; onHide?: () => void; onChanged?: () => void }) {
@@ -196,9 +196,9 @@ export function ActivityCard({ item, onHide, onChanged }: { item: Activity; onHi
           {item.friendsGoing.length ? (
             <p className="flex items-center gap-2 text-sm font-semibold text-friend"><Users className="h-4 w-4 shrink-0" />{friendsLine(item.friendsGoing)}</p>
           ) : item.matchesInterest ? (
-            <p className="text-sm font-semibold text-accent-deep">Passt zu deinen Interessen</p>
+            <p className="text-sm font-semibold text-accent-deep">{t("Passt zu deinen Interessen")}</p>
           ) : null}
-          {item.fitReason ? <p className="text-xs text-muted">Weit oben: {item.fitReason}</p> : null}
+          {item.fitReason ? <p className="text-xs text-muted">{t("Weit oben: {0}", item.fitReason)}</p> : null}
           <div className="flex items-center gap-2 pt-1">
             {item.hostAvatar ? (
               <img src={item.hostAvatar} alt="" className="h-8 w-8 rounded-full object-cover" />
@@ -209,17 +209,17 @@ export function ActivityCard({ item, onHide, onChanged }: { item: Activity; onHi
               <span className="block truncate text-sm font-semibold">{item.hostName}</span>
               {item.hostBadges[0] ? <span className="block truncate text-xs text-muted">{item.hostBadges[0]}</span> : null}
             </span>
-            <span className="ml-auto text-xs font-semibold text-muted">{item.spotsLeft} frei</span>
-            {item.myStatus === "pending" ? <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold text-onfill">Angefragt</span> : null}
-            {item.myStatus === "accepted" ? <span className="rounded-full bg-friend px-2 py-0.5 text-[11px] font-bold text-onaccent">Dabei</span> : null}
+            <span className="ml-auto text-xs font-semibold text-muted">{t("{0} frei", item.spotsLeft)}</span>
+            {item.myStatus === "pending" ? <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold text-onfill">{t("Angefragt")}</span> : null}
+            {item.myStatus === "accepted" ? <span className="rounded-full bg-friend px-2 py-0.5 text-[11px] font-bold text-onaccent">{t("Dabei")}</span> : null}
           </div>
         </div>
       </Link>
       <div className="flex items-center justify-between px-4 pb-3">
         {onHide && !item.isHost ? (
-          <button type="button" className="text-xs font-semibold text-muted" onClick={onHide}>Ausblenden</button>
+          <button type="button" className="text-xs font-semibold text-muted" onClick={onHide}>{t("Ausblenden")}</button>
         ) : <span />}
-        <button type="button" aria-label="Mehr zu diesem Treffen" className="grid h-11 w-11 place-items-center rounded-full text-muted" onClick={() => setMenu(true)}>
+        <button type="button" aria-label={t("Mehr zu diesem Treffen")} className="grid h-11 w-11 place-items-center rounded-full text-muted" onClick={() => setMenu(true)}>
           <MoreHorizontal className="h-5 w-5" />
         </button>
       </div>

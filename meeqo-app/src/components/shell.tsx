@@ -10,6 +10,7 @@ import type { Profile } from "@/lib/meeqo/types";
 import { themeStyle } from "@/lib/meeqo/theme";
 import { WelcomeHero, Wordmark } from "@/components/bits";
 import { Toaster } from "@/components/toaster";
+import { t } from "@/lib/meeqo/i18n";
 
 type Ctx = {
   profile: Profile | null;
@@ -68,7 +69,7 @@ export function Shell({
     if (!user) return;
     let live = true;
     const timer = window.setTimeout(() => {
-      if (live) setError("Das Profil lädt nicht. Prüfe die Verbindung und versuch es nochmal.");
+      if (live) setError(t("Das Profil lädt nicht. Prüfe die Verbindung und versuch es nochmal."));
     }, 8000);
     takeProfile()
       .then((next) => {
@@ -78,7 +79,7 @@ export function Shell({
         }
       })
       .catch((err: unknown) => {
-        if (live) setError(isUnauthorized(err) ? "Unauthorized" : /gesperrt/.test(errText(err)) ? errText(err) : "Profil konnte nicht geladen werden.");
+        if (live) setError(isUnauthorized(err) ? "Unauthorized" : /gesperrt/.test(errText(err)) ? errText(err) : t("Profil konnte nicht geladen werden."));
       })
       .finally(() => window.clearTimeout(timer));
     return () => {
@@ -160,10 +161,8 @@ export function Shell({
       <div className="grid min-h-dvh place-items-center bg-sand px-6 text-center">
         <div className="max-w-sm space-y-4">
           <Wordmark className="text-3xl" />
-          <p>{error || "Profil fehlt."}</p>
-          <button type="button" className="inline-flex h-12 items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill" onClick={() => window.location.reload()}>
-            Neu laden
-          </button>
+          <p>{error || t("Profil fehlt.")}</p>
+          <button type="button" className="inline-flex h-12 items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill" onClick={() => window.location.reload()}>{t("Neu laden")}</button>
         </div>
       </div>
     );
@@ -205,21 +204,21 @@ export function Shell({
             {profile?.city ? (
               <p className="mt-auto text-sm text-muted">
                 {profile.city}
-                <span className="block">{profile.radiusKm} km Umkreis</span>
+                <span className="block">{t("{0} km Umkreis", profile.radiusKm)}</span>
               </p>
             ) : (
-              <p className="mt-auto text-sm text-muted">Standort noch offen</p>
+              <p className="mt-auto text-sm text-muted">{t("Standort noch offen")}</p>
             )}
           </aside>
           <div className="min-w-0 flex-1">
             {online ? null : (
-              <p role="status" className="bg-ink px-4 py-2 text-center text-sm font-semibold text-onaccent">Du bist offline. Zum Senden und Anfragen braucht MeeQo Netz.</p>
+              <p role="status" className="bg-ink px-4 py-2 text-center text-sm font-semibold text-onaccent">{t("Du bist offline. Zum Senden und Anfragen braucht MeeQo Netz.")}</p>
             )}
             <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line/70 bg-sand/80 px-4 py-3 backdrop-blur-xl md:px-8">
               <Link to="/" className="md:hidden">
                 <Wordmark className="text-[1.65rem]" />
               </Link>
-              <p className="hidden text-sm text-muted md:block">Aktivitäten, nicht Profile.</p>
+              <p className="hidden text-sm text-muted md:block">{t("Aktivitäten, nicht Profile.")}</p>
               <Link to="/notifications" aria-label={unread > 0 ? `Benachrichtigungen, ${unread} neu` : "Benachrichtigungen"} className="relative grid h-11 w-11 place-items-center rounded-full border border-line bg-card shadow-sm">
                 <Bell className="h-5 w-5" />
                 {unread > 0 ? (

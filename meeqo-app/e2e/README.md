@@ -11,3 +11,5 @@ npm run test:e2e                            # in einem zweiten
 - Der Dev-Server nutzt die Datenbank im Arbeitsspeicher. Jeder Lauf legt neue Konten an, der Admin `admin@test.de` bleibt bestehen.
 - Läuft der Server woanders, `BASE_URL=http://localhost:3000 npm run test:e2e` (die Anmeldung erlaubt nur die erlaubten Adressen).
 - Ohne eingebauten Chromium: `CHROME_PATH=/pfad/zu/chrome npm run test:e2e`.
+
+Englisch: `node --test e2e/english.test.mjs` (Browser mit en-GB). Die Hilfsfunktion `launch()` stellt alle anderen Kontexte auf de-DE.

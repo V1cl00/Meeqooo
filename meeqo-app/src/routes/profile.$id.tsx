@@ -8,6 +8,7 @@ import { Shell, useMe } from "@/components/shell";
 import { adminStatus, getPublicProfile, setVerified, listPersonActivity, removeFriend, requestFriend, respondFriend, toggleFavorite } from "@/lib/meeqo/api";
 import { areaSummary, errText } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/profile/$id")({ component: Page });
 
@@ -30,13 +31,12 @@ function Person({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   if (profile?.userId === id) {
     return (
-      <Note>
-        Das bist du. <Link to="/profile" className="font-semibold">Zum eigenen Profil</Link>
+      <Note>{t("Das bist du.")}{" "}<Link to="/profile" className="font-semibold">{t("Zum eigenen Profil")}</Link>
       </Note>
     );
   }
-  if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
-  if (error || !data) return <Note>{error || "Nicht gefunden."}</Note>;
+  if (loading) return <p className="text-sm text-muted">{t("Wird geladen…")}</p>;
+  if (error || !data) return <Note>{error || t("Nicht gefunden.")}</Note>;
 
   async function befriend() {
     setBusy(true);
@@ -66,7 +66,7 @@ function Person({ id }: { id: string }) {
     }
   }
 
-  const label = data.friend === "friends" ? "Freundschaft lösen" : data.friend === "out" ? "Angefragt" : data.friend === "in" ? "Annehmen" : "Befreunden";
+  const label = data.friend === "friends" ? t("Freundschaft lösen") : data.friend === "out" ? "Angefragt" : data.friend === "in" ? "Annehmen" : "Befreunden";
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
@@ -78,8 +78,8 @@ function Person({ id }: { id: string }) {
       {data.bio ? <p className="text-sm">{data.bio}</p> : null}
       <div className="flex flex-wrap gap-2">
         <Button type="button" tone={data.friend === "friends" ? "ghost" : "accent"} disabled={busy || data.friend === "out"} onClick={befriend}>{label}</Button>
-        <Button type="button" tone="ghost" disabled={busy} onClick={star}>{data.favorite ? "Favorit lösen" : "Favorit"}</Button>
-        <Link to="/friends" className="inline-flex h-12 items-center rounded-full border-2 border-line bg-card px-5 text-sm font-semibold">Was Freunde machen</Link>
+        <Button type="button" tone="ghost" disabled={busy} onClick={star}>{data.favorite ? t("Favorit lösen") : t("Favorit")}</Button>
+        <Link to="/friends" className="inline-flex h-12 items-center rounded-full border-2 border-line bg-card px-5 text-sm font-semibold">{t("Was Freunde machen")}</Link>
       </div>
       {fail ? <Note>{fail}</Note> : null}
       {admin.data?.admin ? (
@@ -87,19 +87,19 @@ function Person({ id }: { id: string }) {
           type="button"
           tone="ghost"
           onClick={async () => {
-            await setVerified({ data: { userId: data.userId, value: !data.badges.includes("Profil bestätigt") } });
+            await setVerified({ data: { userId: data.userId, value: !data.badges.includes(t("Profil bestätigt")) } });
             reload();
           }}
         >
-          {data.badges.includes("Profil bestätigt") ? "Admin: Bestätigung aufheben" : "Admin: als bestätigt markieren"}
+          {data.badges.includes(t("Profil bestätigt")) ? t("Admin: Bestätigung aufheben") : t("Admin: als bestätigt markieren")}
         </Button>
       ) : null}
       <SafetyMenu kind="person" targetId={data.userId} personId={data.userId} personName={data.displayName.split(" ")[0]} onBlocked={() => navigate({ to: "/" })} />
       <section className="space-y-3">
-        <h2 className="font-display text-2xl">Was gerade ansteht</h2>
-        <p className="text-sm text-muted">Nur das, was diese Person für dich freigegeben hat.</p>
+        <h2 className="font-display text-2xl">{t("Was gerade ansteht")}</h2>
+        <p className="text-sm text-muted">{t("Nur das, was diese Person für dich freigegeben hat.")}</p>
         {(doing.data ?? []).map((item) => <ActivityCard key={item.id} item={item} />)}
-        {!doing.loading && (doing.data ?? []).length === 0 ? <p className="text-sm text-muted">Nichts, das du sehen darfst.</p> : null}
+        {!doing.loading && (doing.data ?? []).length === 0 ? <p className="text-sm text-muted">{t("Nichts, das du sehen darfst.")}</p> : null}
       </section>
       <PostBoard userId={data.userId} canPost={false} />
     </div>

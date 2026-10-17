@@ -219,3 +219,9 @@ Liste und einzelne Nachrichten zeigen das Profilfoto, sonst den Anfangsbuchstabe
 ## Ton zum Nutzer
 
 Deutsch, kurz, konkret. Er testet auf dem Handy und vergleicht mit Hinge, Tinder, Meet5 und Spontacts. Ihn interessiert, ob ein Treffen sofort als Karte sichtbar ist, ob Knöpfe aussehen wie Knöpfe, und ob Ort und Sichtbarkeit tun, was er gesagt hat. Keine Strategie-Aufsätze, außer er fragt danach.
+
+## Englisch (i18n)
+
+- `t()` in `src/lib/meeqo/i18n.ts`, deutscher Text als Schlüssel, Wörterbuch `en.ts` (erzeugt aus `tools/en/part*.json`, `node tools/i18n-merge.mjs`).
+- Prüfen: `node tools/i18n-missing.mjs`, `node tools/i18n-leftovers.mjs`, `node --test e2e/english.test.mjs` (läuft die Hauptseiten auf Englisch durch und schlägt bei deutschen oder fehlenden Texten an).
+- Grenzen: Rechtsseiten, Mitteilungen, Mails und Link-Vorschauen bleiben deutsch. Nutzereigene Kategorien und Titel werden nicht übersetzt. Datenbank-Werte (Kategorien, Eigenschaften) bleiben deutsch gespeichert und werden nur angezeigt übersetzt.

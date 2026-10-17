@@ -9,6 +9,7 @@ import { useMe } from "@/components/shell";
 import { createClassified, expressInterest, listClassifieds } from "@/lib/meeqo/api";
 import { CLASSIFIED_CATS, errText, formatWhen } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 function chip(active: boolean) {
   return `inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
@@ -56,32 +57,32 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
 
   return (
     <div className="space-y-3">
-      <button type="button" className={chip(open)} onClick={() => setOpen((value) => !value)}>Anzeige aufgeben</button>
+      <button type="button" className={chip(open)} onClick={() => setOpen((value) => !value)}>{t("Anzeige aufgeben")}</button>
       {open ? (
         <form onSubmit={submit} className="card space-y-3 p-4">
-          <Field label="Titel"><TextInput value={title} onChange={(event) => setTitle(event.target.value)} required /></Field>
-          <Field label="Worum geht's?"><TextArea value={body} onChange={(event) => setBody(event.target.value)} /></Field>
+          <Field label={t("Titel")}><TextInput value={title} onChange={(event) => setTitle(event.target.value)} required /></Field>
+          <Field label={t("Worum geht's?")}><TextArea value={body} onChange={(event) => setBody(event.target.value)} /></Field>
           <div className="flex flex-wrap gap-2">
             {CLASSIFIED_CATS.map((item) => (
-              <button key={item} type="button" className={chip((sub || category) === item)} onClick={() => setCategory(item)}>{item}</button>
+              <button key={item} type="button" className={chip((sub || category) === item)} onClick={() => setCategory(item)}>{t(item)}</button>
             ))}
           </div>
-          <Field label="Preis, optional"><TextInput value={price} onChange={(event) => setPrice(event.target.value)} placeholder="12 €" /></Field>
-          <TraitPicker label="Eigenschaften" hint="Zum Beispiel vegan oder queerfreundlich. Ohne Haken sieht sie jeder, den die Sichtbarkeit durchlässt." selected={traits} onChange={setTraits} />
+          <Field label={t("Preis, optional")}><TextInput value={price} onChange={(event) => setPrice(event.target.value)} placeholder="12 €" /></Field>
+          <TraitPicker label={t("Eigenschaften")} hint={t("Zum Beispiel vegan oder queerfreundlich. Ohne Haken sieht sie jeder, den die Sichtbarkeit durchlässt.")} selected={traits} onChange={setTraits} />
           <VisibilityPicker value={visibility} onChange={setVisibility} communityIds={communityIds} onCommunityIds={setCommunityIds} />
           {fail ? <Note>{fail}</Note> : null}
-          <Button type="submit">Veröffentlichen</Button>
+          <Button type="submit">{t("Veröffentlichen")}</Button>
         </form>
       ) : null}
       {error ? <Note>{error}</Note> : null}
       {!open && fail ? <Note>{fail}</Note> : null}
-      {loading ? <p className="text-sm text-muted">Anzeigen werden geladen…</p> : null}
+      {loading ? <p className="text-sm text-muted">{t("Anzeigen werden geladen…")}</p> : null}
       {items.map((item) => (
         <article key={item.id} className="overflow-hidden rounded-[1.5rem] border-2 border-dashed border-ink/40 bg-sand-deep">
           <div className="flex items-center gap-2 bg-ink/90 px-4 py-2 text-xs font-bold uppercase tracking-wide text-onaccent">
             <Tag className="h-4 w-4 shrink-0" />
-            <span>Kleinanzeige · {item.category}</span>
-            <span className="ml-auto font-semibold normal-case tracking-normal opacity-80">Kein Treffen</span>
+            <span>{t("Kleinanzeige · {0}", item.category)}</span>
+            <span className="ml-auto font-semibold normal-case tracking-normal opacity-80">{t("Kein Treffen")}</span>
           </div>
           <div className="space-y-2 p-4">
             <div className="flex items-start justify-between gap-3">
@@ -91,17 +92,17 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
             <p className="text-sm">{item.body}</p>
             <p className="text-sm text-muted">{item.city} · {item.authorName} · {formatWhen(item.createdAt)}</p>
             {item.mine ? (
-              <p className="text-sm font-semibold">{item.interested ? `${item.interested} ${item.interested === 1 ? "Person hat" : "Leute haben"} geschrieben. Antworten findest du unter Chats.` : "Deine Anzeige. Noch niemand hat geschrieben."}</p>
+              <p className="text-sm font-semibold">{item.interested ? t("{0} {1} geschrieben. Antworten findest du unter Chats.", item.interested, item.interested === 1 ? "Person hat" : "Leute haben") : t("Deine Anzeige. Noch niemand hat geschrieben.")}</p>
             ) : item.myThread ? (
-              <Link to="/chat/anzeige/$id" params={{ id: item.myThread }} className="inline-flex h-11 items-center justify-center rounded-full bg-ink px-5 text-sm font-semibold text-onaccent">Chat öffnen</Link>
+              <Link to="/chat/anzeige/$id" params={{ id: item.myThread }} className="inline-flex h-11 items-center justify-center rounded-full bg-ink px-5 text-sm font-semibold text-onaccent">{t("Chat öffnen")}</Link>
             ) : (
-              <Button type="button" className="h-11" onClick={() => interest(item.id)}>Interesse melden</Button>
+              <Button type="button" className="h-11" onClick={() => interest(item.id)}>{t("Interesse melden")}</Button>
             )}
             {item.mine ? null : <SafetyMenu kind="ad" targetId={item.id} personId={item.authorId} personName={item.authorName.split(" ")[0]} onBlocked={reload} />}
           </div>
         </article>
       ))}
-      {!loading && items.length === 0 ? <p className="text-sm text-muted">In diesem Filter ist noch nichts eingestellt.</p> : null}
+      {!loading && items.length === 0 ? <p className="text-sm text-muted">{t("In diesem Filter ist noch nichts eingestellt.")}</p> : null}
     </div>
   );
 }

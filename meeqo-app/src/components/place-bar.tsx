@@ -3,6 +3,7 @@ import { face, Note } from "@/components/bits";
 import { useMe } from "@/components/shell";
 import { setLocation, setPlace, setRadius, suggestPlaces, type PlaceHit } from "@/lib/meeqo/api";
 import { errText, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
+import { t } from "@/lib/meeqo/i18n";
 
 function Chevron() {
   return (
@@ -78,7 +79,7 @@ export function PlaceBar({ onChange }: { onChange?: () => void }) {
           setError(errText(err));
         }
       },
-      () => setError("Standort nicht freigegeben."),
+      () => setError(t("Standort nicht freigegeben.")),
     );
   }
 
@@ -103,7 +104,7 @@ export function PlaceBar({ onChange }: { onChange?: () => void }) {
           onClick={() => setOpen(open === "city" ? null : "city")}
           aria-expanded={open === "city"}
         >
-          {profile?.city || "Standort"}
+          {profile?.city || t("Standort")}
           <Chevron />
         </button>
         <button
@@ -112,8 +113,7 @@ export function PlaceBar({ onChange }: { onChange?: () => void }) {
           onClick={() => setOpen(open === "radius" ? null : "radius")}
           aria-expanded={open === "radius"}
         >
-          {profile?.radiusKm ?? 25} km
-          <Chevron />
+          {profile?.radiusKm ?? 25}{" "}{t("km")}<Chevron />
         </button>
       </div>
       {open === "city" ? (
@@ -130,18 +130,16 @@ export function PlaceBar({ onChange }: { onChange?: () => void }) {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Postleitzahl, Stadt oder Dorf"
+              placeholder={t("Postleitzahl, Stadt oder Dorf")}
               className="h-11 min-w-0 flex-1 rounded-2xl border-2 border-line bg-sand px-3 text-sm"
               autoFocus
             />
-            <button type="submit" className="inline-flex h-11 shrink-0 items-center rounded-full bg-ink px-4 text-sm font-semibold text-onaccent">
-              Übernehmen
-            </button>
+            <button type="submit" className="inline-flex h-11 shrink-0 items-center rounded-full bg-ink px-4 text-sm font-semibold text-onaccent">{t("Übernehmen")}</button>
           </form>
-          {looking ? <p className="text-sm text-muted">Suche Orte…</p> : null}
+          {looking ? <p className="text-sm text-muted">{t("Suche Orte…")}</p> : null}
           {hits.length ? (
             <div className="max-h-72 space-y-2 overflow-y-auto">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">Auswahl</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Auswahl")}</p>
               {hits.map((hit) => (
                 <button
                   key={`${hit.label}-${hit.detail}-${hit.lat}`}
@@ -156,12 +154,12 @@ export function PlaceBar({ onChange }: { onChange?: () => void }) {
             </div>
           ) : null}
           {!looking && /^\d{1,4}$/.test(query.trim()) ? (
-            <p className="text-sm text-muted">Postleitzahl hat fünf Stellen. Danach kommen die Orte darunter.</p>
+            <p className="text-sm text-muted">{t("Postleitzahl hat fünf Stellen. Danach kommen die Orte darunter.")}</p>
           ) : null}
           {!looking && query.trim().length >= 2 && !/^\d{1,4}$/.test(query.trim()) && hits.length === 0 ? (
-            <p className="text-sm text-muted">Nichts Passendes. Schreib den Namen oder die Postleitzahl genauer.</p>
+            <p className="text-sm text-muted">{t("Nichts Passendes. Schreib den Namen oder die Postleitzahl genauer.")}</p>
           ) : null}
-          <button type="button" className={face} onClick={locate}>Standort nutzen</button>
+          <button type="button" className={face} onClick={locate}>{t("Standort nutzen")}</button>
         </div>
       ) : null}
       {open === "radius" ? (
@@ -173,8 +171,7 @@ export function PlaceBar({ onChange }: { onChange?: () => void }) {
               onClick={() => pickRadius(item)}
               className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${item === profile?.radiusKm ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
             >
-              {item} km
-            </button>
+              {t("{0} km", item)}</button>
           ))}
         </div>
       ) : null}
@@ -236,10 +233,10 @@ export function PlaceSuggest({
         placeholder={placeholder}
         className="h-12 w-full rounded-2xl border border-line bg-card px-4 text-base outline-none focus:border-accent"
       />
-      {looking ? <p className="text-sm text-muted">Suche Orte…</p> : null}
+      {looking ? <p className="text-sm text-muted">{t("Suche Orte…")}</p> : null}
       {hits.length ? (
         <div className="max-h-72 space-y-2 overflow-y-auto">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Auswahl</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Auswahl")}</p>
           {hits.map((hit) => (
             <button
               key={`${hit.label}-${hit.detail}-${hit.lat}`}

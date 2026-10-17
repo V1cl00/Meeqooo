@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { listCommunities } from "@/lib/meeqo/api";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 export const VISIBILITIES = [
   { id: "all", label: "Egal" },
@@ -39,7 +40,7 @@ export function VisibilityPicker({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Wer darf das sehen?</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Wer darf das sehen?")}</p>
       <div className="flex flex-wrap gap-2">
         {VISIBILITIES.map((item) => (
           <button key={item.id} type="button" className={chip(value === item.id)} onClick={() => onChange(item.id)}>
@@ -49,7 +50,7 @@ export function VisibilityPicker({
       </div>
       {value === "community" && onCommunityIds ? (
         <div className="space-y-2">
-          <p className="text-sm font-medium">Welche Communities</p>
+          <p className="text-sm font-medium">{t("Welche Communities")}</p>
           {mine.length ? (
             <div className="flex flex-wrap gap-2">
               {mine.map((item) => (
@@ -59,16 +60,13 @@ export function VisibilityPicker({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted">
-              Du bist noch in keiner Community. <Link to="/communities" className="font-semibold text-ink">Eine finden</Link>
+            <p className="text-sm text-muted">{t("Du bist noch in keiner Community.")}{" "}<Link to="/communities" className="font-semibold text-ink">{t("Eine finden")}</Link>
             </p>
           )}
-          <p className="text-sm text-muted">Mehrere gehen. Sehen kann es nur, wer in einer der gewählten Gruppen ist.</p>
+          <p className="text-sm text-muted">{t("Mehrere gehen. Sehen kann es nur, wer in einer der gewählten Gruppen ist.")}</p>
         </div>
       ) : (
-        <p className="text-sm text-muted">
-          Egal sieht jeder, den die Absicht schon erreicht. Nur Freunde sind angenommene Freundschaften. Communities sind die Gruppen, die du auswählst. Veranstaltungen sind Leute, mit denen du schon ein Treffen teilst. Mein Alter ist plus minus fünf Jahre, das Geburtsjahr bleibt privat.
-        </p>
+        <p className="text-sm text-muted">{t("Egal sieht jeder, den die Absicht schon erreicht. Nur Freunde sind angenommene Freundschaften. Communities sind die Gruppen, die du auswählst. Veranstaltungen sind Leute, mit denen du schon ein Treffen teilst. Mein Alter ist plus minus fünf Jahre, das Geburtsjahr bleibt privat.")}</p>
       )}
     </div>
   );

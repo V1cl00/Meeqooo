@@ -4,6 +4,7 @@ import { Button, Field, Note, TextArea } from "@/components/bits";
 import { Shell } from "@/components/shell";
 import { supportAsk } from "@/lib/meeqo/api";
 import { errText } from "@/lib/meeqo/labels";
+import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/support")({ component: Page });
 
@@ -48,20 +49,20 @@ function Support() {
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      <h1 className="font-display text-4xl leading-none">Hilfe</h1>
+      <h1 className="font-display text-4xl leading-none">{t("Hilfe")}</h1>
       <div className="space-y-2">
         {FAQ.map(([title, body]) => (
           <details key={title} className="card p-4">
-            <summary className="cursor-pointer font-semibold">{title}</summary>
-            <p className="mt-2 text-sm text-muted">{body}</p>
+            <summary className="cursor-pointer font-semibold">{t(title)}</summary>
+            <p className="mt-2 text-sm text-muted">{t(body)}</p>
           </details>
         ))}
       </div>
       <form onSubmit={ask} className="space-y-3">
-        <Field label="Eigene Frage">
+        <Field label={t("Eigene Frage")}>
           <TextArea value={question} onChange={(event) => setQuestion(event.target.value)} />
         </Field>
-        <Button type="submit" disabled={pending}>{pending ? "Antwortet…" : "Fragen"}</Button>
+        <Button type="submit" disabled={pending}>{pending ? t("Antwortet…") : t("Fragen")}</Button>
       </form>
       {error ? <Note>{error}</Note> : null}
       {answer ? <div className="card p-4 text-sm whitespace-pre-wrap">{answer}</div> : null}

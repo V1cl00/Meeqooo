@@ -8,6 +8,7 @@ import { Shell, useMe } from "@/components/shell";
 import { listCategories, saveOnboarding, setLocation } from "@/lib/meeqo/api";
 import { errText } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/onboarding")({ component: Page });
 
@@ -37,7 +38,7 @@ function Onboarding() {
     setError("");
     try {
       if (!areas.length) {
-        setError("Wähl mindestens eins.");
+        setError(t("Wähl mindestens eins."));
         setPending(false);
         return;
       }
@@ -54,7 +55,7 @@ function Onboarding() {
     setError("");
     setLocNote("");
     if (!navigator.geolocation) {
-      setError("Dein Browser gibt keinen Standort her. Schreib die Stadt von Hand.");
+      setError(t("Dein Browser gibt keinen Standort her. Schreib die Stadt von Hand."));
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -64,13 +65,13 @@ function Onboarding() {
         try {
           const result = await setLocation({ data: next });
           if (result.city) setCity(result.city);
-          setLocNote(result.city ? `Standort: ${result.city}` : "Standort übernommen. Stadt kannst du noch eintragen.");
+          setLocNote(result.city ? `Standort: ${result.city}` : t("Standort übernommen. Stadt kannst du noch eintragen."));
         } catch (err) {
-          setLocNote("Standort übernommen.");
+          setLocNote(t("Standort übernommen."));
           setError(errText(err));
         }
       },
-      () => setError("Standort nicht freigegeben. Schreib die Stadt von Hand."),
+      () => setError(t("Standort nicht freigegeben. Schreib die Stadt von Hand.")),
     );
   }
 
@@ -78,17 +79,17 @@ function Onboarding() {
     <form onSubmit={submit} className="space-y-5">
       <section className="card space-y-3 p-5">
         <Wordmark />
-        <h1 className="font-display text-[2rem] leading-none">Wofür bist du hier?</h1>
-        <p className="text-sm text-muted">Mehrere gehen. Das siehst du im Feed, und du kannst es später ändern.</p>
+        <h1 className="font-display text-[2rem] leading-none">{t("Wofür bist du hier?")}</h1>
+        <p className="text-sm text-muted">{t("Mehrere gehen. Das siehst du im Feed, und du kannst es später ändern.")}</p>
       </section>
       <AreaPicker selected={areas} onChange={setAreas} />
       <div>
-        <p className="text-sm font-medium text-muted">Ich suche aktiv neue Leute für</p>
+        <p className="text-sm font-medium text-muted">{t("Ich suche aktiv neue Leute für")}</p>
         <div className="mt-2">
           <SeekingPicker selected={seeking} onChange={setSeeking} custom={cats.data ?? []} />
         </div>
       </div>
-      <Field label="Stadt">
+      <Field label={t("Stadt")}>
         <PlaceSuggest
           value={city}
           onChange={(next) => {
@@ -99,13 +100,13 @@ function Onboarding() {
             setCity(hit.city);
             setCoords({ lat: hit.lat, lng: hit.lng });
           }}
-          placeholder="Postleitzahl, Stadt oder Dorf"
+          placeholder={t("Postleitzahl, Stadt oder Dorf")}
         />
       </Field>
-      <button type="button" className="inline-flex h-12 w-full items-center justify-center rounded-full border border-line bg-card text-sm font-semibold text-ink shadow-sm" onClick={locate}>{coords ? "Standort übernommen" : "Standort nutzen"}</button>
+      <button type="button" className="inline-flex h-12 w-full items-center justify-center rounded-full border border-line bg-card text-sm font-semibold text-ink shadow-sm" onClick={locate}>{coords ? t("Standort übernommen") : t("Standort nutzen")}</button>
       {locNote ? <p className="text-sm text-muted">{locNote}</p> : null}
       {error ? <Note>{error}</Note> : null}
-      <Button type="submit" disabled={pending} className="w-full">{pending ? "Speichern…" : "Weiter zum Feed"}</Button>
+      <Button type="submit" disabled={pending} className="w-full">{pending ? t("Speichern…") : t("Weiter zum Feed")}</Button>
     </form>
   );
 }

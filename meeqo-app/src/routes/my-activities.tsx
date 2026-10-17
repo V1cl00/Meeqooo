@@ -5,6 +5,7 @@ import { Shell } from "@/components/shell";
 import { cancelActivity, getFeed } from "@/lib/meeqo/api";
 import { errText, formatWhen } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/my-activities")({ component: Page });
 
@@ -24,18 +25,18 @@ function Mine() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-4xl leading-none">Meine Aktivitäten</h1>
+      <h1 className="font-display text-4xl leading-none">{t("Meine Aktivitäten")}</h1>
       <div className="flex gap-2">
-        <button type="button" onClick={() => setTab("host")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${tab === "host" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>Ich lade ein</button>
-        <button type="button" onClick={() => setTab("join")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${tab === "join" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>Ich komme</button>
+        <button type="button" onClick={() => setTab("host")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${tab === "host" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Ich lade ein")}</button>
+        <button type="button" onClick={() => setTab("join")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${tab === "join" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Ich komme")}</button>
       </div>
-      {loading ? <p className="text-sm text-muted">Wird geladen…</p> : null}
+      {loading ? <p className="text-sm text-muted">{t("Wird geladen…")}</p> : null}
       {error ? <Note>{error}</Note> : null}
       {fail ? <Note>{fail}</Note> : null}
       {rows.map((item) => (
         <div key={item.id} className="card space-y-2 p-4">
           <Link to="/activity/$id" params={{ id: item.id }} className="font-semibold">{item.title}</Link>
-          <p className="text-sm text-muted">{formatWhen(item.startsAt)} · {item.myStatus === "pending" ? "Anfrage offen" : item.myStatus === "accepted" ? "Zugesagt" : "Deine Aktivität"}</p>
+          <p className="text-sm text-muted">{formatWhen(item.startsAt)} · {item.myStatus === "pending" ? t("Anfrage offen") : item.myStatus === "accepted" ? t("Zugesagt") : t("Deine Aktivität")}</p>
           {item.isHost && !item.cancelled ? (
             <Button
               type="button"
@@ -49,13 +50,11 @@ function Mine() {
                   setFail(errText(err));
                 }
               }}
-            >
-              Absagen
-            </Button>
+            >{t("Absagen")}</Button>
           ) : null}
         </div>
       ))}
-      {!loading && rows.length === 0 ? <Empty art="plant" title="Noch leer" body="Leg eine Aktivität an oder frag im Feed an." /> : null}
+      {!loading && rows.length === 0 ? <Empty art="plant" title={t("Noch leer")} body={t("Leg eine Aktivität an oder frag im Feed an.")} /> : null}
     </div>
   );
 }

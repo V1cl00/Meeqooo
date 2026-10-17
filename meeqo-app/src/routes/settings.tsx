@@ -7,6 +7,7 @@ import { signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { setLang, t, useLang } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/settings")({ component: Page });
 
@@ -27,6 +28,7 @@ function Settings() {
   const blocked = useLoad(() => listBlocked(), []);
   const admin = useLoad(() => adminStatus(), []);
   const [confirm, setConfirm] = useState("");
+  const lang = useLang();
   const [calendar, setCalendar] = useState("");
   if (!profile) return null;
 
@@ -42,7 +44,7 @@ function Settings() {
           setError(errText(err));
         }
       },
-      () => setError("Standort nicht freigegeben."),
+      () => setError(t("Standort nicht freigegeben.")),
     );
   }
 
@@ -73,8 +75,8 @@ function Settings() {
       }
     }
     await reload();
-    notice(enabled ? (background ? "Mitteilungen an, auch wenn MeeQo zu ist." : "Mitteilungen an, solange MeeQo offen ist.") : "Mitteilungen bleiben aus.");
-    if (!enabled) setError("Der Browser hat nicht zugestimmt.");
+    notice(enabled ? (background ? t("Mitteilungen an, auch wenn MeeQo zu ist.") : "Mitteilungen an, solange MeeQo offen ist.") : "Mitteilungen bleiben aus.");
+    if (!enabled) setError(t("Der Browser hat nicht zugestimmt."));
   }
 
   async function erase() {
@@ -94,7 +96,7 @@ function Settings() {
     try {
       const result = await designTheme({ data: { note } });
       await reload();
-      notice(result.source === "ai" ? `„${result.theme.name}“ ist an.` : `„${result.theme.name}“ ist an. Die KI war gerade nicht da, die Farben kommen aus deinen Worten.`);
+      notice(result.source === "ai" ? t("„{0}“ ist an.", result.theme.name) : t("„{0}“ ist an. Die KI war gerade nicht da, die Farben kommen aus deinen Worten.", result.theme.name));
     } catch (err) {
       setError(errText(err));
     } finally {
@@ -104,10 +106,18 @@ function Settings() {
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      <h1 className="font-display text-4xl leading-none">Einstellungen</h1>
+      <h1 className="font-display text-4xl leading-none">{t("Einstellungen")}</h1>
+      <section className="card space-y-3 p-4">
+        <h2 className="font-display text-2xl">{t("Sprache")}</h2>
+        <div className="flex gap-2" role="group" aria-label={t("Sprache")}>
+          {([["de", "Deutsch"], ["en", "English"]] as const).map(([code, name]) => (
+            <button key={code} type="button" lang={code} aria-pressed={lang === code} onClick={() => setLang(code)} className={`inline-flex h-11 items-center rounded-full border-2 px-5 text-sm font-semibold ${lang === code ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{name}</button>
+          ))}
+        </div>
+      </section>
       <form onSubmit={design} className="card space-y-3 p-4">
-        <h2 className="font-display text-2xl">Dein Design</h2>
-        <p className="text-sm text-muted">Beschreib in einem Satz, wie MeeQo aussehen soll. Die KI setzt Farben, Schrift und Ecken. Der Text bleibt lesbar, nur für dich.</p>
+        <h2 className="font-display text-2xl">{t("Dein Design")}</h2>
+        <p className="text-sm text-muted">{t("Beschreib in einem Satz, wie MeeQo aussehen soll. Die KI setzt Farben, Schrift und Ecken. Der Text bleibt lesbar, nur für dich.")}</p>
         {profile.theme ? (
           <div className="flex items-center gap-3">
             <span className="font-semibold">{profile.theme.name}</span>
@@ -118,11 +128,11 @@ function Settings() {
             </span>
           </div>
         ) : null}
-        <Field label="Wie soll es sich anfühlen?">
-          <TextArea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Zum Beispiel: ruhig, meerblau, weiche Ecken" maxLength={240} />
+        <Field label={t("Wie soll es sich anfühlen?")}>
+          <TextArea value={note} onChange={(event) => setNote(event.target.value)} placeholder={t("Zum Beispiel: ruhig, meerblau, weiche Ecken")} maxLength={240} />
         </Field>
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={pending || note.trim().length < 2}>{pending ? "Wird gestaltet…" : "Mit KI gestalten"}</Button>
+          <Button type="submit" disabled={pending || note.trim().length < 2}>{pending ? t("Wird gestaltet…") : t("Mit KI gestalten")}</Button>
           {profile.theme ? (
             <Button
               type="button"
@@ -130,17 +140,15 @@ function Settings() {
               onClick={async () => {
                 await resetTheme();
                 await reload();
-                notice("Wieder das MeeQo-Design.");
+                notice(t("Wieder das MeeQo-Design."));
               }}
-            >
-              Zurück zu MeeQo
-            </Button>
+            >{t("Zurück zu MeeQo")}</Button>
           ) : null}
         </div>
       </form>
       <div className="card space-y-3 p-4">
-        <h2 className="font-display text-2xl">Radius</h2>
-        <p className="text-sm text-muted">Gilt für Feed und Suche. Gerade {profile.radiusKm} km um {profile.city || "deinen Ort"}.</p>
+        <h2 className="font-display text-2xl">{t("Radius")}</h2>
+        <p className="text-sm text-muted">{t("Gilt für Feed und Suche. Gerade {0} km um {1}.", profile.radiusKm, profile.city || t("deinen Ort"))}</p>
         <div className="flex flex-wrap gap-2">
           {RADIUS_OPTIONS.map((item) => (
             <button
@@ -152,32 +160,31 @@ function Settings() {
               }}
               className={`inline-flex h-11 items-center rounded-full border px-3 text-sm font-semibold ${profile.radiusKm === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}
             >
-              {item} km
-            </button>
+              {t("{0} km", item)}</button>
           ))}
         </div>
-        <Button type="button" tone="ghost" onClick={locate}>Standort vom Handy</Button>
+        <Button type="button" tone="ghost" onClick={locate}>{t("Standort vom Handy")}</Button>
       </div>
       <div className="card space-y-3 p-4">
-        <h2 className="font-display text-2xl">Mitteilungen</h2>
-        <p className="text-sm text-muted">Anfragen, Zusagen und Erinnerungen 36 Stunden vorher. Mitteilungen kommen auch bei geschlossener App, wenn dein Browser und der Server es können. Sonst nur, solange MeeQo offen ist.</p>
-        <Button type="button" onClick={push}>{profile.notifyPush ? "Mitteilungen sind an" : "Mitteilungen erlauben"}</Button>
+        <h2 className="font-display text-2xl">{t("Mitteilungen")}</h2>
+        <p className="text-sm text-muted">{t("Anfragen, Zusagen und Erinnerungen 36 Stunden vorher. Mitteilungen kommen auch bei geschlossener App, wenn dein Browser und der Server es können. Sonst nur, solange MeeQo offen ist.")}</p>
+        <Button type="button" onClick={push}>{profile.notifyPush ? t("Mitteilungen sind an") : t("Mitteilungen erlauben")}</Button>
         <Button
           type="button"
           tone="ghost"
           onClick={async () => {
             await setNotifyEmail({ data: { enabled: !profile.notifyEmail } });
             await reload();
-            notice(profile.notifyEmail ? "Keine Mails mehr zu Anfragen und Zusagen." : "Mails zu Anfragen und Zusagen sind an.");
+            notice(profile.notifyEmail ? t("Keine Mails mehr zu Anfragen und Zusagen.") : t("Mails zu Anfragen und Zusagen sind an."));
           }}
         >
-          {profile.notifyEmail ? "Mails zu Anfragen: an" : "Mails zu Anfragen: aus"}
+          {profile.notifyEmail ? t("Mails zu Anfragen: an") : t("Mails zu Anfragen: aus")}
         </Button>
       </div>
       <div className="card space-y-3 p-4">
-        <h2 className="font-display text-2xl">Ausgeblendet</h2>
-        <p className="text-sm text-muted">Diese Aktivitäten siehst du nicht im Feed, in der Suche, in Communities und bei Vorschlägen. Zusagen und eigene Termine bleiben trotzdem unter Meine Aktivitäten.</p>
-        {hidden.loading ? <p className="text-sm text-muted">Wird geladen…</p> : null}
+        <h2 className="font-display text-2xl">{t("Ausgeblendet")}</h2>
+        <p className="text-sm text-muted">{t("Diese Aktivitäten siehst du nicht im Feed, in der Suche, in Communities und bei Vorschlägen. Zusagen und eigene Termine bleiben trotzdem unter Meine Aktivitäten.")}</p>
+        {hidden.loading ? <p className="text-sm text-muted">{t("Wird geladen…")}</p> : null}
         {hidden.error ? <Note>{hidden.error}</Note> : null}
         {(hidden.data ?? []).map((item) => (
           <div key={item.id} className="flex items-center justify-between gap-3 border-t border-line pt-3">
@@ -198,16 +205,14 @@ function Settings() {
                   setError(errText(err));
                 }
               }}
-            >
-              Wieder zeigen
-            </button>
+            >{t("Wieder zeigen")}</button>
           </div>
         ))}
-        {!hidden.loading && (hidden.data ?? []).length === 0 ? <p className="text-sm text-muted">Nichts ausgeblendet.</p> : null}
+        {!hidden.loading && (hidden.data ?? []).length === 0 ? <p className="text-sm text-muted">{t("Nichts ausgeblendet.")}</p> : null}
       </div>
       <div className="card space-y-3 p-4">
-        <h2 className="font-display text-2xl">Blockiert</h2>
-        <p className="text-sm text-muted">Blockierte Personen sehen dich nicht, können dich nicht anfragen und dir nicht schreiben. Das gilt für beide Seiten.</p>
+        <h2 className="font-display text-2xl">{t("Blockiert")}</h2>
+        <p className="text-sm text-muted">{t("Blockierte Personen sehen dich nicht, können dich nicht anfragen und dir nicht schreiben. Das gilt für beide Seiten.")}</p>
         {(blocked.data ?? []).map((person) => (
           <div key={person.id} className="flex items-center justify-between gap-3 border-t border-line pt-3">
             <span className="font-semibold">{person.name}</span>
@@ -223,32 +228,28 @@ function Settings() {
                   setError(errText(err));
                 }
               }}
-            >
-              Entblocken
-            </button>
+            >{t("Entblocken")}</button>
           </div>
         ))}
-        {!blocked.loading && (blocked.data ?? []).length === 0 ? <p className="text-sm text-muted">Niemand blockiert.</p> : null}
+        {!blocked.loading && (blocked.data ?? []).length === 0 ? <p className="text-sm text-muted">{t("Niemand blockiert.")}</p> : null}
       </div>
       <div className="card space-y-3 p-4">
-        <h2 className="font-display text-2xl">Kalender abonnieren</h2>
-        <p className="text-sm text-muted">Deine zugesagten und eigenen Treffen erscheinen von selbst im Kalender deines Handys. Wer den Link kennt, sieht die Titel und Orte. Du kannst ihn jederzeit ersetzen.</p>
+        <h2 className="font-display text-2xl">{t("Kalender abonnieren")}</h2>
+        <p className="text-sm text-muted">{t("Deine zugesagten und eigenen Treffen erscheinen von selbst im Kalender deines Handys. Wer den Link kennt, sieht die Titel und Orte. Du kannst ihn jederzeit ersetzen.")}</p>
         {calendar ? (
           <div className="space-y-2">
-            <input readOnly value={`${window.location.origin}${calendar}`} aria-label="Kalender-Adresse" onFocus={(event) => event.currentTarget.select()} className="h-12 w-full rounded-2xl border border-line bg-sand px-4 text-sm" />
+            <input readOnly value={`${window.location.origin}${calendar}`} aria-label={t("Kalender-Adresse")} onFocus={(event) => event.currentTarget.select()} className="h-12 w-full rounded-2xl border border-line bg-sand px-4 text-sm" />
             <div className="flex flex-wrap gap-2">
-              <a className={face} href={`webcal://${window.location.host}${calendar}`}>Im Kalender öffnen</a>
+              <a className={face} href={`webcal://${window.location.host}${calendar}`}>{t("Im Kalender öffnen")}</a>
               <button
                 type="button"
                 className={face}
                 onClick={async () => {
                   const next = await getCalendarLink({ data: { rotate: true } });
                   setCalendar(next.path);
-                  notice("Neuer Link. Der alte funktioniert nicht mehr.");
+                  notice(t("Neuer Link. Der alte funktioniert nicht mehr."));
                 }}
-              >
-                Neuen Link erzeugen
-              </button>
+              >{t("Neuen Link erzeugen")}</button>
             </div>
           </div>
         ) : (
@@ -263,14 +264,12 @@ function Settings() {
                 setError(errText(err));
               }
             }}
-          >
-            Link anzeigen
-          </Button>
+          >{t("Link anzeigen")}</Button>
         )}
       </div>
       <div className="card space-y-3 p-4">
-        <h2 className="font-display text-2xl">Meine Daten</h2>
-        <p className="text-sm text-muted">Lade alles herunter, was MeeQo über dich gespeichert hat, als Datei. Nachrichten anderer Personen sind nicht dabei.</p>
+        <h2 className="font-display text-2xl">{t("Meine Daten")}</h2>
+        <p className="text-sm text-muted">{t("Lade alles herunter, was MeeQo über dich gespeichert hat, als Datei. Nachrichten anderer Personen sind nicht dabei.")}</p>
         <Button
           type="button"
           tone="ghost"
@@ -282,31 +281,29 @@ function Settings() {
               link.download = file.filename;
               link.click();
               URL.revokeObjectURL(link.href);
-              notice("Datei ist heruntergeladen.");
+              notice(t("Datei ist heruntergeladen."));
             } catch (err) {
               setError(errText(err));
             }
           }}
-        >
-          Daten herunterladen
-        </Button>
+        >{t("Daten herunterladen")}</Button>
       </div>
       <div className="card space-y-3 border-2 !border-ink p-4">
-        <h2 className="font-display text-2xl">Konto löschen</h2>
-        <p className="text-sm text-muted">Löscht dein Profil, deine Treffen, Anzeigen, Chats, Bewertungen und Fotos. Das lässt sich nicht rückgängig machen.</p>
-        <Field label="Tipp LÖSCHEN zur Bestätigung">
+        <h2 className="font-display text-2xl">{t("Konto löschen")}</h2>
+        <p className="text-sm text-muted">{t("Löscht dein Profil, deine Treffen, Anzeigen, Chats, Bewertungen und Fotos. Das lässt sich nicht rückgängig machen.")}</p>
+        <Field label={t("Tipp LÖSCHEN zur Bestätigung")}>
           <input value={confirm} onChange={(event) => setConfirm(event.target.value)} className="h-12 w-full rounded-2xl border border-line bg-sand px-4 text-base outline-none focus:border-accent" autoComplete="off" />
         </Field>
-        <Button type="button" tone="ink" disabled={confirm !== "LÖSCHEN"} onClick={erase}>Konto endgültig löschen</Button>
+        <Button type="button" tone="ink" disabled={!["LÖSCHEN", "DELETE"].includes(confirm.trim().toUpperCase())} onClick={erase}>{t("Konto endgültig löschen")}</Button>
       </div>
       <p className="flex flex-wrap gap-4 pb-4 text-sm text-muted">
-        <Link to="/datenschutz" className="underline">Datenschutz</Link>
-        <Link to="/impressum" className="underline">Impressum</Link>
-        <Link to="/nutzungsbedingungen" className="underline">Nutzungsbedingungen</Link>
-        <Link to="/regeln" className="underline">Regeln</Link>
-        <Link to="/support" className="underline">Hilfe</Link>
-        {admin.data?.admin ? <Link to="/admin/meldungen" className="font-semibold text-ink underline">Meldungen bearbeiten</Link> : null}
-        {admin.data?.admin ? <Link to="/admin/zahlen" className="font-semibold text-ink underline">Zahlen</Link> : null}
+        <Link to="/datenschutz" className="underline">{t("Datenschutz")}</Link>
+        <Link to="/impressum" className="underline">{t("Impressum")}</Link>
+        <Link to="/nutzungsbedingungen" className="underline">{t("Nutzungsbedingungen")}</Link>
+        <Link to="/regeln" className="underline">{t("Regeln")}</Link>
+        <Link to="/support" className="underline">{t("Hilfe")}</Link>
+        {admin.data?.admin ? <Link to="/admin/meldungen" className="font-semibold text-ink underline">{t("Meldungen bearbeiten")}</Link> : null}
+        {admin.data?.admin ? <Link to="/admin/zahlen" className="font-semibold text-ink underline">{t("Zahlen")}</Link> : null}
       </p>
       {error ? <Note>{error}</Note> : null}
     </div>

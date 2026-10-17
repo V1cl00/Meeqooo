@@ -11,43 +11,45 @@ export type ParsedMeetup = {
 
 const NUMBER_WORDS: Record<string, number> = {
   ein: 1, eine: 1, zwei: 2, drei: 3, vier: 4, fünf: 5, fuenf: 5, sechs: 6, sieben: 7, acht: 8, neun: 9, zehn: 10, elf: 11, zwölf: 12, zwoelf: 12,
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
 };
 
 const WEEKDAYS: Record<string, number> = {
   sonntag: 0, montag: 1, dienstag: 2, mittwoch: 3, donnerstag: 4, freitag: 5, samstag: 6, sonnabend: 6,
+  sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
 };
 
-const MONTHS = ["januar", "februar", "märz", "maerz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember"];
+const MONTHS = ["januar", "februar", "märz", "maerz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember", "january", "february", "march", "may", "june", "july", "october", "december"];
 
 const CATEGORIES: [RegExp, string][] = [
-  [/\b(bouldern|klettern|boulder)\b/i, "Sport · Klettern"],
-  [/\b(laufen|joggen|lauftreff|laufrunde)\b/i, "Sport · Laufen"],
+  [/\b(bouldern|klettern|boulder|bouldering|climbing)\b/i, "Sport · Klettern"],
+  [/\b(laufen|joggen|lauftreff|laufrunde|running|jogging|run)\b/i, "Sport · Laufen"],
   [/\bcalisthenics\b/i, "Sport · Calisthenics"],
   [/\byoga\b/i, "Sport · Yoga"],
-  [/\bschwimmen\b/i, "Sport · Schwimmen"],
+  [/\b(schwimmen|swimming)\b/i, "Sport · Schwimmen"],
   [/\b(radfahren|radtour|fahrradtour)\b/i, "Sport · Radfahren"],
   [/\b(fußball|fussball|volleyball|basketball|tischtennis)\b/i, "Sport · Ballsport"],
   [/\btanzen\b/i, "Sport · Tanzen"],
-  [/\bwandern\b/i, "Outdoor · Wandern"],
-  [/\b(spazieren|spaziergang)\b/i, "Outdoor · Spaziergang"],
+  [/\b(wandern|hiking|hike)\b/i, "Outdoor · Wandern"],
+  [/\b(spazieren|spaziergang|walk|stroll)\b/i, "Outdoor · Spaziergang"],
   [/\bpicknick\b/i, "Essen · Picknick"],
-  [/\b(brunch|frühstück|fruehstueck)\b/i, "Essen · Brunch"],
-  [/\bkochen\b/i, "Essen · Kochen"],
+  [/\b(brunch|frühstück|fruehstueck|breakfast)\b/i, "Essen · Brunch"],
+  [/\b(kochen|cooking)\b/i, "Essen · Kochen"],
   [/\bbacken\b/i, "Essen · Backen"],
-  [/\b(kaffee|café|cafe)\b/i, "Essen · Kaffee"],
-  [/\b(restaurant|abendessen|mittagessen|essen)\b/i, "Essen · Restaurant"],
-  [/\b(brettspiel|brettspiele|spieleabend)\b/i, "Spiele · Brettspiele"],
+  [/\b(kaffee|café|cafe|coffee)\b/i, "Essen · Kaffee"],
+  [/\b(restaurant|abendessen|mittagessen|essen|dinner|lunch)\b/i, "Essen · Restaurant"],
+  [/\b(brettspiel|brettspiele|spieleabend|board games?|game night)\b/i, "Spiele · Brettspiele"],
   [/\bschach\b/i, "Spiele · Schach"],
   [/\bquiz\b/i, "Spiele · Quiz"],
-  [/\bkino\b/i, "Kultur · Kino"],
+  [/\b(kino|cinema|movies?)\b/i, "Kultur · Kino"],
   [/\bmuseum\b/i, "Kultur · Museum"],
-  [/\bkonzert\b/i, "Kultur · Konzert"],
+  [/\b(konzert|concert)\b/i, "Kultur · Konzert"],
   [/\bkaraoke\b/i, "Musik · Karaoke"],
-  [/\bsauna\b/i, "Wellness · Sauna"],
+  [/\b(sauna|spa)\b/i, "Wellness · Sauna"],
   [/\b(netzwerken|networking)\b/i, "Business · Netzwerken"],
   [/\bafterwork\b/i, "Business · Afterwork"],
   [/\bcoworking\b/i, "Business · Coworking"],
-  [/\b(gassi|hunderunde)\b/i, "Tiere · Gassi"],
+  [/\b(gassi|hunderunde|dog walk)\b/i, "Tiere · Gassi"],
 ];
 
 function berlinToday(now: Date) {
@@ -74,8 +76,13 @@ export function parseMeetup(input: string, now = new Date()): ParsedMeetup {
   // time
   let minutes: number | null = null;
   // "18:30", "18.30 Uhr" or "18 Uhr". A bare "24.10" is a date, not a time.
-  const clock =
-    /\b(?:um\s+)?(\d{1,2}):(\d{2})(?:\s*uhr)?\b/i.exec(rest) ??
+  const ampm = /\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i.exec(rest);
+  if (ampm && Number(ampm[1]) >= 1 && Number(ampm[1]) <= 12) {
+    minutes = (Number(ampm[1]) % 12 + (ampm[3].toLowerCase() === "pm" ? 12 : 0)) * 60 + Number(ampm[2] ?? 0);
+    remove(new RegExp(escapeRe(ampm[0]), "i"));
+  }
+  const clock = minutes !== null ? null :
+    /\b(?:um\s+|at\s+)?(\d{1,2}):(\d{2})(?:\s*uhr)?\b/i.exec(rest) ??
     /\b(?:um\s+)?(\d{1,2})\.(\d{2})\s*uhr\b/i.exec(rest) ??
     /\b(?:um\s+)?(\d{1,2})\s*uhr\b/i.exec(rest);
   if (clock) {
@@ -89,7 +96,7 @@ export function parseMeetup(input: string, now = new Date()): ParsedMeetup {
 
   // duration
   let durationMin: number | null = null;
-  const dur = /\b(\d+(?:[.,]\d)?)\s*(minuten|min|stunden|stunde|std|h)\b/i.exec(rest);
+  const dur = /\b(\d+(?:[.,]\d)?)\s*(minuten|minutes|min|stunden|stunde|hours|hour|hrs|std|h)\b/i.exec(rest);
   if (dur) {
     const value = Number(dur[1].replace(",", "."));
     durationMin = /^(m)/i.test(dur[2]) ? Math.round(value) : Math.round(value * 60);
@@ -98,8 +105,8 @@ export function parseMeetup(input: string, now = new Date()): ParsedMeetup {
 
   // spots
   let spots: number | null = null;
-  const people = /\b(?:für\s+)?(\d{1,2}|ein|eine|zwei|drei|vier|fünf|fuenf|sechs|sieben|acht|neun|zehn|elf|zwölf|zwoelf)\s*(?:leute|personen|plätze|plaetze|teilnehmer|menschen)\b/i.exec(rest);
-  const forN = /\bfür\s+(\d{1,2})\b/i.exec(rest);
+  const people = /\b(?:(?:für|for)\s+)?(\d{1,2}|ein|eine|zwei|drei|vier|fünf|fuenf|sechs|sieben|acht|neun|zehn|elf|zwölf|zwoelf|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*(?:leute|personen|plätze|plaetze|teilnehmer|menschen|people|persons|spots|guests)\b/i.exec(rest);
+  const forN = /\b(?:für|for)\s+(\d{1,2})\b/i.exec(rest);
   const found = people ?? forN;
   if (found) {
     const raw = found[1].toLowerCase();
@@ -122,12 +129,12 @@ export function parseMeetup(input: string, now = new Date()): ParsedMeetup {
     }
   }
   if (!date) {
-    const word = /\b(?:am\s+|nächsten\s+|naechsten\s+|kommenden\s+)*(heute|morgen|übermorgen|uebermorgen|sonntag|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonnabend)\b/i.exec(rest);
+    const word = /\b(?:am\s+|on\s+|next\s+|nächsten\s+|naechsten\s+|kommenden\s+)*(heute|today|morgen|tomorrow|übermorgen|uebermorgen|sonntag|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonnabend|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i.exec(rest);
     if (word) {
       const name = word[1].toLowerCase();
       let offset: number;
-      if (name === "heute") offset = 0;
-      else if (name === "morgen") offset = 1;
+      if (name === "heute" || name === "today") offset = 0;
+      else if (name === "morgen" || name === "tomorrow") offset = 1;
       else if (name.startsWith("übermorgen") || name.startsWith("uebermorgen")) offset = 2;
       else {
         offset = (WEEKDAYS[name] - todayDow + 7) % 7;
@@ -144,8 +151,8 @@ export function parseMeetup(input: string, now = new Date()): ParsedMeetup {
 
   // place: the first capitalised words after a place preposition that are not a day or month
   let placeName = "";
-  const notPlace = new Set([...Object.keys(WEEKDAYS), ...MONTHS, "heute", "morgen", "übermorgen", "abend", "nachmittag", "vormittag", "wochenende"]);
-  const placeRe = /\b(?:am|im|in|bei|beim|an der|an dem|auf dem|vor dem|zum|zur)\s+([A-ZÄÖÜ][\p{L}\-.]*(?:\s+[A-ZÄÖÜ][\p{L}\-.]*){0,3})/gu;
+  const notPlace = new Set([...Object.keys(WEEKDAYS), ...MONTHS, "heute", "morgen", "übermorgen", "abend", "nachmittag", "vormittag", "wochenende", "today", "tomorrow", "evening", "afternoon", "morning", "weekend"]);
+  const placeRe = /\b(?:am|im|in|bei|beim|an der|an dem|auf dem|vor dem|zum|zur|at the|at|in the|near the|near|by the)\s+([A-ZÄÖÜ][\p{L}\-.]*(?:\s+[A-ZÄÖÜ][\p{L}\-.]*){0,3})/gu;
   for (const match of rest.matchAll(placeRe)) {
     if (!notPlace.has(match[1].toLowerCase())) {
       placeName = match[1].replace(/[.,]$/, "");
@@ -163,12 +170,12 @@ export function parseMeetup(input: string, now = new Date()): ParsedMeetup {
 
   // title: what is left, tidied
   let title = rest
-    .replace(/\b(am|um|für|ab)\b(?=\s*(?:,|$))/gi, " ")
-    .replace(/^(am|um|für|ab|,)\s+/i, "")
+    .replace(/\b(am|um|für|ab|on|at|for)\b(?=\s*(?:,|$))/gi, " ")
+    .replace(/^(am|um|für|ab|on|at|for|,)\s+/i, "")
     .replace(/\s*[,;]\s*/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  title = title.replace(/^(am|um|für|ab)\s+/i, "").trim();
+  title = title.replace(/^(am|um|für|ab|on|at|for)\s+/i, "").trim();
   if (title) title = title.charAt(0).toUpperCase() + title.slice(1);
   if (!title && category) title = category.split(" · ")[1] ?? "";
 

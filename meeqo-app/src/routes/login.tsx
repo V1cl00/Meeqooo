@@ -6,6 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { Button, Field, Note, TextInput, WelcomeHero } from "@/components/bits";
 import { requestPasswordReset } from "@/lib/meeqo/api";
 import { errText } from "@/lib/meeqo/labels";
+import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -70,34 +71,32 @@ function LoginPage() {
         {authEnabled ? (
           <form onSubmit={submit} className="card space-y-3 p-4">
             <div className="grid grid-cols-2 rounded-full bg-sand-deep p-1">
-              <button type="button" onClick={() => setMode("up")} className={`h-10 rounded-full text-sm font-semibold ${mode === "up" ? "bg-card text-ink shadow-sm" : "text-muted"}`}>Neu hier</button>
-              <button type="button" onClick={() => setMode("in")} className={`h-10 rounded-full text-sm font-semibold ${mode === "in" ? "bg-card text-ink shadow-sm" : "text-muted"}`}>Einloggen</button>
+              <button type="button" onClick={() => setMode("up")} className={`h-10 rounded-full text-sm font-semibold ${mode === "up" ? "bg-card text-ink shadow-sm" : "text-muted"}`}>{t("Neu hier")}</button>
+              <button type="button" onClick={() => setMode("in")} className={`h-10 rounded-full text-sm font-semibold ${mode === "in" ? "bg-card text-ink shadow-sm" : "text-muted"}`}>{t("Einloggen")}</button>
             </div>
             {mode === "up" ? (
-              <Field label="Name">
-                <TextInput value={name} onChange={(event) => setName(event.target.value)} required autoComplete="name" placeholder="Wie du heißt" />
+              <Field label={t("Name")}>
+                <TextInput value={name} onChange={(event) => setName(event.target.value)} required autoComplete="name" placeholder={t("Wie du heißt")} />
               </Field>
             ) : null}
-            <Field label="E-Mail">
-              <TextInput type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" placeholder="du@mail.de" />
+            <Field label={t("E-Mail")}>
+              <TextInput type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" placeholder={t("du@mail.de")} />
             </Field>
-            <Field label="Passwort">
-              <TextInput type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} autoComplete={mode === "up" ? "new-password" : "current-password"} placeholder="Mindestens 8 Zeichen" />
+            <Field label={t("Passwort")}>
+              <TextInput type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} autoComplete={mode === "up" ? "new-password" : "current-password"} placeholder={t("Mindestens 8 Zeichen")} />
             </Field>
             {error ? <Note>{error}</Note> : null}
             <Button type="submit" disabled={pending} className="w-full">
-              {pending ? "Moment…" : mode === "up" ? "Konto anlegen" : "Einloggen"}
+              {pending ? t("Moment…") : mode === "up" ? t("Konto anlegen") : t("Einloggen")}
             </Button>
             {mode === "up" ? (
-              <p className="text-xs text-muted">
-                Mit dem Konto stimmst du den <Link to="/nutzungsbedingungen" className="underline">Nutzungsbedingungen</Link> und dem <Link to="/datenschutz" className="underline">Datenschutz</Link> zu. MeeQo ist ab 18.
-              </p>
+              <p className="text-xs text-muted">{t("Mit dem Konto stimmst du den")}{" "}<Link to="/nutzungsbedingungen" className="underline">{t("Nutzungsbedingungen")}</Link>{" "}{t("und dem")}{" "}<Link to="/datenschutz" className="underline">{t("Datenschutz")}</Link>{t("zu. MeeQo ist ab 18.")}</p>
             ) : (
               <>
-                <button type="button" className="text-sm font-semibold underline" onClick={() => setForgot((value) => !value)}>Passwort vergessen?</button>
+                <button type="button" className="text-sm font-semibold underline" onClick={() => setForgot((value) => !value)}>{t("Passwort vergessen?")}</button>
                 {forgot ? (
                   <div className="space-y-2 rounded-2xl bg-sand-deep p-3">
-                    <p className="text-sm">Schreib deine E-Mail. Wenn es das Konto gibt, schicken wir dir einen Link.</p>
+                    <p className="text-sm">{t("Schreib deine E-Mail. Wenn es das Konto gibt, schicken wir dir einen Link.")}</p>
                     <Button
                       type="button"
                       tone="ghost"
@@ -105,11 +104,9 @@ function LoginPage() {
                       disabled={!email}
                       onClick={async () => {
                         await requestPasswordReset({ data: { email } }).catch(() => {});
-                        setResetInfo("Wenn es die Adresse gibt, ist eine Mail unterwegs. Sie gilt eine Stunde.");
+                        setResetInfo(t("Wenn es die Adresse gibt, ist eine Mail unterwegs. Sie gilt eine Stunde."));
                       }}
-                    >
-                      Link schicken
-                    </Button>
+                    >{t("Link schicken")}</Button>
                     {resetInfo ? <p className="text-sm text-friend">{resetInfo}</p> : null}
                   </div>
                 ) : null}
@@ -117,13 +114,12 @@ function LoginPage() {
             )}
           </form>
         ) : (
-          <Note>Anmeldung ist aus.</Note>
+          <Note>{t("Anmeldung ist aus.")}</Note>
         )}
         {GROK_PROVIDERS.length ? (
           <div className="mt-3 space-y-2">
             {GROK_PROVIDERS.map((provider) => (
-              <Button key={provider.providerId} type="button" tone="ghost" className="w-full" onClick={() => signIn(provider.providerId, { callbackURL: "/" })}>
-                Weiter mit {provider.label}
+              <Button key={provider.providerId} type="button" tone="ghost" className="w-full" onClick={() => signIn(provider.providerId, { callbackURL: "/" })}>{t("Weiter mit {0}", provider.label)}
               </Button>
             ))}
           </div>

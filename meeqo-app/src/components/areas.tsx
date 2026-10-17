@@ -1,3 +1,4 @@
+import { t } from "@/lib/meeqo/i18n";
 import { AREAS } from "@/lib/meeqo/labels";
 
 export function AreaPicker({ selected, onChange }: { selected: string[]; onChange: (next: string[]) => void }) {
@@ -16,8 +17,8 @@ export function AreaPicker({ selected, onChange }: { selected: string[]; onChang
             onClick={() => toggle(item.id)}
             className={`w-full rounded-2xl border-2 px-4 py-3 text-left ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
           >
-            <span className="block font-semibold">{item.title}</span>
-            <span className={`text-sm ${on ? "text-onfill" : "text-muted"}`}>{item.hint}</span>
+            <span className="block font-semibold">{t(item.title)}</span>
+            <span className={`text-sm ${on ? "text-onfill" : "text-muted"}`}>{t(item.hint)}</span>
           </button>
         );
       })}

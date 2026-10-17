@@ -11,6 +11,7 @@ import { listCategories, setAvatar, updateProfile } from "@/lib/meeqo/api";
 import { AreaPicker } from "@/components/areas";
 import { areaSummary, errText } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/profile")({ component: Page });
 
@@ -75,7 +76,7 @@ function ProfilePage() {
             <input
               type="file"
               accept="image/*"
-              aria-label="Profilfoto wählen"
+              aria-label={t("Profilfoto wählen")}
               className="absolute inset-0 cursor-pointer opacity-0"
               onChange={async (event) => {
                 const file = event.target.files?.[0];
@@ -90,14 +91,14 @@ function ProfilePage() {
                     canvas.height = Math.round(image.height * scale);
                     const ctx = canvas.getContext("2d");
                     if (!ctx) {
-                      reject(new Error("Bild konnte nicht gelesen werden."));
+                      reject(new Error(t("Bild konnte nicht gelesen werden.")));
                       return;
                     }
                     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
                     URL.revokeObjectURL(url);
                     resolve(canvas.toDataURL("image/jpeg", 0.72));
                   };
-                  image.onerror = () => reject(new Error("Bild konnte nicht gelesen werden."));
+                  image.onerror = () => reject(new Error(t("Bild konnte nicht gelesen werden.")));
                   image.src = url;
                 });
                 await setAvatar({ data: { imageUrl: dataUrl } });
@@ -107,8 +108,8 @@ function ProfilePage() {
           </label>
           <div className="min-w-0 flex-1">
             <h1 className="truncate font-display text-3xl leading-none">{profile.displayName}</h1>
-            <p className="mt-1 text-sm text-muted">{profile.city || "Ohne Stadt"} · {areaSummary(profile.areas)}</p>
-            <p className="mt-2 text-xs font-semibold text-accent-deep">Foto antippen zum Wechseln</p>
+            <p className="mt-1 text-sm text-muted">{profile.city || t("Ohne Stadt")} · {areaSummary(profile.areas)}</p>
+            <p className="mt-2 text-xs font-semibold text-accent-deep">{t("Foto antippen zum Wechseln")}</p>
           </div>
           <UserButton />
         </div>
@@ -117,46 +118,46 @@ function ProfilePage() {
       <PostBoard userId={profile.userId} canPost />
       <form onSubmit={save} className="space-y-4">
         <div className="card space-y-3 p-4">
-          <Field label="Name"><TextInput value={name} onChange={(event) => setName(event.target.value)} /></Field>
-          <Field label="Kurz zu dir"><TextArea value={bio} onChange={(event) => setBio(event.target.value)} /></Field>
+          <Field label={t("Name")}><TextInput value={name} onChange={(event) => setName(event.target.value)} /></Field>
+          <Field label={t("Kurz zu dir")}><TextArea value={bio} onChange={(event) => setBio(event.target.value)} /></Field>
         </div>
         <div className="card space-y-2 p-4">
-          <p className="text-sm font-semibold">Wofür du hier bist</p>
-          <p className="text-sm text-muted">Mehrere gehen. Der Feed richtet sich danach.</p>
+          <p className="text-sm font-semibold">{t("Wofür du hier bist")}</p>
+          <p className="text-sm text-muted">{t("Mehrere gehen. Der Feed richtet sich danach.")}</p>
           <AreaPicker selected={areas} onChange={setAreas} />
         </div>
         <div className="card space-y-2 p-4">
-          <p className="text-sm font-semibold">Ich suche aktiv neue Leute für</p>
+          <p className="text-sm font-semibold">{t("Ich suche aktiv neue Leute für")}</p>
           <SeekingPicker selected={seeking} onChange={setSeeking} custom={cats.data ?? []} />
         </div>
-        <TraitPicker label="Das trifft auf mich zu" hint="Andere können danach filtern. Queer und vegan sind Eigenschaften, keine Kategorien." selected={traits} onChange={setTraits} />
-        <TraitPicker label="Mindestens vorhanden" hint="Feed, Suche, Communities und Anzeigen ohne diese Eigenschaft siehst du nicht." selected={requireTraits} onChange={setRequireTraits} />
+        <TraitPicker label={t("Das trifft auf mich zu")} hint={t("Andere können danach filtern. Queer und vegan sind Eigenschaften, keine Kategorien.")} selected={traits} onChange={setTraits} />
+        <TraitPicker label={t("Mindestens vorhanden")} hint={t("Feed, Suche, Communities und Anzeigen ohne diese Eigenschaft siehst du nicht.")} selected={requireTraits} onChange={setRequireTraits} />
         <div className="card space-y-3 p-4">
           <VisibilityPicker value={see} onChange={setSee} communityIds={audienceIds} onCommunityIds={setAudienceIds} />
-          <p className="text-sm text-muted">Das ist die Vorgabe für neue Beiträge, Treffen und Anzeigen. Jedes einzelne kannst du noch anders stellen.</p>
+          <p className="text-sm text-muted">{t("Das ist die Vorgabe für neue Beiträge, Treffen und Anzeigen. Jedes einzelne kannst du noch anders stellen.")}</p>
         </div>
         <div className="card space-y-3 p-4">
-          <Field label="Stadt"><TextInput value={city} onChange={(event) => setCity(event.target.value)} /></Field>
-          <Field label="Geburtsjahr">
+          <Field label={t("Stadt")}><TextInput value={city} onChange={(event) => setCity(event.target.value)} /></Field>
+          <Field label={t("Geburtsjahr")}>
             <TextInput inputMode="numeric" value={year} onChange={(event) => setYear(event.target.value)} placeholder="1994" />
           </Field>
-          <p className="text-sm text-muted">Nur für „Mein Alter“. Das Jahr selbst ist nicht öffentlich.</p>
-          <Field label="Vertrauensperson, nur ein Name">
-            <TextInput value={trusted} onChange={(event) => setTrusted(event.target.value)} placeholder="Zum Beispiel Sam" />
+          <p className="text-sm text-muted">{t("Nur für „Mein Alter“. Das Jahr selbst ist nicht öffentlich.")}</p>
+          <Field label={t("Vertrauensperson, nur ein Name")}>
+            <TextInput value={trusted} onChange={(event) => setTrusted(event.target.value)} placeholder={t("Zum Beispiel Sam")} />
           </Field>
         </div>
         {error ? <Note>{error}</Note> : null}
         {info ? <p className="text-sm text-friend">{info}</p> : null}
-        <Button type="submit" className="w-full">Absicht speichern</Button>
+        <Button type="submit" className="w-full">{t("Absicht speichern")}</Button>
       </form>
       <div className="card space-y-2 p-4">
-        <h2 className="font-display text-2xl">Vertrauen</h2>
-        <p className="text-sm text-muted">Bewertungen kommen erst nach einem echten Check-in. „Profil bestätigt“ setzt MeeQo selbst nach einer Prüfung, du kannst es nicht anklicken.</p>
-        {profile.identityConfirmed ? <p className="text-sm font-semibold">Profil bestätigt</p> : null}
+        <h2 className="font-display text-2xl">{t("Vertrauen")}</h2>
+        <p className="text-sm text-muted">{t("Bewertungen kommen erst nach einem echten Check-in. „Profil bestätigt“ setzt MeeQo selbst nach einer Prüfung, du kannst es nicht anklicken.")}</p>
+        {profile.identityConfirmed ? <p className="text-sm font-semibold">{t("Profil bestätigt")}</p> : null}
       </div>
       <div className="grid gap-2">
         {LINKS.map(([to, label]) => (
-          <Link key={to} to={to} className="card flex h-14 items-center px-4 font-medium">{label}</Link>
+          <Link key={to} to={to} className="card flex h-14 items-center px-4 font-medium">{t(label)}</Link>
         ))}
       </div>
     </div>

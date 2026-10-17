@@ -8,8 +8,12 @@ export const jpeg = Buffer.from(
   "base64",
 );
 
+/** Contexts default to German, so the German texts the tests look for are what the app shows. Pass `locale: "en-GB"` for English. */
 export async function launch() {
-  return chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+  const open = browser.newContext.bind(browser);
+  browser.newContext = (options = {}) => open({ locale: "de-DE", ...options });
+  return browser;
 }
 
 export async function text(page) {

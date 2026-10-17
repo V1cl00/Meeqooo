@@ -38,12 +38,19 @@ Die Datenbank liegt im Arbeitsspeicher. Jeder Neustart leert sie und baut sie au
 - **Backups:** Der Datenbank-Anbieter muss tägliche Sicherungen und Wiederherstellung anbieten. Wiederherstellung einmal proben.
 - **Löschen und Auskunft:** Konto löschen und „Meine Daten“ gibt es in den Einstellungen. Wer eine Tabelle mit Personenbezug anlegt, ergänzt `deleteAccount` und `exportMyData`.
 
+## Sprachen (Deutsch, Englisch)
+
+- Der deutsche Text ist der Schlüssel: `t("Text {0}", wert)` aus `src/lib/meeqo/i18n.ts`. Englisch steht in `src/lib/meeqo/en.ts`, erzeugt aus `meeqo-app/tools/en/part*.json` mit `node tools/i18n-merge.mjs`.
+- Neue Texte: `t()` verwenden, dann `node tools/i18n-missing.mjs` (fehlende Übersetzungen) und `node tools/i18n-leftovers.mjs` (nicht eingepackte Strings) ausführen. Neue Texte kommen in eine neue `partN.json`.
+- Die Sprache folgt dem Browser und lässt sich in den Einstellungen umschalten. Der Server rendert immer Deutsch, Englisch wird direkt nach dem Laden gesetzt.
+- Bewusst nur Deutsch: Impressum, Datenschutz, Nutzungsbedingungen, Regeln, Mitteilungen/Mails, Link-Vorschauen der Einladung. Der Satz im Anlegen-Formular versteht deutsch und englisch.
+
 ## Tests
 
 ```
 npm run typecheck
 npm run test:unit    # Orte, Kalender, Sommerzeit
-npm run test:e2e     # Browser-Durchläufe mit zwei Konten, siehe meeqo-app/e2e/README.md
+npm run test:e2e     # Browser-Durchläufe mit zwei Konten plus englische Oberfläche, siehe meeqo-app/e2e/README.md
 ```
 
 `npm test` führt zusätzlich Prüfungen der Grok-Arbeitsumgebung aus und schlägt ohne diese Umgebung fehl.

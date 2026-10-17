@@ -9,6 +9,7 @@ import { ARRIVAL_REPLIES, errText, formatWhen } from "@/lib/meeqo/labels";
 import { buzz } from "@/lib/meeqo/feel";
 import type { ChatMessage } from "@/lib/meeqo/types";
 import { useLiveChat, useLoad, usePolling } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/chat/$id")({ component: Page });
 
@@ -84,16 +85,16 @@ function Thread({ id }: { id: string }) {
   }
 
   if (loading) return <Skeleton lines={5} />;
-  if (error || !data) return <Note>{error || "Chat nicht da."}</Note>;
+  if (error || !data) return <Note>{error || t("Chat nicht da.")}</Note>;
 
   return (
     <div className="mx-auto flex min-h-[70dvh] max-w-lg flex-col">
       <div className="flex items-start justify-between gap-3">
         <h1 className="font-display text-3xl leading-none">{data.title}</h1>
-        {data.group ? <span className="mt-1 shrink-0 rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold tracking-wide text-onaccent">GRUPPE</span> : null}
+        {data.group ? <span className="mt-1 shrink-0 rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold tracking-wide text-onaccent">{t("GRUPPE")}</span> : null}
       </div>
       {data.group ? (
-        <div className="-mx-4 mt-4 flex gap-3 overflow-x-auto px-4 pb-1" aria-label="Teilnehmende">
+        <div className="-mx-4 mt-4 flex gap-3 overflow-x-auto px-4 pb-1" aria-label={t("Teilnehmende")}>
           {data.people.map((person) => {
             const face = person.avatar ? (
               <img src={person.avatar} alt="" className="h-14 w-14 rounded-full object-cover" />
@@ -103,8 +104,8 @@ function Thread({ id }: { id: string }) {
             const label = (
               <>
                 {face}
-                <span className="mt-1 block truncate text-xs font-bold">{person.me ? "Du" : person.name.split(" ")[0]}</span>
-                {person.isHost ? <span className="block text-[10px] font-semibold text-accent-deep">Gastgeber</span> : null}
+                <span className="mt-1 block truncate text-xs font-bold">{person.me ? t("Du") : person.name.split(" ")[0]}</span>
+                {person.isHost ? <span className="block text-[10px] font-semibold text-accent-deep">{t("Gastgeber")}</span> : null}
               </>
             );
             return person.me ? (
@@ -141,19 +142,19 @@ function Thread({ id }: { id: string }) {
       <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {data.dayOf
           ? ARRIVAL_REPLIES.map((reply) => (
-              <button key={reply} type="button" onClick={() => send(reply)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{reply}</button>
+              <button key={reply} type="button" onClick={() => send(t(reply))} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t(reply)}</button>
             ))
           : null}
         {data.people.find((person) => person.me)?.isHost ? (
-          <button type="button" onClick={() => setAnnounceOpen((value) => !value)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">Ansage an alle</button>
+          <button type="button" onClick={() => setAnnounceOpen((value) => !value)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t("Ansage an alle")}</button>
         ) : null}
-        <button type="button" onClick={() => setPollOpen((value) => !value)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">Termin abstimmen</button>
+        <button type="button" onClick={() => setPollOpen((value) => !value)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t("Termin abstimmen")}</button>
       </div>
       {fail ? <Note>{fail}</Note> : null}
-      {announceOpen ? <p className="mt-3 text-sm text-muted">Die Ansage geht als Mitteilung an alle, die dabei sind. Schreib sie unten und tippe auf „Ansage senden“.</p> : null}
+      {announceOpen ? <p className="mt-3 text-sm text-muted">{t("Die Ansage geht als Mitteilung an alle, die dabei sind. Schreib sie unten und tippe auf „Ansage senden“.")}</p> : null}
       <form onSubmit={(event) => { if (announceOpen) { event.preventDefault(); void sendAnnouncement(); } else submit(event); }} className="mt-3 flex gap-2">
         <TextInput value={body} onChange={(event) => setBody(event.target.value)} placeholder={announceOpen ? "Ansage an alle" : "Nachricht"} />
-        <Button type="submit">{announceOpen ? "Ansage senden" : "Senden"}</Button>
+        <Button type="submit">{announceOpen ? t("Ansage senden") : t("Senden")}</Button>
       </form>
     </div>
   );

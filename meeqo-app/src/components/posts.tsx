@@ -7,6 +7,7 @@ import { useMe } from "@/components/shell";
 import { createPost, deletePost, listPosts } from "@/lib/meeqo/api";
 import { TRAITS, activityIntentLabel, errText, formatWhen } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { t } from "@/lib/meeqo/i18n";
 
 const AUDIENCES = ["friends", "date", "both"] as const;
 
@@ -62,15 +63,13 @@ export function PostBoard({
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="font-display text-2xl">Beiträge</h2>
-        <p className="text-sm text-muted">
-          Nur deine Zielgruppe sieht den Beitrag. Eigenschaften schränken das zusätzlich ein.
-        </p>
+        <h2 className="font-display text-2xl">{t("Beiträge")}</h2>
+        <p className="text-sm text-muted">{t("Nur deine Zielgruppe sieht den Beitrag. Eigenschaften schränken das zusätzlich ein.")}</p>
       </div>
       {canPost ? (
         <form onSubmit={submit} className="card space-y-3 p-4">
-          <TextArea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Ein Satz reicht." maxLength={500} />
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Wer sieht das?</p>
+          <TextArea value={body} onChange={(event) => setBody(event.target.value)} placeholder={t("Ein Satz reicht.")} maxLength={500} />
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Wer sieht das?")}</p>
           <div className="flex flex-wrap gap-2">
             {AUDIENCES.map((item) => (
               <button
@@ -84,7 +83,7 @@ export function PostBoard({
             ))}
           </div>
           <VisibilityPicker value={visibility} onChange={setVisibility} communityIds={communityIds} onCommunityIds={setCommunityIds} />
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Nur Menschen mit</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Nur Menschen mit")}</p>
           <div className="flex flex-wrap gap-2">
             {TRAITS.map((trait) => (
               <button
@@ -93,17 +92,17 @@ export function PostBoard({
                 onClick={() => setRequireTraits((current) => current.includes(trait) ? current.filter((item) => item !== trait) : [...current, trait])}
                 className={`inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${requireTraits.includes(trait) ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
               >
-                {trait}
+                {t(trait)}
               </button>
             ))}
           </div>
           {fail ? <Note>{fail}</Note> : null}
-          <Button type="submit" disabled={pending || body.trim().length < 2}>{pending ? "Wird gepostet…" : "Posten"}</Button>
+          <Button type="submit" disabled={pending || body.trim().length < 2}>{pending ? t("Wird gepostet…") : t("Posten")}</Button>
         </form>
       ) : null}
       {!canPost && fail ? <Note>{fail}</Note> : null}
       {error ? <Note>{error}</Note> : null}
-      {loading ? <p className="text-sm text-muted">Beiträge werden geladen…</p> : null}
+      {loading ? <p className="text-sm text-muted">{t("Beiträge werden geladen…")}</p> : null}
       {(data ?? []).map((post) => (
         <article key={post.id} className="card space-y-2 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -118,19 +117,19 @@ export function PostBoard({
             <IntentPill intent={post.audience} />
           </div>
           <p className="text-sm whitespace-pre-wrap">{post.body}</p>
-          {post.requireTraits.length ? <p className="text-xs text-muted">Nur für {post.requireTraits.join(", ")}</p> : null}
+          {post.requireTraits.length ? <p className="text-xs text-muted">{t("Nur für {0}", post.requireTraits.join(", "))}</p> : null}
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={face} onClick={() => setShare({ title: post.authorName, text: `${post.authorName}: ${post.body}` })}>Teilen</button>
+            <button type="button" className={face} onClick={() => setShare({ title: post.authorName, text: `${post.authorName}: ${post.body}` })}>{t("Teilen")}</button>
             {post.mine ? (
-              <button type="button" className={face} onClick={() => remove(post.id)}>Löschen</button>
+              <button type="button" className={face} onClick={() => remove(post.id)}>{t("Löschen")}</button>
             ) : null}
           </div>
         </article>
       ))}
       {!loading && (data ?? []).length === 0 ? (
         <div className="card px-4 py-8 text-center">
-          <p className="font-display text-2xl">Noch still hier</p>
-          <p className="mt-1 text-sm text-muted">Ein Satz reicht. Du bestimmst, wer ihn sieht.</p>
+          <p className="font-display text-2xl">{t("Noch still hier")}</p>
+          <p className="mt-1 text-sm text-muted">{t("Ein Satz reicht. Du bestimmst, wer ihn sieht.")}</p>
         </div>
       ) : null}
       <ShareSheet open={Boolean(share)} title={share?.title ?? "MeeQo"} text={share?.text ?? ""} onClose={() => setShare(null)} />

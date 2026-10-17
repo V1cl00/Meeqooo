@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BadgeRow, Button, IntentPill, Note, SparteStrip, StatusLine } from "@/components/bits";
+import { SafetyMenu } from "@/components/safety";
 import { ShareSheet } from "@/components/share";
 import { Shell } from "@/components/shell";
-import { checkIn, createSafetyLink, getActivity, hideActivity, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
+import { checkIn, createInvite, createSafetyLink, getActivity, hideActivity, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
 import { bookingLabel, errText, formatWhen, MOODS, sparteOf } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 
@@ -26,7 +27,8 @@ function Detail({ id }: { id: string }) {
   const [fail, setFail] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
   const [mood, setMood] = useState<string>(MOODS[0]);
-  const [trust, setTrust] = useState<{ text: string } | null>(null);
+  const [trust, setTrust] = useState<{ title: string; text: string } | null>(null);
+  const [weeks, setWeeks] = useState(1);
   const item = data?.activity;
 
   async function join() {
@@ -49,7 +51,7 @@ function Detail({ id }: { id: string }) {
     setBusy(true);
     setFail("");
     try {
-      const result = await repeatActivity({ data: { id: item.id } });
+      const result = await repeatActivity({ data: { id: item.id, weeks } });
       await navigate({ to: "/activity/$id", params: { id: result.id } });
     } catch (err) {
       setFail(errText(err));
@@ -64,7 +66,23 @@ function Detail({ id }: { id: string }) {
     try {
       const result = await createSafetyLink({ data: { id: item.id } });
       const url = `${window.location.origin}${result.path}`;
-      setTrust({ text: `Ich gehe zu „${item.title}“ (${formatWhen(item.startsAt)}, ${item.placeName}, ${item.city}). Hier siehst du, ob ich eingecheckt bin: ${url}` });
+      setTrust({ title: "Mein Treffen", text: `Ich gehe zu „${item.title}“ (${formatWhen(item.startsAt)}, ${item.placeName}, ${item.city}). Hier siehst du, ob ich eingecheckt bin: ${url}` });
+      setShareOpen(true);
+    } catch (err) {
+      setFail(errText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function invite() {
+    if (!item) return;
+    setBusy(true);
+    setFail("");
+    try {
+      const result = await createInvite({ data: { id: item.id } });
+      const url = `${window.location.origin}${result.path}`;
+      setTrust({ title: item.title, text: `Komm mit zu „${item.title}“ (${formatWhen(item.startsAt)}, ${item.placeName}, ${item.city}). Hier siehst du das Treffen und kannst anfragen: ${url}` });
       setShareOpen(true);
     } catch (err) {
       setFail(errText(err));
@@ -179,16 +197,25 @@ function Detail({ id }: { id: string }) {
         </p>
         <Button type="button" tone="ghost" className="w-full" onClick={() => { setTrust(null); setShareOpen(true); }}>Teilen</Button>
         {item.myStatus === "accepted" || item.isHost ? (
+          <Button type="button" tone="ghost" className="w-full" disabled={busy} onClick={invite}>Mit Link einladen</Button>
+        ) : null}
+        {item.myStatus === "accepted" || item.isHost ? (
           <Button type="button" tone="ghost" className="w-full" disabled={busy} onClick={trustLink}>Vertrauensperson informieren</Button>
         ) : null}
         {item.isHost && !item.cancelled ? (
-          <Button type="button" tone="ghost" className="w-full" disabled={busy} onClick={again}>Nächste Woche nochmal</Button>
+          <div className="flex gap-2">
+            <select value={weeks} onChange={(event) => setWeeks(Number(event.target.value))} aria-label="Wie viele Wochen" className="h-12 rounded-full border border-line bg-card px-4 text-sm font-semibold">
+              {[1, 4, 8, 12].map((count) => <option key={count} value={count}>{count === 1 ? "Nächste Woche" : `${count} Wochen`}</option>)}
+            </select>
+            <Button type="button" tone="ghost" className="flex-1" disabled={busy} onClick={again}>{weeks === 1 ? "Nochmal anlegen" : "Als Serie anlegen"}</Button>
+          </div>
         ) : null}
         {oneToOne ? (
           <a className="inline-flex h-12 items-center justify-center rounded-full border-2 border-ink bg-card px-4 text-sm font-semibold" href="tel:112">Notfall 112</a>
         ) : null}
       </div>
-      <ShareSheet open={shareOpen} title={trust ? "Mein Treffen" : item.title} text={trust ? trust.text : shareText} onClose={() => setShareOpen(false)} />
+      {!item.isHost ? <SafetyMenu kind="activity" targetId={item.id} personId={item.hostId} personName={item.hostName.split(" ")[0]} onBlocked={() => navigate({ to: "/" })} /> : null}
+      <ShareSheet open={shareOpen} title={trust ? trust.title : item.title} text={trust ? trust.text : shareText} onClose={() => setShareOpen(false)} />
       <StatusLine error={fail} info={info} />
       {data.hidden ? <Note>Diese Aktivität ist für dich ausgeblendet. Feed, Suche und Vorschläge überspringen sie.</Note> : null}
       {data.mutual ? <Note>Ihr möchtet euch beide wiedersehen.</Note> : null}

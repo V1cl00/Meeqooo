@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Button, Note, TextInput } from "@/components/bits";
+import { SafetyMenu } from "@/components/safety";
 import { Shell } from "@/components/shell";
 import { listAdMessages, sendAdMessage } from "@/lib/meeqo/api";
 import { errText, formatWhen, HANDOVER_SPOTS } from "@/lib/meeqo/labels";
@@ -89,6 +90,9 @@ function Thread({ id }: { id: string }) {
         <TextInput value={body} onChange={(event) => setBody(event.target.value)} placeholder="Nachricht" />
         <Button type="submit">Senden</Button>
       </form>
+      <div className="mt-4">
+        <SafetyMenu kind="ad" targetId={id} personId={data.peerId} personName={data.peerName.split(" ")[0]} onBlocked={reload} />
+      </div>
     </div>
   );
 }

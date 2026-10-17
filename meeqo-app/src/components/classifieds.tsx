@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Tag } from "lucide-react";
 import { Button, Field, Note, TextArea, TextInput } from "@/components/bits";
+import { SafetyMenu } from "@/components/safety";
 import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
 import { useMe } from "@/components/shell";
@@ -96,6 +97,7 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
             ) : (
               <Button type="button" className="h-11" onClick={() => interest(item.id)}>Interesse melden</Button>
             )}
+            {item.mine ? null : <SafetyMenu kind="ad" targetId={item.id} personId={item.authorId} personName={item.authorName.split(" ")[0]} onBlocked={reload} />}
           </div>
         </article>
       ))}

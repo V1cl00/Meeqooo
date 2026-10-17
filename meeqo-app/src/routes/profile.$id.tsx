@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BadgeRow, Button, Note } from "@/components/bits";
 import { ActivityCard } from "@/components/bits";
 import { PostBoard } from "@/components/posts";
+import { SafetyMenu } from "@/components/safety";
 import { Shell, useMe } from "@/components/shell";
 import { getPublicProfile, listPersonActivity, removeFriend, requestFriend, respondFriend, toggleFavorite } from "@/lib/meeqo/api";
 import { areaSummary, errText } from "@/lib/meeqo/labels";
@@ -21,6 +22,7 @@ function Page() {
 
 function Person({ id }: { id: string }) {
   const { profile } = useMe();
+  const navigate = useNavigate();
   const { data, error, loading, reload } = useLoad(() => getPublicProfile({ data: { id } }), [id]);
   const doing = useLoad(() => listPersonActivity({ data: { id } }), [id]);
   const [fail, setFail] = useState("");
@@ -79,6 +81,7 @@ function Person({ id }: { id: string }) {
         <Link to="/friends" className="inline-flex h-12 items-center rounded-full border-2 border-line bg-card px-5 text-sm font-semibold">Was Freunde machen</Link>
       </div>
       {fail ? <Note>{fail}</Note> : null}
+      <SafetyMenu kind="person" targetId={data.userId} personId={data.userId} personName={data.displayName.split(" ")[0]} onBlocked={() => navigate({ to: "/" })} />
       <section className="space-y-3">
         <h2 className="font-display text-2xl">Was gerade ansteht</h2>
         <p className="text-sm text-muted">Nur das, was diese Person für dich freigegeben hat.</p>

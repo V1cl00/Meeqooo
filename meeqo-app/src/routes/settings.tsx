@@ -2,7 +2,8 @@ import { useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea } from "@/components/bits";
 import { Shell, useMe } from "@/components/shell";
-import { designTheme, listHidden, resetTheme, setLocation, setNotify, setRadius, unhideActivity } from "@/lib/meeqo/api";
+import { deleteAccount, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
+import { signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 
@@ -23,6 +24,8 @@ function Settings() {
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const hidden = useLoad(() => listHidden(), []);
+  const blocked = useLoad(() => listBlocked(), []);
+  const [confirm, setConfirm] = useState("");
   if (!profile) return null;
 
   async function locate() {
@@ -49,9 +52,37 @@ function Settings() {
     const permission = await Notification.requestPermission();
     const enabled = permission === "granted";
     await setNotify({ data: { enabled } });
+    let background = false;
+    if (enabled && "serviceWorker" in navigator && "PushManager" in window) {
+      try {
+        const { key } = await pushKey();
+        if (key) {
+          const registration = await navigator.serviceWorker.register("/sw.js");
+          const padded = key.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (key.length % 4)) % 4);
+          const raw = atob(padded);
+          const applicationServerKey = Uint8Array.from(raw, (char) => char.charCodeAt(0));
+          const sub = (await registration.pushManager.getSubscription()) ?? (await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey }));
+          const json = sub.toJSON();
+          await savePush({ data: { endpoint: sub.endpoint, p256dh: json.keys?.p256dh ?? "", auth: json.keys?.auth ?? "" } });
+          background = true;
+        }
+      } catch (err) {
+        setError(errText(err));
+      }
+    }
     await reload();
-    setInfo(enabled ? "Mitteilungen an, solange MeeQo offen ist." : "Mitteilungen bleiben aus.");
-    setError(enabled ? "" : "Der Browser hat nicht zugestimmt.");
+    setInfo(enabled ? (background ? "Mitteilungen an, auch wenn MeeQo zu ist." : "Mitteilungen an, solange MeeQo offen ist.") : "Mitteilungen bleiben aus.");
+    if (!enabled) setError("Der Browser hat nicht zugestimmt.");
+  }
+
+  async function erase() {
+    setError("");
+    try {
+      await deleteAccount({ data: { confirm } });
+      await signOut("/login");
+    } catch (err) {
+      setError(errText(err));
+    }
   }
 
   async function design(event: FormEvent) {
@@ -127,7 +158,7 @@ function Settings() {
       </div>
       <div className="card space-y-3 p-4">
         <h2 className="font-display text-2xl">Mitteilungen</h2>
-        <p className="text-sm text-muted">Anfragen, Zusagen und Erinnerungen 36 Stunden vorher. Echte System-Mitteilungen nur, wenn MeeQo offen ist und du zustimmst.</p>
+        <p className="text-sm text-muted">Anfragen, Zusagen und Erinnerungen 36 Stunden vorher. Mitteilungen kommen auch bei geschlossener App, wenn dein Browser und der Server es können. Sonst nur, solange MeeQo offen ist.</p>
         <Button type="button" onClick={push}>{profile.notifyPush ? "Mitteilungen sind an" : "Mitteilungen erlauben"}</Button>
       </div>
       <div className="card space-y-3 p-4">
@@ -161,6 +192,44 @@ function Settings() {
         ))}
         {!hidden.loading && (hidden.data ?? []).length === 0 ? <p className="text-sm text-muted">Nichts ausgeblendet.</p> : null}
       </div>
+      <div className="card space-y-3 p-4">
+        <h2 className="font-display text-2xl">Blockiert</h2>
+        <p className="text-sm text-muted">Blockierte Personen sehen dich nicht, können dich nicht anfragen und dir nicht schreiben. Das gilt für beide Seiten.</p>
+        {(blocked.data ?? []).map((person) => (
+          <div key={person.id} className="flex items-center justify-between gap-3 border-t border-line pt-3">
+            <span className="font-semibold">{person.name}</span>
+            <button
+              type="button"
+              className={face}
+              onClick={async () => {
+                try {
+                  await unblockUser({ data: { userId: person.id } });
+                  blocked.reload();
+                  setInfo("Nicht mehr blockiert.");
+                } catch (err) {
+                  setError(errText(err));
+                }
+              }}
+            >
+              Entblocken
+            </button>
+          </div>
+        ))}
+        {!blocked.loading && (blocked.data ?? []).length === 0 ? <p className="text-sm text-muted">Niemand blockiert.</p> : null}
+      </div>
+      <div className="card space-y-3 border-2 !border-ink p-4">
+        <h2 className="font-display text-2xl">Konto löschen</h2>
+        <p className="text-sm text-muted">Löscht dein Profil, deine Treffen, Anzeigen, Chats, Bewertungen und Fotos. Das lässt sich nicht rückgängig machen.</p>
+        <Field label="Tipp LÖSCHEN zur Bestätigung">
+          <input value={confirm} onChange={(event) => setConfirm(event.target.value)} className="h-12 w-full rounded-2xl border border-line bg-sand px-4 text-base outline-none focus:border-accent" autoComplete="off" />
+        </Field>
+        <Button type="button" tone="ink" disabled={confirm !== "LÖSCHEN"} onClick={erase}>Konto endgültig löschen</Button>
+      </div>
+      <p className="flex flex-wrap gap-4 pb-4 text-sm text-muted">
+        <Link to="/datenschutz" className="underline">Datenschutz</Link>
+        <Link to="/impressum" className="underline">Impressum</Link>
+        <Link to="/support" className="underline">Hilfe</Link>
+      </p>
       {error ? <Note>{error}</Note> : null}
       {info ? <p className="text-sm text-friend">{info}</p> : null}
     </div>

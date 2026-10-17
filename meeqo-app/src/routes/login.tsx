@@ -5,9 +5,15 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button, Field, Note, TextInput, WelcomeHero } from "@/components/bits";
 import { errText } from "@/lib/meeqo/labels";
 
-export const Route = createFileRoute("/login")({ component: LoginPage });
+export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    next: typeof search.next === "string" && search.next.startsWith("/") && !search.next.startsWith("//") ? search.next : "",
+  }),
+  component: LoginPage,
+});
 
 function LoginPage() {
+  const { next } = Route.useSearch();
   const { user, isPending } = useCurrentUserState();
   const [mode, setMode] = useState<"in" | "up">("up");
   const [name, setName] = useState("");
@@ -25,7 +31,7 @@ function LoginPage() {
       </main>
     );
   }
-  if (user) return <Navigate to="/" />;
+  if (user) return <Navigate to={next || "/"} />;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -46,7 +52,7 @@ function LoginPage() {
         setPending(false);
         return;
       }
-      window.location.assign("/");
+      window.location.assign(next || "/");
     } catch (err) {
       setError(errText(err));
       setPending(false);

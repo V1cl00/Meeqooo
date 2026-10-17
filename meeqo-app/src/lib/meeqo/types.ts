@@ -101,6 +101,7 @@ export type AdChat = {
   city: string;
   category: string;
   seller: boolean;
+  peerId: string;
   peerName: string;
   peerAvatar: string;
   messages: ChatMessage[];
@@ -227,4 +228,21 @@ export type Post = {
   requireTraits: string[];
   createdAt: string;
   mine: boolean;
+};
+
+export type BlockedUser = {
+  id: string;
+  name: string;
+  avatar: string;
+};
+
+export type InviteView = {
+  activityId: string;
+  title: string;
+  startsAt: string;
+  placeName: string;
+  city: string;
+  hostName: string;
+  spotsLeft: number;
+  imageUrl: string;
 };

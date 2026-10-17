@@ -86,6 +86,8 @@ export const MOODS = ["Locker", "Gespräch", "Sport", "Nur Essen"] as const;
 
 export const HANDOVER_SPOTS = ["Bahnhof", "Rathaus", "Marktplatz", "Bibliothek"] as const;
 
+export const REPORT_REASONS = ["Belästigung", "Fake oder Betrug", "Unangemessen", "Sonstiges"] as const;
+
 export const PROMOTE_AT = 3;
 
 export function lensSubs(lens: string) {

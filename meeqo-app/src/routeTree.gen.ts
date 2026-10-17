@@ -15,7 +15,9 @@ import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as CommunitiesRouteImport } from './routes/communities'
 import { Route as CreateRouteImport } from './routes/create'
+import { Route as DatenschutzRouteImport } from './routes/datenschutz'
 import { Route as FriendsRouteImport } from './routes/friends'
+import { Route as ImpressumRouteImport } from './routes/impressum'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyActivitiesRouteImport } from './routes/my-activities'
 import { Route as NotificationsRouteImport } from './routes/notifications'
@@ -29,6 +31,7 @@ import { Route as SupportRouteImport } from './routes/support'
 import { Route as ActivityIdRouteImport } from './routes/activity.$id'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as CommunitiesIdRouteImport } from './routes/communities.$id'
+import { Route as EinladungTokenRouteImport } from './routes/einladung.$token'
 import { Route as OrganizerCreateRouteImport } from './routes/organizer.create'
 import { Route as OrganizerRegisterRouteImport } from './routes/organizer.register'
 import { Route as ProfileIdRouteImport } from './routes/profile.$id'
@@ -37,6 +40,7 @@ import { Route as RatingCompleteRouteImport } from './routes/rating.complete'
 import { Route as SicherTokenRouteImport } from './routes/sicher.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ChatAnzeigeIdRouteImport } from './routes/chat.anzeige.$id'
+import { Route as MediaActivityIdRouteImport } from './routes/media.activity.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -68,9 +72,19 @@ const CreateRoute = CreateRouteImport.update({
   path: '/create',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatenschutzRoute = DatenschutzRouteImport.update({
+  id: '/datenschutz',
+  path: '/datenschutz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FriendsRoute = FriendsRouteImport.update({
   id: '/friends',
   path: '/friends',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImpressumRoute = ImpressumRouteImport.update({
+  id: '/impressum',
+  path: '/impressum',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -138,6 +152,11 @@ const CommunitiesIdRoute = CommunitiesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => CommunitiesRoute,
 } as any)
+const EinladungTokenRoute = EinladungTokenRouteImport.update({
+  id: '/einladung/$token',
+  path: '/einladung/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrganizerCreateRoute = OrganizerCreateRouteImport.update({
   id: '/create',
   path: '/create',
@@ -178,6 +197,11 @@ const ChatAnzeigeIdRoute = ChatAnzeigeIdRouteImport.update({
   path: '/anzeige/$id',
   getParentRoute: () => ChatRoute,
 } as any)
+const MediaActivityIdRoute = MediaActivityIdRouteImport.update({
+  id: '/media/activity/$id',
+  path: '/media/activity/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -186,7 +210,9 @@ export interface FileRoutesByFullPath {
   '/chat': typeof ChatRouteWithChildren
   '/communities': typeof CommunitiesRouteWithChildren
   '/create': typeof CreateRoute
+  '/datenschutz': typeof DatenschutzRoute
   '/friends': typeof FriendsRoute
+  '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
   '/my-activities': typeof MyActivitiesRoute
   '/notifications': typeof NotificationsRoute
@@ -200,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/activity/$id': typeof ActivityIdRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
+  '/einladung/$token': typeof EinladungTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
   '/profile/$id': typeof ProfileIdRoute
@@ -208,6 +235,7 @@ export interface FileRoutesByFullPath {
   '/sicher/$token': typeof SicherTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
+  '/media/activity/$id': typeof MediaActivityIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -216,7 +244,9 @@ export interface FileRoutesByTo {
   '/chat': typeof ChatRouteWithChildren
   '/communities': typeof CommunitiesRouteWithChildren
   '/create': typeof CreateRoute
+  '/datenschutz': typeof DatenschutzRoute
   '/friends': typeof FriendsRoute
+  '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
   '/my-activities': typeof MyActivitiesRoute
   '/notifications': typeof NotificationsRoute
@@ -230,6 +260,7 @@ export interface FileRoutesByTo {
   '/activity/$id': typeof ActivityIdRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
+  '/einladung/$token': typeof EinladungTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
   '/profile/$id': typeof ProfileIdRoute
@@ -238,6 +269,7 @@ export interface FileRoutesByTo {
   '/sicher/$token': typeof SicherTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
+  '/media/activity/$id': typeof MediaActivityIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -247,7 +279,9 @@ export interface FileRoutesById {
   '/chat': typeof ChatRouteWithChildren
   '/communities': typeof CommunitiesRouteWithChildren
   '/create': typeof CreateRoute
+  '/datenschutz': typeof DatenschutzRoute
   '/friends': typeof FriendsRoute
+  '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
   '/my-activities': typeof MyActivitiesRoute
   '/notifications': typeof NotificationsRoute
@@ -261,6 +295,7 @@ export interface FileRoutesById {
   '/activity/$id': typeof ActivityIdRoute
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
+  '/einladung/$token': typeof EinladungTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
   '/profile/$id': typeof ProfileIdRoute
@@ -269,6 +304,7 @@ export interface FileRoutesById {
   '/sicher/$token': typeof SicherTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
+  '/media/activity/$id': typeof MediaActivityIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -279,7 +315,9 @@ export interface FileRouteTypes {
     | '/chat'
     | '/communities'
     | '/create'
+    | '/datenschutz'
     | '/friends'
+    | '/impressum'
     | '/login'
     | '/my-activities'
     | '/notifications'
@@ -293,6 +331,7 @@ export interface FileRouteTypes {
     | '/activity/$id'
     | '/chat/$id'
     | '/communities/$id'
+    | '/einladung/$token'
     | '/organizer/create'
     | '/organizer/register'
     | '/profile/$id'
@@ -301,6 +340,7 @@ export interface FileRouteTypes {
     | '/sicher/$token'
     | '/api/auth/$'
     | '/chat/anzeige/$id'
+    | '/media/activity/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -309,7 +349,9 @@ export interface FileRouteTypes {
     | '/chat'
     | '/communities'
     | '/create'
+    | '/datenschutz'
     | '/friends'
+    | '/impressum'
     | '/login'
     | '/my-activities'
     | '/notifications'
@@ -323,6 +365,7 @@ export interface FileRouteTypes {
     | '/activity/$id'
     | '/chat/$id'
     | '/communities/$id'
+    | '/einladung/$token'
     | '/organizer/create'
     | '/organizer/register'
     | '/profile/$id'
@@ -331,6 +374,7 @@ export interface FileRouteTypes {
     | '/sicher/$token'
     | '/api/auth/$'
     | '/chat/anzeige/$id'
+    | '/media/activity/$id'
   id:
     | '__root__'
     | '/'
@@ -339,7 +383,9 @@ export interface FileRouteTypes {
     | '/chat'
     | '/communities'
     | '/create'
+    | '/datenschutz'
     | '/friends'
+    | '/impressum'
     | '/login'
     | '/my-activities'
     | '/notifications'
@@ -353,6 +399,7 @@ export interface FileRouteTypes {
     | '/activity/$id'
     | '/chat/$id'
     | '/communities/$id'
+    | '/einladung/$token'
     | '/organizer/create'
     | '/organizer/register'
     | '/profile/$id'
@@ -361,6 +408,7 @@ export interface FileRouteTypes {
     | '/sicher/$token'
     | '/api/auth/$'
     | '/chat/anzeige/$id'
+    | '/media/activity/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -370,7 +418,9 @@ export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
   CommunitiesRoute: typeof CommunitiesRouteWithChildren
   CreateRoute: typeof CreateRoute
+  DatenschutzRoute: typeof DatenschutzRoute
   FriendsRoute: typeof FriendsRoute
+  ImpressumRoute: typeof ImpressumRoute
   LoginRoute: typeof LoginRoute
   MyActivitiesRoute: typeof MyActivitiesRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -382,10 +432,12 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SupportRoute: typeof SupportRoute
   ActivityIdRoute: typeof ActivityIdRoute
+  EinladungTokenRoute: typeof EinladungTokenRoute
   RatingIdRoute: typeof RatingIdRoute
   RatingCompleteRoute: typeof RatingCompleteRoute
   SicherTokenRoute: typeof SicherTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  MediaActivityIdRoute: typeof MediaActivityIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -432,11 +484,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/datenschutz': {
+      id: '/datenschutz'
+      path: '/datenschutz'
+      fullPath: '/datenschutz'
+      preLoaderRoute: typeof DatenschutzRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/friends': {
       id: '/friends'
       path: '/friends'
       fullPath: '/friends'
       preLoaderRoute: typeof FriendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/impressum': {
+      id: '/impressum'
+      path: '/impressum'
+      fullPath: '/impressum'
+      preLoaderRoute: typeof ImpressumRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -530,6 +596,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunitiesIdRouteImport
       parentRoute: typeof CommunitiesRoute
     }
+    '/einladung/$token': {
+      id: '/einladung/$token'
+      path: '/einladung/$token'
+      fullPath: '/einladung/$token'
+      preLoaderRoute: typeof EinladungTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/organizer/create': {
       id: '/organizer/create'
       path: '/create'
@@ -585,6 +658,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/chat/anzeige/$id'
       preLoaderRoute: typeof ChatAnzeigeIdRouteImport
       parentRoute: typeof ChatRoute
+    }
+    '/media/activity/$id': {
+      id: '/media/activity/$id'
+      path: '/media/activity/$id'
+      fullPath: '/media/activity/$id'
+      preLoaderRoute: typeof MediaActivityIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -645,7 +725,9 @@ const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
   CommunitiesRoute: CommunitiesRouteWithChildren,
   CreateRoute: CreateRoute,
+  DatenschutzRoute: DatenschutzRoute,
   FriendsRoute: FriendsRoute,
+  ImpressumRoute: ImpressumRoute,
   LoginRoute: LoginRoute,
   MyActivitiesRoute: MyActivitiesRoute,
   NotificationsRoute: NotificationsRoute,
@@ -657,10 +739,12 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SupportRoute: SupportRoute,
   ActivityIdRoute: ActivityIdRoute,
+  EinladungTokenRoute: EinladungTokenRoute,
   RatingIdRoute: RatingIdRoute,
   RatingCompleteRoute: RatingCompleteRoute,
   SicherTokenRoute: SicherTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  MediaActivityIdRoute: MediaActivityIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

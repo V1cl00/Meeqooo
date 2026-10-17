@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql, type Sql } from "@/lib/db";
 import { kmBetween, cityCoords, matchCities } from "@/lib/meeqo/geo";
-import { MOODS } from "@/lib/meeqo/labels";
+import { MOODS, REPORT_REASONS } from "@/lib/meeqo/labels";
 import { lookupPlace, plzChoices, plzPoint } from "@/lib/meeqo/places";
 import { categoryMatches, CATEGORIES, CATEGORY_TREE, MORE_SUGGESTIONS, PROMOTE_AT, splitCategory, areasFromOpen, berlinDay, cleanAreas, intentFromAreas, openFromAreas, seesByAreas } from "@/lib/meeqo/labels";
 import { localTheme, normalizeTheme } from "@/lib/meeqo/theme";
@@ -15,6 +15,8 @@ import type {
   AdChat,
   CircleMember,
   SafetyView,
+  BlockedUser,
+  InviteView,
   ChatThread,
   Classified,
   CommunityCard,
@@ -84,6 +86,7 @@ type ActRow = {
   is_organizer: boolean;
   identity_confirmed: boolean;
   rating_n: number | string | null;
+  again_yes: number | string | null;
   punctual: number | string | null;
   respectful: number | string | null;
   matches: number | string | null;
@@ -137,8 +140,10 @@ function badgesFrom(
   punctual: number,
   respectful: number,
   matches: number,
+  yes = 0,
 ) {
   const badges: string[] = [];
+  if (count >= 3) badges.push(`${yes} von ${count} wollen wieder`);
   if (identity) badges.push("Profil bestätigt");
   if (organizer) badges.push("Veranstalter");
   if (count >= 1 && punctual >= 4) badges.push("Zuverlässig");
@@ -181,21 +186,30 @@ function passesFilter(filter: string, intent: string) {
   return true;
 }
 
+async function blockedWith(sql: Sql, userId: string) {
+  const rows = await sql<{ other: string }>`
+    select case when blocker_id = ${userId} then blocked_id else blocker_id end as other
+    from blocks where blocker_id = ${userId} or blocked_id = ${userId}
+  `;
+  return new Set(rows.map((row) => row.other));
+}
+
 async function ratingStats(sql: Sql, userId: string) {
-  const rows = await sql<{ n: number; punctual: number | null; respectful: number | null; matches: number | null }>`
-    select count(*)::int as n, avg(punctual) as punctual, avg(respectful) as respectful, avg(matches_profile) as matches
+  const rows = await sql<{ n: number; yes: number; punctual: number | null; respectful: number | null; matches: number | null }>`
+    select count(*)::int as n, count(*) filter (where want_again)::int as yes, avg(punctual) as punctual, avg(respectful) as respectful, avg(matches_profile) as matches
     from ratings where ratee_id = ${userId}
   `;
   const row = rows[0];
   return {
     n: num(row?.n),
+    yes: num(row?.yes),
     punctual: num(row?.punctual),
     respectful: num(row?.respectful),
     matches: num(row?.matches),
   };
 }
 
-function mapProfile(row: ProfileRow, stats: { n: number; punctual: number; respectful: number; matches: number }): Profile {
+function mapProfile(row: ProfileRow, stats: { n: number; yes: number; punctual: number; respectful: number; matches: number }): Profile {
   return {
     userId: row.user_id,
     displayName: row.display_name,
@@ -228,6 +242,7 @@ function mapProfile(row: ProfileRow, stats: { n: number; punctual: number; respe
       stats.punctual,
       stats.respectful,
       stats.matches,
+      stats.yes,
     ),
     theme: readTheme(row.theme),
   };
@@ -274,6 +289,7 @@ function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: nu
       num(row.punctual),
       num(row.respectful),
       num(row.matches),
+      num(row.again_yes),
     ),
     hostOrganizer: flag(row.is_organizer),
     area: row.area === "business" ? "business" : row.area === "event" ? "event" : "meetup",
@@ -290,7 +306,7 @@ function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: nu
     startsAt: iso(row.starts_at),
     spots,
     spotsLeft: Math.max(0, spots - taken),
-    imageUrl: row.image_url,
+    imageUrl: row.image_url.startsWith("data:") ? `/media/activity/${row.id}?v=${row.image_url.length}` : row.image_url,
     bookingMode: row.booking_mode === "instant" ? "instant" : "request",
     communityId: row.community_id,
     audienceIds: parseList(row.audience_ids),
@@ -310,13 +326,13 @@ async function loadRows(sql: Sql, userId: string) {
       a.place_name, a.city, a.lat, a.lng, a.starts_at, a.spots, a.image_url,
       a.booking_mode, a.community_id, a.public_place, a.cancelled, a.area, a.traits, a.visibility, a.audience_ids,
       p.display_name, p.avatar_url, p.is_organizer, p.identity_confirmed, p.traits as host_traits, p.birth_year as host_birth_year,
-      coalesce(r.n, 0) as rating_n, r.punctual, r.respectful, r.matches,
+      coalesce(r.n, 0) as rating_n, coalesce(r.yes, 0) as again_yes, r.punctual, r.respectful, r.matches,
       coalesce(acc.taken, 0) as taken,
       jr.status as my_status
     from activities a
     join profiles p on p.user_id = a.host_id
     left join (
-      select ratee_id, count(*)::int as n,
+      select ratee_id, count(*)::int as n, count(*) filter (where want_again)::int as yes,
         avg(punctual) as punctual, avg(respectful) as respectful, avg(matches_profile) as matches
       from ratings group by ratee_id
     ) r on r.ratee_id = a.host_id
@@ -445,6 +461,32 @@ async function notify(sql: Sql, userId: string, kind: string, title: string, bod
     insert into notifications (id, user_id, kind, title, body, href, ref_id)
     values (${crypto.randomUUID()}, ${userId}, ${kind}, ${title}, ${body}, ${href}, ${refId})
   `;
+  await sendPush(sql, userId, title, body, href);
+}
+
+/** Needs VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT. Without them nothing is sent and nothing breaks. */
+async function sendPush(sql: Sql, userId: string, title: string, body: string, href: string) {
+  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  if (!publicKey || !privateKey) return;
+  try {
+    const subs = await sql<{ endpoint: string; p256dh: string; auth: string }>`select endpoint, p256dh, auth from push_subscriptions where user_id = ${userId}`;
+    if (!subs.length) return;
+    const webpush = (await import("web-push")).default;
+    webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:hallo@meeqo.app", publicKey, privateKey);
+    await Promise.all(
+      subs.map(async (sub) => {
+        try {
+          await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify({ title, body, href }));
+        } catch (err) {
+          const code = (err as { statusCode?: number }).statusCode;
+          if (code === 404 || code === 410) await sql`delete from push_subscriptions where endpoint = ${sub.endpoint}`;
+        }
+      }),
+    );
+  } catch {
+    /* push is a bonus; the notification row is already saved */
+  }
 }
 
 function areaOf(category: string, organizer: boolean) {
@@ -818,6 +860,7 @@ export const getFeed = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<FeedResult> => {
     const { sql, profile } = await ensureProfile(context.userId);
     const hidden = await hiddenSet(sql, context.userId);
+    const blocked = await blockedWith(sql, context.userId);
     const audience = await audienceOf(sql, context.userId, profile.birthYear);
     const rows = await loadRows(sql, context.userId);
     const place = searchPlace(data);
@@ -837,6 +880,7 @@ export const getFeed = createServerFn({ method: "POST" })
     const mapped = rows.map((row) => mapActivity(row, context.userId, origin));
     const pool = mapped.filter((item) => {
       if (item.cancelled) return false;
+      if (!item.isHost && blocked.has(item.hostId)) return false;
       if (!data.includePast && new Date(item.startsAt).getTime() < now) return false;
       if (item.isHost) return data.mineOnly ? true : canSeeActivity(profile.areas, profile.openTo, item.intent, item.category) || item.isHost;
       if (!data.mineOnly && hidden.has(item.id)) return false;
@@ -1059,6 +1103,7 @@ export const requestJoin = createServerFn({ method: "POST" })
     const activity = mapActivity(row, context.userId, null);
     if (activity.cancelled) throw new Error("Die Aktivität ist abgesagt.");
     if (activity.isHost) throw new Error("Das ist deine eigene Aktivität.");
+    if ((await blockedWith(sql, context.userId)).has(activity.hostId)) throw new Error("Das geht nicht.");
     if (!canSeeActivity(profile.areas, profile.openTo, activity.intent, activity.category)) throw new Error("Diese Aktivität passt nicht zu deiner Absicht.");
     if (activity.myStatus === "pending" || activity.myStatus === "accepted") return { status: activity.myStatus };
     if (activity.spotsLeft < 1) throw new Error("Keine Plätze mehr frei.");
@@ -1166,8 +1211,18 @@ export const listChats = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<ChatThread[]> => {
     const sql = await getSql();
-    const rows = await sql<{ id: string; title: string; starts_at: unknown; host_id: string; host_name: string; host_avatar: string; spots: number }>`
-      select a.id, a.title, a.starts_at, a.host_id, a.spots, p.display_name as host_name, p.avatar_url as host_avatar
+    const blocked = await blockedWith(sql, context.userId);
+    const rows = await sql<{
+      id: string; title: string; starts_at: unknown; host_id: string; host_name: string; host_avatar: string; spots: number;
+      last_body: string | null; accepted: number; guest_names: string | null; guest_avatar: string | null;
+    }>`
+      select a.id, a.title, a.starts_at, a.host_id, a.spots, p.display_name as host_name, p.avatar_url as host_avatar,
+        (select m.body from messages m where m.activity_id = a.id order by m.created_at desc limit 1) as last_body,
+        (select count(*)::int from join_requests j where j.activity_id = a.id and j.status = 'accepted') as accepted,
+        (select string_agg(g.display_name, ', ' order by g.display_name) from join_requests j
+           join profiles g on g.user_id = j.requester_id where j.activity_id = a.id and j.status = 'accepted') as guest_names,
+        (select g.avatar_url from join_requests j join profiles g on g.user_id = j.requester_id
+           where j.activity_id = a.id and j.status = 'accepted' and g.avatar_url <> '' limit 1) as guest_avatar
       from activities a
       join profiles p on p.user_id = a.host_id
       where a.cancelled = false and (
@@ -1176,40 +1231,23 @@ export const listChats = createServerFn({ method: "GET" })
       )
       order by a.starts_at asc
     `;
-    const threads: ChatThread[] = [];
-    for (const row of rows) {
-      const last = await sql<{ body: string }>`
-        select body from messages where activity_id = ${row.id} order by created_at desc limit 1
-      `;
-      let peer = row.host_name;
-      let peerAvatar = row.host_avatar || "";
-      let names = 1;
-      if (row.host_id === context.userId) {
-        const guests = await sql<{ display_name: string; avatar_url: string }>`
-          select p.display_name, p.avatar_url from join_requests j
-          join profiles p on p.user_id = j.requester_id
-          where j.activity_id = ${row.id} and j.status = 'accepted'
-        `;
-        names = guests.length + 1;
-        peer = guests.map((guest) => guest.display_name).join(", ") || "Noch niemand";
-        peerAvatar = guests.find((guest) => guest.avatar_url)?.avatar_url || "";
-      } else {
-        const guests = await sql<{ n: number }>`select count(*)::int as n from join_requests where activity_id = ${row.id} and status = 'accepted'`;
-        names = num(guests[0]?.n) + 1;
-      }
-      threads.push({
+    const threads: ChatThread[] = rows.map((row) => {
+      const hosting = row.host_id === context.userId;
+      const names = num(row.accepted) + 1;
+      return {
         activityId: row.id,
         title: row.title,
         startsAt: iso(row.starts_at),
-        lastBody: last[0]?.body ?? "Noch keine Nachricht",
-        peerName: peer,
-        peerAvatar,
+        lastBody: row.last_body ?? "Noch keine Nachricht",
+        peerName: hosting ? row.guest_names || "Noch niemand" : row.host_name,
+        peerAvatar: hosting ? row.guest_avatar || "" : row.host_avatar || "",
         group: names >= 3 || num(row.spots) > 2,
-        kind: "activity",
-      });
-    }
-    const adRows = await sql<{ id: string; title: string; buyer_id: string; seller_id: string; display_name: string | null; avatar_url: string | null; created_at: unknown }>`
-      select t.id, c.title, t.buyer_id, t.seller_id, p.display_name, p.avatar_url, t.created_at
+        kind: "activity" as const,
+      };
+    });
+    const adRows = await sql<{ id: string; title: string; peer_id: string; display_name: string | null; avatar_url: string | null; created_at: unknown; last_body: string | null }>`
+      select t.id, c.title, p.user_id as peer_id, p.display_name, p.avatar_url, t.created_at,
+        (select m.body from classified_messages m where m.thread_id = t.id order by m.created_at desc limit 1) as last_body
       from classified_threads t
       join classifieds c on c.id = t.classified_id
       left join profiles p on p.user_id = case when t.buyer_id = ${context.userId} then t.seller_id else t.buyer_id end
@@ -1217,12 +1255,12 @@ export const listChats = createServerFn({ method: "GET" })
       order by t.created_at desc
     `;
     for (const row of adRows) {
-      const last = await sql<{ body: string }>`select body from classified_messages where thread_id = ${row.id} order by created_at desc limit 1`;
+      if (blocked.has(row.peer_id)) continue;
       threads.push({
         activityId: row.id,
         title: row.title,
         startsAt: iso(row.created_at),
-        lastBody: last[0]?.body ?? "Noch keine Nachricht",
+        lastBody: row.last_body ?? "Noch keine Nachricht",
         peerName: row.display_name || "Jemand",
         peerAvatar: row.avatar_url || "",
         group: false,
@@ -1457,7 +1495,7 @@ export const getPublicProfile = createServerFn({ method: "POST" })
     const sql = await getSql();
     const rows = await sql<ProfileRow>`select * from profiles where user_id = ${data.id}`;
     const row = rows[0];
-    if (!row || !flag(row.onboarding_done)) throw new Error("Profil noch nicht da.");
+    if (!row || !flag(row.onboarding_done) || (await blockedWith(sql, context.userId)).has(data.id)) throw new Error("Profil noch nicht da.");
     const stats = await ratingStats(sql, data.id);
     return {
       userId: row.user_id,
@@ -1474,6 +1512,7 @@ export const getPublicProfile = createServerFn({ method: "POST" })
         stats.punctual,
         stats.respectful,
         stats.matches,
+        stats.yes,
       ),
       avatarUrl: row.avatar_url || "",
       friend: await friendState(sql, context.userId, row.user_id),
@@ -1976,6 +2015,7 @@ async function loadClassifieds(userId: string): Promise<Classified[]> {
       order by c.created_at desc
       limit 40
     `;
+    const blocked = await blockedWith(sql, userId);
     const mineThreads = await sql<{ classified_id: string; id: string }>`select classified_id, id from classified_threads where buyer_id = ${userId}`;
     const threads = new Map(mineThreads.map((row) => [row.classified_id, row.id]));
     const countRows = await sql<{ classified_id: string; n: number }>`select classified_id, count(*)::int as n from classified_threads where seller_id = ${userId} group by classified_id`;
@@ -1998,7 +2038,7 @@ async function loadClassifieds(userId: string): Promise<Classified[]> {
         audienceIds: parseList(row.audience_ids),
         authorYear: yearOf(row.birth_year),
       }))
-      .filter((item) => covers([...item.traits, ...item.authorTraits], profile.requireTraits) && sees(item.visibility, item.authorId, null, item.authorYear, audience, item.mine, item.audienceIds))
+      .filter((item) => !blocked.has(item.authorId) && covers([...item.traits, ...item.authorTraits], profile.requireTraits) && sees(item.visibility, item.authorId, null, item.authorYear, audience, item.mine, item.audienceIds))
       .map(({ authorTraits: _authorTraits, authorYear: _year, visibility: _visibility, audienceIds: _ids, ...item }) => ({
         ...item,
         interested: item.mine ? num(counts.get(item.id)) : 0,
@@ -2041,6 +2081,7 @@ export const requestFriend = createServerFn({ method: "POST" })
     const { sql, profile } = await ensureProfile(context.userId);
     const other = await sql<ProfileRow>`select * from profiles where user_id = ${data.userId}`;
     if (!other[0] || !flag(other[0].onboarding_done)) throw new Error("Profil noch nicht da.");
+    if ((await blockedWith(sql, context.userId)).has(data.userId)) throw new Error("Das geht nicht.");
     const existing = await sql<{ id: string; status: string; requester_id: string }>`
       select id, status, requester_id from friendships
       where (requester_id = ${context.userId} and addressee_id = ${data.userId})
@@ -2184,6 +2225,7 @@ export const expressInterest = createServerFn({ method: "POST" })
     const ad = (await loadClassifieds(context.userId)).find((item) => item.id === data.id);
     if (!ad) throw new Error("Anzeige nicht gefunden.");
     if (ad.mine) throw new Error("Das ist deine eigene Anzeige.");
+    if ((await blockedWith(sql, context.userId)).has(ad.authorId)) throw new Error("Das geht nicht.");
     const existing = await sql<{ id: string }>`select id from classified_threads where classified_id = ${ad.id} and buyer_id = ${context.userId}`;
     let threadId = existing[0]?.id ?? "";
     if (!threadId) {
@@ -2235,6 +2277,7 @@ export const listAdMessages = createServerFn({ method: "POST" })
       city: thread.city,
       category: thread.category,
       seller,
+      peerId,
       peerName: peer[0]?.display_name || "Jemand",
       peerAvatar: peer[0]?.avatar_url || "",
       messages: rows.map((row) => ({
@@ -2256,11 +2299,12 @@ export const sendAdMessage = createServerFn({ method: "POST" })
     if (data.body.length < 1) throw new Error("Nachricht ist leer.");
     const sql = await getSql();
     const thread = await assertAdThread(sql, data.id, context.userId);
+    const other = thread.seller_id === context.userId ? thread.buyer_id : thread.seller_id;
+    if ((await blockedWith(sql, context.userId)).has(other)) throw new Error("Das geht nicht.");
     await sql`
       insert into classified_messages (id, thread_id, sender_id, body)
       values (${crypto.randomUUID()}, ${data.id}, ${context.userId}, ${data.body})
     `;
-    const other = thread.seller_id === context.userId ? thread.buyer_id : thread.seller_id;
     await notify(sql, other, "ad", thread.title, data.body, `/chat/anzeige/${data.id}`, data.id);
     return { ok: true as const };
   });
@@ -2270,25 +2314,32 @@ export const sendAdMessage = createServerFn({ method: "POST" })
 
 export const repeatActivity = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
+  .validator((input: { id: string; weeks?: number }) => ({
+    id: clean(input.id, 80),
+    weeks: Math.min(12, Math.max(1, Math.round(Number(input.weeks)) || 1)),
+  }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
-    const found = await sql<{ starts_at: unknown; cancelled: boolean }>`select starts_at, cancelled from activities where id = ${data.id} and host_id = ${context.userId}`;
+    const found = await sql<{ starts_at: unknown }>`select starts_at from activities where id = ${data.id} and host_id = ${context.userId}`;
     if (!found.length) throw new Error("Nur der Ersteller kann ein Treffen wiederholen.");
     const week = 7 * 24 * 60 * 60 * 1000;
     let next = new Date(iso(found[0].starts_at)).getTime() + week;
     while (next < Date.now() + 60 * 60 * 1000) next += week;
-    const id = crypto.randomUUID();
-    await sql`
-      insert into activities (
-        id, host_id, title, description, category, intent, place_name, city, lat, lng,
-        starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
-      )
-      select ${id}, host_id, title, description, category, intent, place_name, city, lat, lng,
-        ${new Date(next).toISOString()}, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
-      from activities where id = ${data.id} and host_id = ${context.userId}
-    `;
-    return { id };
+    let first = "";
+    for (let index = 0; index < data.weeks; index += 1) {
+      const id = crypto.randomUUID();
+      if (!first) first = id;
+      await sql`
+        insert into activities (
+          id, host_id, title, description, category, intent, place_name, city, lat, lng,
+          starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
+        )
+        select ${id}, host_id, title, description, category, intent, place_name, city, lat, lng,
+          ${new Date(next + index * week).toISOString()}, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area
+        from activities where id = ${data.id} and host_id = ${context.userId}
+      `;
+    }
+    return { id: first, count: data.weeks };
   });
 
 // ---------------------------------------------------------------------------
@@ -2401,4 +2452,184 @@ export const listCircle = createServerFn({ method: "GET" })
       order by count(*) desc, p.display_name asc
     `;
     return rows.map((row) => ({ id: row.user_id, name: row.display_name || "Jemand", avatar: row.avatar_url || "", meetings: num(row.n) }));
+  });
+
+// ---------------------------------------------------------------------------
+// Melden und Blockieren
+
+const REPORT_KINDS = ["person", "activity", "ad", "message"] as const;
+
+export const reportItem = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { kind: string; targetId: string; reason: string; note?: string }) => ({
+    kind: clean(input.kind, 12),
+    targetId: clean(input.targetId, 80),
+    reason: clean(input.reason, 40),
+    note: clean(input.note, 400),
+  }))
+  .handler(async ({ data, context }) => {
+    if (!(REPORT_KINDS as readonly string[]).includes(data.kind) || !data.targetId) throw new Error("Das lässt sich nicht melden.");
+    if (!(REPORT_REASONS as readonly string[]).includes(data.reason)) throw new Error("Wähl einen Grund.");
+    const sql = await getSql();
+    await sql`
+      insert into reports (id, reporter_id, kind, target_id, reason, note)
+      values (${crypto.randomUUID()}, ${context.userId}, ${data.kind}, ${data.targetId}, ${data.reason}, ${data.note})
+    `;
+    return { ok: true as const };
+  });
+
+export const blockUser = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { userId: string }) => ({ userId: clean(input.userId, 80) }))
+  .handler(async ({ data, context }) => {
+    if (!data.userId || data.userId === context.userId) throw new Error("Das geht nicht.");
+    const sql = await getSql();
+    await sql`insert into blocks (blocker_id, blocked_id) values (${context.userId}, ${data.userId}) on conflict do nothing`;
+    await sql`
+      delete from friendships
+      where (requester_id = ${context.userId} and addressee_id = ${data.userId}) or (requester_id = ${data.userId} and addressee_id = ${context.userId})
+    `;
+    await sql`delete from favorites where user_id = ${context.userId} and target_id = ${data.userId}`;
+    await sql`
+      update join_requests set status = 'declined'
+      where status = 'pending' and (
+        (requester_id = ${data.userId} and activity_id in (select id from activities where host_id = ${context.userId}))
+        or (requester_id = ${context.userId} and activity_id in (select id from activities where host_id = ${data.userId}))
+      )
+    `;
+    return { ok: true as const };
+  });
+
+export const unblockUser = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { userId: string }) => ({ userId: clean(input.userId, 80) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    await sql`delete from blocks where blocker_id = ${context.userId} and blocked_id = ${data.userId}`;
+    return { ok: true as const };
+  });
+
+export const listBlocked = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<BlockedUser[]> => {
+    const sql = await getSql();
+    const rows = await sql<{ blocked_id: string; display_name: string | null; avatar_url: string | null }>`
+      select b.blocked_id, p.display_name, p.avatar_url
+      from blocks b left join profiles p on p.user_id = b.blocked_id
+      where b.blocker_id = ${context.userId} order by b.created_at desc
+    `;
+    return rows.map((row) => ({ id: row.blocked_id, name: row.display_name || "Jemand", avatar: row.avatar_url || "" }));
+  });
+
+// ---------------------------------------------------------------------------
+// Konto und Daten loeschen
+
+export const deleteAccount = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { confirm: string }) => ({ confirm: clean(input.confirm, 20) }))
+  .handler(async ({ data, context }) => {
+    if (data.confirm !== "LÖSCHEN") throw new Error("Tipp zur Bestätigung: LÖSCHEN");
+    const sql = await getSql();
+    const me = context.userId;
+    await sql`delete from join_requests where requester_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from messages where sender_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from checkins where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from ratings where rater_id = ${me} or ratee_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from hidden_activities where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from safety_shares where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from invites where inviter_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from activities where host_id = ${me}`;
+    await sql`
+      delete from classified_messages where sender_id = ${me} or thread_id in (
+        select id from classified_threads where buyer_id = ${me} or seller_id = ${me} or classified_id in (select id from classifieds where author_id = ${me}))
+    `;
+    await sql`delete from classified_threads where buyer_id = ${me} or seller_id = ${me} or classified_id in (select id from classifieds where author_id = ${me})`;
+    await sql`delete from classifieds where author_id = ${me}`;
+    await sql`delete from posts where author_id = ${me}`;
+    await sql`delete from community_members where user_id = ${me} or community_id in (select id from communities where owner_id = ${me})`;
+    await sql`update activities set community_id = null where community_id in (select id from communities where owner_id = ${me})`;
+    await sql`delete from communities where owner_id = ${me}`;
+    await sql`delete from friendships where requester_id = ${me} or addressee_id = ${me}`;
+    await sql`delete from favorites where user_id = ${me} or target_id = ${me}`;
+    await sql`delete from custom_categories where user_id = ${me}`;
+    await sql`delete from wishes where user_id = ${me}`;
+    await sql`delete from blocks where blocker_id = ${me} or blocked_id = ${me}`;
+    await sql`delete from reports where reporter_id = ${me}`;
+    await sql`delete from notifications where user_id = ${me}`;
+    await sql`delete from push_subscriptions where user_id = ${me}`;
+    await sql`delete from profiles where user_id = ${me}`;
+    await sql`delete from "user" where id = ${me}`;
+    return { ok: true as const };
+  });
+
+// ---------------------------------------------------------------------------
+// Einladung per Link
+
+export const createInvite = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const act = await sql<{ host_id: string }>`select host_id from activities where id = ${data.id} and cancelled = false`;
+    if (!act.length) throw new Error("Aktivität nicht gefunden.");
+    const belongs = act[0].host_id === context.userId
+      || (await sql`select 1 as ok from join_requests where activity_id = ${data.id} and requester_id = ${context.userId} and status = 'accepted'`).length > 0;
+    if (!belongs) throw new Error("Einladen können der Ersteller und alle, die dabei sind.");
+    const old = await sql<{ token: string }>`select token from invites where activity_id = ${data.id} and inviter_id = ${context.userId} limit 1`;
+    if (old[0]) return { path: `/einladung/${old[0].token}` };
+    const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 32);
+    await sql`insert into invites (token, activity_id, inviter_id) values (${token}, ${data.id}, ${context.userId})`;
+    return { path: `/einladung/${token}` };
+  });
+
+/** Public on purpose: shows only title, time, place and the host's first name. Anfragen needs an account. */
+export const getInvite = createServerFn({ method: "POST" })
+  .validator((input: { token: string }) => ({ token: clean(input.token, 80) }))
+  .handler(async ({ data }): Promise<InviteView> => {
+    const sql = await getSql();
+    const rows = await sql<{ id: string; title: string; starts_at: unknown; place_name: string; city: string; spots: number; taken: number; display_name: string | null; image_url: string; cancelled: boolean }>`
+      select a.id, a.title, a.starts_at, a.place_name, a.city, a.spots, a.image_url, a.cancelled, p.display_name,
+        (select count(*)::int from join_requests j where j.activity_id = a.id and j.status = 'accepted') as taken
+      from invites i
+      join activities a on a.id = i.activity_id
+      left join profiles p on p.user_id = a.host_id
+      where i.token = ${data.token}
+    `;
+    const row = rows[0];
+    if (!row || flag(row.cancelled)) throw new Error("Diese Einladung gilt nicht mehr.");
+    return {
+      activityId: row.id,
+      title: row.title,
+      startsAt: iso(row.starts_at),
+      placeName: row.place_name,
+      city: row.city,
+      hostName: (row.display_name || "Jemand").split(" ")[0],
+      spotsLeft: Math.max(0, num(row.spots) - num(row.taken)),
+      imageUrl: row.image_url.startsWith("data:") ? `/media/activity/${row.id}?v=${row.image_url.length}` : row.image_url,
+    };
+  });
+
+// ---------------------------------------------------------------------------
+// Web-Push
+
+export const pushKey = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async () => ({ key: process.env.VAPID_PUBLIC_KEY || "" }));
+
+export const savePush = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { endpoint: string; p256dh: string; auth: string }) => ({
+    endpoint: clean(input.endpoint, 600),
+    p256dh: clean(input.p256dh, 200),
+    auth: clean(input.auth, 100),
+  }))
+  .handler(async ({ data, context }) => {
+    if (!data.endpoint.startsWith("https://") || !data.p256dh || !data.auth) throw new Error("Abo ungültig.");
+    const sql = await getSql();
+    await sql`
+      insert into push_subscriptions (endpoint, user_id, p256dh, auth)
+      values (${data.endpoint}, ${context.userId}, ${data.p256dh}, ${data.auth})
+      on conflict (endpoint) do update set user_id = ${context.userId}, p256dh = ${data.p256dh}, auth = ${data.auth}
+    `;
+    return { ok: true as const };
   });

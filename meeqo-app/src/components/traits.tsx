@@ -1,3 +1,4 @@
+import { useSensitiveGate } from "@/components/sensitive";
 import { t } from "@/lib/meeqo/i18n";
 import { TRAITS } from "@/lib/meeqo/labels";
 
@@ -10,17 +11,25 @@ export function TraitPicker({
   hint,
   selected,
   onChange,
+  personal = false,
 }: {
   label: string;
   hint: string;
   selected: string[];
   onChange: (next: string[]) => void;
+  /** Traits of the person themselves (not of a meetup or ad): sensitive ones need consent. */
+  personal?: boolean;
 }) {
+  const gate = useSensitiveGate();
   function toggle(trait: string) {
-    onChange(selected.includes(trait) ? selected.filter((item) => item !== trait) : [...selected, trait].slice(0, 8));
+    const next = selected.includes(trait) ? selected.filter((item) => item !== trait) : [...selected, trait].slice(0, 8);
+    if (personal && !selected.includes(trait)) gate.guard(next, () => onChange(next));
+    else onChange(next);
   }
 
   return (
+    <>
+    {personal ? gate.panel : null}
     <div className="card space-y-3 p-4">
       <div>
         <p className="font-semibold">{label}</p>
@@ -34,5 +43,6 @@ export function TraitPicker({
         ))}
       </div>
     </div>
+    </>
   );
 }

@@ -302,6 +302,11 @@ describe("Bedienung", () => {
     const id = soon.split("/").pop();
     await anna.page.goto(`${base}/chat/${id}`);
     await anna.page.waitForTimeout(1500);
+    // Bestaetigung am Vortag: die Karte "Als Naechstes" fragt, Zusage verschwindet die Frage
+    await ben.page.goto(`${base}/`);
+    await ben.page.waitForFunction(() => /Bist du noch dabei/.test(document.body.innerText), null, { timeout: 15000 });
+    await ben.page.getByRole("button", { name: "Ja, ich komme" }).click();
+    await ben.page.waitForFunction(() => !/Bist du noch dabei/.test(document.body.innerText), null, { timeout: 10000 });
     await ben.page.goto(`${base}/chat/${id}`);
     await ben.page.waitForTimeout(1500);
     // Eisbrecher fuellen das Feld, Dateien kommen an, falsche Typen nicht

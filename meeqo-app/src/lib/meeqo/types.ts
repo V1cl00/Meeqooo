@@ -2,6 +2,8 @@ import type { AppTheme } from "@/lib/meeqo/theme";
 
 export type Profile = {
   ageConfirmed: boolean;
+  /** Explicit consent for traits that can reveal sexual orientation. */
+  sensitiveConsent: boolean;
   notifyEmail: boolean;
   userId: string;
   displayName: string;
@@ -192,6 +194,8 @@ export type ActivityDetail = {
   /** Median-ish reply time of the host in hours, only with at least three answered requests. */
   hostReplyHours: number | null;
   going: GoingPerson[];
+  /** For the host: how many accepted guests have said they are coming. */
+  confirmedCount: number;
   needsConfirm: boolean;
   /** Place in the queue when the viewer is on the waitlist, counted from 1. */
   waitlistPosition: number | null;
@@ -343,6 +347,8 @@ export type NextUp = {
   safe: boolean;
   canCheckIn: boolean;
   hasSafetyLink: boolean;
+  /** A guest who has not yet said "I am coming" and whose meetup is within a day. */
+  needsConfirm: boolean;
 };
 
 export type PollOption = { at: string; votes: number };

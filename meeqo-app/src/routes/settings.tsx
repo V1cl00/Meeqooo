@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea } from "@/components/bits";
 import { Shell, useMe } from "@/components/shell";
-import { adminStatus, deleteAccount, exportMyData, getCalendarLink, setNotifyEmail, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
+import { adminStatus, deleteAccount, withdrawSensitiveConsent, exportMyData, getCalendarLink, setNotifyEmail, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
 import { signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
@@ -31,6 +31,19 @@ function Settings() {
   const lang = useLang();
   const [calendar, setCalendar] = useState("");
   if (!profile) return null;
+
+  async function withdraw() {
+    setPending(true);
+    try {
+      await withdrawSensitiveConsent();
+      await reload();
+      notice(t("Widerrufen. Die Angaben sind gelöscht."));
+    } catch (err) {
+      setError(errText(err));
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function locate() {
     setError("");
@@ -114,6 +127,18 @@ function Settings() {
             <button key={code} type="button" lang={code} aria-pressed={lang === code} onClick={() => setLang(code)} className={`inline-flex h-11 items-center rounded-full border-2 px-5 text-sm font-semibold ${lang === code ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{name}</button>
           ))}
         </div>
+      </section>
+      <section className="card space-y-3 p-4">
+        <h2 className="font-display text-2xl">{t("Sensible Angaben")}</h2>
+        <p className="text-sm text-muted">{t("Angaben wie „Queer“ oder „Queerfreundlich“ am eigenen Profil speichern wir nur mit deiner ausdrücklichen Einwilligung.")}</p>
+        {profile.sensitiveConsent ? (
+          <>
+            <p className="text-sm font-semibold">{t("Du hast eingewilligt.")}</p>
+            <Button type="button" tone="ghost" disabled={pending} onClick={withdraw}>{t("Einwilligung widerrufen und Angaben löschen")}</Button>
+          </>
+        ) : (
+          <p className="text-sm font-semibold">{t("Keine Einwilligung gegeben. Es sind keine solchen Angaben gespeichert.")}</p>
+        )}
       </section>
       <form onSubmit={design} className="card space-y-3 p-4">
         <h2 className="font-display text-2xl">{t("Dein Design")}</h2>

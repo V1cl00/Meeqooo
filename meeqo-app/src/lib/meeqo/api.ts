@@ -6,8 +6,10 @@ import { MOODS, REPORT_REASONS } from "@/lib/meeqo/labels";
 import { addDaysBerlin } from "@/lib/meeqo/time";
 import { fitOf } from "@/lib/meeqo/fit";
 import { bump, waitBump } from "@/lib/meeqo/live";
+import { confirmAction } from "@/lib/meeqo/attendance";
 import { berlinHour, pickWeather, type Weather } from "@/lib/meeqo/weather";
 import { lookupPlace, plzChoices, plzPoint, venuesNear } from "@/lib/meeqo/places";
+import { hasSensitive } from "@/lib/meeqo/labels";
 import { categoryMatches, CATEGORIES, CATEGORY_TREE, MORE_SUGGESTIONS, PROMOTE_AT, splitCategory, areasFromOpen, berlinDay, cleanAreas, intentFromAreas, openFromAreas, seesByAreas } from "@/lib/meeqo/labels";
 import { localTheme, normalizeTheme } from "@/lib/meeqo/theme";
 import type {
@@ -85,6 +87,7 @@ type ProfileRow = {
   onboarding_done: boolean;
   notify_push: boolean;
   age_confirmed_at?: unknown;
+  sensitive_consent_at?: unknown;
   notify_email?: boolean;
   avatar_url: string;
   theme: string;
@@ -329,6 +332,7 @@ function mapProfile(row: ProfileRow, stats: { n: number; yes: number; hosted: nu
     onboardingDone: flag(row.onboarding_done),
     notifyPush: flag(row.notify_push),
     ageConfirmed: Boolean(row.age_confirmed_at),
+    sensitiveConsent: Boolean(row.sensitive_consent_at),
     notifyEmail: row.notify_email !== false,
     avatarUrl: row.avatar_url || "",
     badges: badgesFrom(
@@ -746,6 +750,7 @@ export const updateProfile = createServerFn({ method: "POST" })
     const requireTraits = Array.isArray(data.requireTraits)
       ? data.requireTraits.map((item) => clean(item, 40)).filter(Boolean).slice(0, 12)
       : profile.requireTraits;
+    if ((hasSensitive(traits) || hasSensitive(requireTraits)) && !profile.sensitiveConsent) throw new Error(SENSITIVE_NEEDS_CONSENT);
     const radius = Number(data.radiusKm ?? profile.radiusKm);
     const trusted = clean(data.trustedLabel ?? profile.trustedLabel, 40);
     const birthYear = data.birthYear === undefined ? profile.birthYear : yearOf(data.birthYear);
@@ -889,8 +894,35 @@ export const setRequireTraits = createServerFn({ method: "POST" })
     traits: Array.isArray(input.traits) ? input.traits.map((item) => clean(item, 40)).filter(Boolean).slice(0, 12) : [],
   }))
   .handler(async ({ data, context }) => {
-    const sql = await getSql();
+    const { sql, profile } = await ensureProfile(context.userId);
+    if (hasSensitive(data.traits) && !profile.sensitiveConsent) throw new Error(SENSITIVE_NEEDS_CONSENT);
     await sql`update profiles set require_traits = ${JSON.stringify(data.traits)} where user_id = ${context.userId}`;
+    return { ok: true as const };
+  });
+
+const SENSITIVE_NEEDS_CONSENT = "Dafür brauchen wir deine ausdrückliche Einwilligung.";
+
+/** Explicit, separate consent for traits that can reveal sexual orientation. */
+export const giveSensitiveConsent = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await sql`update profiles set sensitive_consent_at = now() where user_id = ${context.userId}`;
+    return { ok: true as const };
+  });
+
+/** Withdrawing removes the sensitive traits again, from the profile and from the filters. */
+export const withdrawSensitiveConsent = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }) => {
+    const { sql, profile } = await ensureProfile(context.userId);
+    const keep = (list: string[]) => list.filter((item) => !hasSensitive([item]));
+    await sql`
+      update profiles set sensitive_consent_at = null,
+        traits = ${JSON.stringify(keep(profile.traits))},
+        require_traits = ${JSON.stringify(keep(profile.requireTraits))}
+      where user_id = ${context.userId}
+    `;
     return { ok: true as const };
   });
 
@@ -1216,6 +1248,7 @@ export const getActivity = createServerFn({ method: "POST" })
       going: goingRows.map((row) => ({ id: row.user_id, name: row.display_name || "Jemand", avatar: row.avatar_url || "", me: row.user_id === context.userId })),
       waitlistPosition: position >= 0 ? position + 1 : null,
       waitlistCount: activity.isHost ? queue.length : 0,
+      confirmedCount: activity.isHost ? num((await sql<{ n: number }>`select count(*)::int as n from join_requests where activity_id = ${activity.id} and status = 'accepted' and confirmed_at is not null`)[0]?.n) : 0,
       needsConfirm: activity.myStatus === "accepted" && mineRow.length > 0 && !mineRow[0].confirmed_at && hoursAway > 0 && hoursAway <= 30,
       checkedIn: checks.length > 0, safe: Boolean(checks[0]?.safe_at), rated: ratedHost, mutual, iWantAgain, hidden: hidden.has(activity.id),
     };
@@ -1445,6 +1478,44 @@ async function dropRides(sql: Sql, activityId: string, userId: string) {
 }
 
 /** Any participant can step out, not only in the last 30 hours. A place on the waitlist can be given up the same way. */
+let lastSweep = 0;
+
+/**
+ * Asks guests the day before, and gives a silent guest's spot to the waitlist shortly before the start.
+ * There is no scheduler, so this runs when people use the app (at most every five minutes); a cron job would make it exact.
+ */
+async function sweepAttendance(sql: Sql) {
+  if (Date.now() - lastSweep < 5 * 60_000) return;
+  lastSweep = Date.now();
+  const rows = await sql<{ id: string; activity_id: string; requester_id: string; title: string; host_id: string; starts_at: unknown; confirmed_at: unknown; confirm_asked_at: unknown; waiting: number }>`
+    select j.id, j.activity_id, j.requester_id, a.title, a.host_id, a.starts_at, j.confirmed_at, j.confirm_asked_at,
+      (select count(*)::int from join_requests w where w.activity_id = a.id and w.status = 'waitlist') as waiting
+    from join_requests j join activities a on a.id = j.activity_id
+    where j.status = 'accepted' and a.cancelled = false and j.requester_id <> a.host_id
+      and a.starts_at > now() and a.starts_at < now() + interval '24 hours'
+      and j.confirmed_at is null
+    limit 200
+  `;
+  for (const row of rows) {
+    const action = confirmAction({
+      startsAt: iso(row.starts_at),
+      now: new Date(),
+      confirmed: Boolean(row.confirmed_at),
+      askedAt: row.confirm_asked_at ? iso(row.confirm_asked_at) : null,
+      waitlist: num(row.waiting),
+    });
+    if (action === "ask") {
+      await sql`update join_requests set confirm_asked_at = now() where id = ${row.id}`;
+      await notify(sql, row.requester_id, "confirm", "Bist du noch dabei?", `${row.title}: Sag kurz zu, sonst kann dein Platz an jemanden von der Warteliste gehen.`, `/activity/${row.activity_id}`, row.activity_id);
+    } else if (action === "release") {
+      await sql`update join_requests set status = 'withdrawn' where id = ${row.id} and status = 'accepted' and confirmed_at is null`;
+      await notify(sql, row.requester_id, "removed", "Dein Platz ist weitergegeben", `${row.title}: Du hattest nicht zugesagt, jemand von der Warteliste rückt nach. Du kannst später wieder anfragen.`, `/activity/${row.activity_id}`, row.activity_id);
+      await dropRides(sql, row.activity_id, row.requester_id);
+      await promoteWaitlist(sql, row.activity_id);
+    }
+  }
+}
+
 export const leaveActivity = createServerFn({ method: "POST" })
   .middleware([memberMiddleware])
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
@@ -1916,6 +1987,7 @@ export const listNotifications = createServerFn({ method: "GET" })
   .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<Notice[]> => {
     const sql = await getSql();
+    await sweepAttendance(sql).catch(() => {});
     const soon = await sql<{ id: string; title: string }>`
       select a.id, a.title from activities a
       where a.cancelled = false and a.starts_at > now() and a.starts_at < now() + interval '36 hours'
@@ -3554,10 +3626,17 @@ export const weekSummary = createServerFn({ method: "GET" })
     };
   });
 
+async function needsConfirm(sql: Sql, activityId: string, userId: string, hostId: string, hoursTo: number) {
+  if (hostId === userId || hoursTo <= 0 || hoursTo > 30) return false;
+  const mine = await sql<{ confirmed_at: unknown }>`select confirmed_at from join_requests where activity_id = ${activityId} and requester_id = ${userId} and status = 'accepted'`;
+  return mine.length > 0 && !mine[0].confirmed_at;
+}
+
 export const nextUp = createServerFn({ method: "GET" })
   .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<NextUp | null> => {
     const sql = await getSql();
+    await sweepAttendance(sql).catch(() => {});
     const rows = await sql<{
       id: string; title: string; starts_at: unknown; duration_min: number; place_name: string; city: string; lat: number; lng: number;
       host_id: string; spots: number; accepted: number; checked_at: unknown; safe_at: unknown; shared: boolean;
@@ -3596,6 +3675,7 @@ export const nextUp = createServerFn({ method: "GET" })
       safe: Boolean(row.safe_at),
       canCheckIn: hoursTo <= 2 && hoursTo >= -12,
       hasSafetyLink: flag(row.shared),
+      needsConfirm: await needsConfirm(sql, row.id, context.userId, row.host_id, hoursTo),
     };
   });
 

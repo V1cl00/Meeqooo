@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Navigation, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/bits";
-import { checkIn, confirmSafe, nextUp } from "@/lib/meeqo/api";
+import { checkIn, confirmAttendance, confirmSafe, nextUp } from "@/lib/meeqo/api";
 import { notice } from "@/lib/meeqo/feel";
 import { countdownLabel, errText, formatWhen } from "@/lib/meeqo/labels";
 import { routeUrl } from "@/lib/meeqo/ics";
@@ -24,6 +24,17 @@ export function NextUpCard() {
     try {
       await checkIn({ data: { id: data!.id } });
       notice(t("Eingecheckt. Viel Spaß."));
+      refresh();
+    } catch (err) {
+      setFail(errText(err));
+    }
+  }
+
+  async function attend(coming: boolean) {
+    setFail("");
+    try {
+      const result = await confirmAttendance({ data: { id: data!.id, coming } });
+      notice(result.status === "confirmed" ? t("Gut, bis dann.") : t("Schade. Dein Platz ist wieder frei."));
       refresh();
     } catch (err) {
       setFail(errText(err));
@@ -52,6 +63,15 @@ export function NextUpCard() {
           <Link to="/activity/$id" params={{ id: data.id }} className="font-display text-2xl leading-tight">{data.title}</Link>
           <p className="mt-1 text-sm text-muted">{formatWhen(data.startsAt)} · {data.placeName}, {data.city}</p>
         </div>
+        {data.needsConfirm ? (
+          <div className="space-y-2 rounded-2xl bg-sand-deep px-4 py-3">
+            <p className="text-sm font-semibold">{t("Bist du noch dabei?")}</p>
+            <div className="flex gap-2">
+              <Button type="button" className="h-11 flex-1" onClick={() => attend(true)}>{t("Ja, ich komme")}</Button>
+              <Button type="button" tone="ghost" className="h-11 flex-1" onClick={() => attend(false)}>{t("Doch nicht")}</Button>
+            </div>
+          </div>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <a href={routeUrl(data.lat, data.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center gap-2 rounded-full border border-line bg-card px-4 text-sm font-semibold">
             <Navigation className="h-4 w-4" />{t("Weg")}</a>

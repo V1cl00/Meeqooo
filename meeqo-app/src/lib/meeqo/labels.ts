@@ -82,6 +82,13 @@ export const TRAITS = [
   "Draußen",
 ] as const;
 
+/** Traits that can reveal sexual orientation. On a person's own profile they need explicit consent (Art. 9 GDPR). */
+export const SENSITIVE_TRAITS: readonly string[] = ["Queer", "Queerfreundlich"];
+
+export function hasSensitive(traits: readonly string[]) {
+  return traits.some((item) => SENSITIVE_TRAITS.includes(item));
+}
+
 export const CLASSIFIED_CATS = ["Verkaufen", "Suchen", "Tauschen", "Verschenken", "Mitfahrgelegenheit"] as const;
 
 export const MOODS = ["Locker", "Gespräch", "Sport", "Nur Essen"] as const;

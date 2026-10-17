@@ -9,6 +9,7 @@ import { WhenBar } from "@/components/when-bar";
 import { hideActivity, makeWish, setRadius, setRequireTraits, unhideActivity, wishInfo } from "@/lib/meeqo/api";
 import { TRAITS, berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
+import { useSensitiveGate } from "@/components/sensitive";
 import { WeekCard } from "@/components/week-card";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { takeFeed } from "@/lib/meeqo/warm";
@@ -59,6 +60,7 @@ function WishPrompt({ category, day }: { category: string; day: string }) {
 
 function Feed() {
   const { profile, reload } = useMe();
+  const gate = useSensitiveGate();
   const [filter, setFilter] = useState("all");
   const [sub, setSub] = useState("");
   const [traitsOpen, setTraitsOpen] = useState(false);
@@ -248,6 +250,8 @@ function Feed() {
         <button type="button" className={face} onClick={() => setTraitsOpen((value) => !value)}>{t("Mindestens")}</button>
       </div>
       {traitsOpen ? (
+        <div className="space-y-3">
+        {gate.panel}
         <div className="card space-y-2 p-3">
           <p className="text-sm text-muted">{t("Ohne diese Eigenschaft bleibt es unsichtbar. Gilt für Feed, Suche, Communities und Anzeigen.")}</p>
           <div className="flex flex-wrap gap-2">
@@ -258,11 +262,15 @@ function Feed() {
                   key={trait}
                   type="button"
                   className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
-                  onClick={async () => {
+                  onClick={() => {
                     const next = on ? (profile?.requireTraits ?? []).filter((item) => item !== trait) : [...(profile?.requireTraits ?? []), trait];
-                    await setRequireTraits({ data: { traits: next } });
-                    await reload();
-                    reloadFeed();
+                    const apply = async () => {
+                      await setRequireTraits({ data: { traits: next } });
+                      await reload();
+                      reloadFeed();
+                    };
+                    if (on) void apply();
+                    else gate.guard(next, () => void apply());
                   }}
                 >
                   {t(trait)}
@@ -270,6 +278,7 @@ function Feed() {
               );
             })}
           </div>
+        </div>
         </div>
       ) : null}
       {locError ? <Note>{locError}</Note> : null}

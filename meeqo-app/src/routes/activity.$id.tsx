@@ -161,7 +161,7 @@ function Detail({ id }: { id: string }) {
     setFail("");
     try {
       const result = await confirmAttendance({ data: { id: item.id, coming } });
-      notice(result.status === "confirmed" ? "Gut, bis dann." : t("Schade. Dein Platz ist wieder frei."));
+      notice(result.status === "confirmed" ? t("Gut, bis dann.") : t("Schade. Dein Platz ist wieder frei."));
       reload();
     } catch (err) {
       setFail(errText(err));
@@ -253,6 +253,7 @@ function Detail({ id }: { id: string }) {
           ) : null}
           {item.cancelled ? null : <WeatherChip id={item.id} />}
           <p className="text-sm">{item.description}</p>
+          {item.isHost && data.going.length > 0 ? <p className="text-sm text-muted">{t("{0} von {1} haben zugesagt, dass sie kommen.", data.confirmedCount, data.going.length)}</p> : null}
           <p className="text-sm text-muted">{t("{0} von {1} Plätzen frei · {2} · {3} Min.", item.spotsLeft, item.spots, item.category, item.durationMin)}</p>
           {item.cancelled ? <Note>{t("Diese Aktivität ist abgesagt.")}</Note> : null}
         </div>

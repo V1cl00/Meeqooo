@@ -25,7 +25,7 @@ describe("English", () => {
     const seen = {};
     const visit = async (path) => {
       await page.goto(`${base}${path}`);
-      await page.waitForTimeout(2200);
+      await page.waitForTimeout(3500);
       seen[path] = { body: await text(page), missing: await missing(page) };
     };
 

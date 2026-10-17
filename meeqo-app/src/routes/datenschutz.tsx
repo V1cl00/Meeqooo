@@ -21,6 +21,10 @@ const SECTIONS: { title: string; body: string }[] = [
     body: "Was du einstellst oder schreibst, speichern wir, damit andere es sehen können, die du dafür freigibst. Chats sehen nur die Beteiligten. Nach einem Treffen speichern wir deine Ja/Nein-Bewertung und deinen Check-in.",
   },
   {
+    title: "Besonders geschützte Angaben",
+    body: "Die Eigenschaften „Queer“ und „Queerfreundlich“ am eigenen Profil können Rückschlüsse auf deine sexuelle Orientierung zulassen. Das sind besondere Kategorien personenbezogener Daten nach Art. 9 DSGVO. Wir speichern sie nur, wenn du vorher ausdrücklich einwilligst (Art. 9 Abs. 2 lit. a DSGVO). Unter „Das trifft auf mich zu“ sind sie für andere auf deinem Profil sichtbar, unter „Mindestens vorhanden“ nur für dich. Wir geben sie nicht an Dritte weiter und nutzen sie nicht für Werbung. Du kannst die Einwilligung jederzeit in den Einstellungen widerrufen; dann löschen wir diese Angaben. Bereits gespeicherte Angaben dieser Art ohne Einwilligung haben wir entfernt.",
+  },
+  {
     title: "Vertrauensperson und Einladung",
     body: "Erstellst du einen Link für eine Vertrauensperson, sieht jeder mit dem Link deinen Vornamen, das Treffen, Zeit, Ort und ob du eingecheckt bist. Ein Einladungslink zeigt Titel, Zeit, Ort und den Vornamen des Gastgebers. Beides ist nur über den langen, zufälligen Link erreichbar.",
   },

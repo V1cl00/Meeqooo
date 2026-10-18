@@ -1,7 +1,7 @@
 // Design-Runde: Ideenwand, Stimmung, Zeitsignal, Ortsseite. Voraussetzung wie smoke.test.mjs.
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { base, launch, newUser, text } from "./helpers.mjs";
+import { base, jpeg, launch, newUser, text } from "./helpers.mjs";
 
 let browser;
 before(async () => {
@@ -47,5 +47,43 @@ describe("Design", () => {
     await u.page.getByText("Boulderhalle Steil").first().waitFor({ timeout: 15000 });
     assert.match(await text(u.page), /kein Partner von MeeQo/);
     await u.context.close();
+  });
+
+  test("Abend-Rückblick: Foto ins Album, Danke-Liste, Nochmal treffen füllt das Formular", async () => {
+    const host = await newUser(browser, "Hana");
+    const p = host.page;
+    await p.goto(`${base}/create`);
+    await p.getByPlaceholder("Zum Beispiel: Laufen, acht Kilometer").fill("Kaffee Rückblick");
+    await p.getByRole("button", { name: "Weiter" }).click();
+    await p.locator("input[type=file]").setInputFiles({ name: "p.jpg", mimeType: "image/jpeg", buffer: jpeg });
+    await p.waitForTimeout(1500);
+    await p.getByRole("button", { name: "Weiter" }).click();
+    await p.getByLabel("Ort", { exact: true }).fill("Gutenbergplatz");
+    const when = new Date(Date.now() - 30 * 60_000);
+    const pad = (n) => String(n).padStart(2, "0");
+    await p.getByLabel("Beginn").fill(`${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`);
+    await p.getByRole("button", { name: "Weiter" }).click();
+    await p.getByRole("button", { name: "Veröffentlichen" }).click();
+    await p.waitForURL(/\/activity\//, { timeout: 20000 });
+    const actUrl = p.url();
+    const guest = await newUser(browser, "Gil");
+    await guest.page.goto(actUrl);
+    await guest.page.waitForTimeout(1500);
+    await guest.page.getByRole("button", { name: "Anfragen" }).click();
+    await guest.page.waitForTimeout(1500);
+    await p.goto(`${base}/requests`);
+    await p.getByRole("button", { name: "Annehmen" }).first().click();
+    await p.waitForTimeout(1200);
+    await p.goto(actUrl.replace("/activity/", "/wie-wars/"));
+    await p.getByRole("button", { name: "Ja, war da" }).click();
+    await p.getByRole("button", { name: "Abschicken" }).click();
+    await p.getByText("Euer Album").waitFor({ timeout: 15000 });
+    await p.getByLabel("Foto fürs Album").setInputFiles({ name: "a.jpg", mimeType: "image/jpeg", buffer: jpeg });
+    await p.getByText("1 Foto. Nur für alle, die dabei waren.").waitFor({ timeout: 15000 });
+    await p.getByRole("link", { name: "Nochmal treffen" }).click();
+    await p.waitForURL(/\/create\?/, { timeout: 15000 });
+    await p.waitForFunction(() => [...document.querySelectorAll("input")].some((el) => el.value === "Kaffee Rückblick"), null, { timeout: 15000 });
+    await guest.context.close();
+    await host.context.close();
   });
 });

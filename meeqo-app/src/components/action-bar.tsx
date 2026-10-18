@@ -134,13 +134,15 @@ const primary = "inline-flex h-[52px] items-center justify-center gap-2 rounded-
 
 export function WithdrawButton({ onConfirm, disabled, label }: { onConfirm: () => void; disabled?: boolean; label: string }) {
   const [ask, setAsk] = useState(false);
+  // The finger that just finished the hold lifts here: ignore that release so it does not open "Zurückziehen?".
+  const born = useRef(Date.now());
   return ask ? (
     <span className="flex gap-1.5">
       <button type="button" className={`${secondary} !border-ink`} disabled={disabled} onClick={onConfirm}>{t("Ja")}</button>
       <button type="button" className={secondary} onClick={() => setAsk(false)}>{t("Nein")}</button>
     </span>
   ) : (
-    <button type="button" className={secondary} disabled={disabled} onClick={() => setAsk(true)}>{label}</button>
+    <button type="button" className={secondary} disabled={disabled} onClick={() => { if (Date.now() - born.current > 900) setAsk(true); }}>{label}</button>
   );
 }
 

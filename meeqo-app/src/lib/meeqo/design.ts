@@ -73,12 +73,12 @@ export const meetAlbum = createServerFn({ method: "POST" })
     const sql = await getSql();
     const act = await memberOf(sql, data.id, context.userId);
     if (!act.member) throw new Error("Aktivität nicht gefunden.");
-    const rows = await sql<{ id: string; attachment_data: string; created_at: unknown }>`
-      select id, attachment_data, created_at from messages
+    const rows = await sql<{ id: string; attachment_data: string; attachment_type: string; created_at: unknown }>`
+      select id, attachment_data, attachment_type, created_at from messages
       where activity_id = ${data.id} and attachment_type like 'image/%' and attachment_data is not null
       order by created_at limit 40
     `;
-    return rows.map((row) => ({ id: row.id, src: row.attachment_data, at: iso(row.created_at) }));
+    return rows.map((row) => ({ id: row.id, src: row.attachment_data.startsWith("data:") ? row.attachment_data : `data:${row.attachment_type};base64,${row.attachment_data}`, at: iso(row.created_at) }));
   });
 
 // ---------------------------------------------------------------------------

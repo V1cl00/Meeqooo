@@ -33,7 +33,7 @@ export function Album({ id }: { id: string }) {
     setFail("");
     try {
       const dataUrl = await compress(file, 1280);
-      await sendMessage({ data: { id, body: "", attachment: { name: "foto.jpg", type: "image/jpeg", data: dataUrl } } });
+      await sendMessage({ data: { id, body: "", attachment: { name: "foto.jpg", type: "image/jpeg", data: dataUrl.replace(/^data:image\/jpeg;base64,/, "") } } });
       reload();
       notice(t("Foto ist im Album und im Gruppenchat."));
     } catch (err) {

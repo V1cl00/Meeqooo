@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useBackOverride } from "@/lib/meeqo/back";
 import { Button, face, Field, Note, TextArea, TextInput } from "@/components/bits";
 import { CategorySelect } from "@/components/categories";
 import { TraitPicker } from "@/components/traits";
@@ -55,6 +56,8 @@ function Create({ communityId }: { communityId: string }) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [step, setStep] = useState(1);
+  const stepBack = useCallback(() => { setError(""); setStep((value) => Math.max(1, value - 1)); window.scrollTo({ top: 0 }); }, []);
+  useBackOverride(step > 1 ? stepBack : null);
   const [durationMin, setDurationMin] = useState(120);
   const [sentence, setSentence] = useState("");
   const [sentenceNote, setSentenceNote] = useState("");
@@ -300,7 +303,12 @@ function Create({ communityId }: { communityId: string }) {
           <Field label={t("Titel")}><TextInput value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t("Zum Beispiel: Laufen, acht Kilometer")} /></Field>
           <Field label={t("Beschreibung")}><TextArea value={description} onChange={(event) => setDescription(event.target.value)} /></Field>
           <Field label={t("Kategorie")}>
-            <CategorySelect value={category} onChange={setCategory} custom={cats.data ?? []} />
+            <CategorySelect
+              value={category}
+              onChange={setCategory}
+              custom={cats.data ?? []}
+              subFooter={<p className="flex flex-wrap items-center gap-x-2 gap-y-1">{t("Fehlt deine Unterkategorie?")}<Link to="/categories" className={face.replace("h-11", "h-9")} onClick={() => markReturn(splitCategory(category).parent)}>{t("Selbst anlegen")}</Link></p>}
+            />
           </Field>
           {template ? (
             <div className="space-y-1">
@@ -309,8 +317,6 @@ function Create({ communityId }: { communityId: string }) {
             </div>
           ) : null}
           <SizeControls spots={spots} onSpots={setSpots} durationMin={durationMin} onDuration={setDurationMin} />
-          <p className="text-sm text-muted">{t("Fehlt deine Unterkategorie?")}{" "}<Link to="/categories" className={face} onClick={() => markReturn(splitCategory(category).parent)}>{t("Selbst anlegen")}</Link>
-          </p>
           <div className="space-y-1.5">
             <span className="text-[13px] font-semibold text-ink">{t("Foto, Pflicht")}</span>
             <PhotoPicker ref={photoRef} value={imageUrl} onFile={onFile} invalid={photoMissing} />

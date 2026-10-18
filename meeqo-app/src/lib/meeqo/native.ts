@@ -1,3 +1,4 @@
+import { goBack } from "@/lib/meeqo/back";
 import { Capacitor } from "@capacitor/core";
 import { saveNativeToken } from "@/lib/meeqo/api";
 
@@ -32,9 +33,9 @@ export async function initNative(go: (path: string) => void) {
   void paint();
   dark.addEventListener("change", () => void paint());
   void SplashScreen.hide();
-  void App.addListener("backButton", ({ canGoBack }) => {
-    if (canGoBack) window.history.back();
-    else void App.exitApp();
+  // Same logic as the header arrow: sub-step, in-app history, then the parent page; exit only on a tab root.
+  void App.addListener("backButton", () => {
+    if (!goBack(go)) void App.exitApp();
   });
   void App.addListener("appUrlOpen", (event) => {
     try {

@@ -7,10 +7,11 @@ import { ClassifiedBoard } from "@/components/classifieds";
 import { Shell, useMe } from "@/components/shell";
 import { AvatarUpload } from "@/components/photo";
 import { WhenBar } from "@/components/when-bar";
-import { hideActivity, makeWish, setRadius, setRequireTraits, unhideActivity, wishInfo } from "@/lib/meeqo/api";
-import { TRAITS, berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
+import { NOW_HOURS, NOW_KM, NOW_WIDE_KM } from "@/lib/meeqo/now-here";
+import { activeFilterCount, FilterBar, FilterSheet, LoosenCard } from "@/components/feed-filters";
+import { hideActivity, makeWish, setRadius, unhideActivity, wishInfo } from "@/lib/meeqo/api";
+import { berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
-import { useSensitiveGate } from "@/components/sensitive";
 import { RegionNote } from "@/components/region-note";
 import { WeekCard } from "@/components/week-card";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -62,7 +63,6 @@ function WishPrompt({ category, day }: { category: string; day: string }) {
 
 function Feed() {
   const { profile, reload } = useMe();
-  const gate = useSensitiveGate();
   const [filter, setFilter] = useState("all");
   const [sub, setSub] = useState("");
   const [traitsOpen, setTraitsOpen] = useState(false);
@@ -70,6 +70,7 @@ function Feed() {
   const [gone, setGone] = useState<{ id: string; title: string } | null>(null);
   const [days, setDays] = useState<string[]>(() => [berlinDay()]);
   const [soon, setSoon] = useState(false);
+  const [soonKm, setSoonKm] = useState(NOW_KM);
   const [sort, setSort] = useState<"time" | "fit">(() => {
     try {
       return window.localStorage.getItem("meeqo-sort") === "fit" ? "fit" : "time";
@@ -85,12 +86,12 @@ function Feed() {
       /* the choice just does not persist */
     }
   }
-  const viewKey = `${filter}|${sub}|${days.join(",")}|${soon}|${sort}`;
+  const viewKey = `${filter}|${sub}|${days.join(",")}|${soon}|${soonKm}|${sort}`;
   const [more, setMore] = useState({ key: "", limit: 30 });
   const limit = more.key === viewKey ? more.limit : 30;
   const { data, error, loading, reload: reloadFeed } = useLoad(
-    () => takeFeed(filter, sub, days, limit, soon, sort),
-    [filter, sub, days.join(","), limit, soon, sort, profile?.radiusKm, profile?.lat, profile?.city, profile?.areas.join(","), profile?.openTo, profile?.requireTraits.join(",")],
+    () => takeFeed(filter, sub, days, limit, soon, sort, soonKm),
+    [filter, sub, days.join(","), limit, soon, soonKm, sort, profile?.radiusKm, profile?.lat, profile?.city, profile?.areas.join(","), profile?.openTo, profile?.requireTraits.join(",")],
   );
 
   async function hide(item: Card) {
@@ -127,6 +128,9 @@ function Feed() {
   ] as const).filter(([id]) => id === "date" ? on?.dating : id === "business" ? on?.business : id === "classifieds" ? on?.classifieds : true);
   const subs = lensSubs(filter);
 
+  const hasOrigin = profile?.lat != null;
+  const nowLine = hasOrigin ? t("Nächste {0} Std · bis {1} km", NOW_HOURS, soon ? soonKm : NOW_KM) : t("Nächste {0} Std", NOW_HOURS);
+  const filterCount = activeFilterCount(profile?.requireTraits, profile?.lat != null ? profile?.radiusKm : undefined);
   const hosts = (data?.items ?? []).filter((item, index, list) => list.findIndex((other) => other.hostId === item.hostId) === index).slice(0, 12);
 
   return (
@@ -161,6 +165,7 @@ function Feed() {
           ))}
         </div>
       ) : null}
+      <FilterBar count={filterCount} onOpen={() => setTraitsOpen(true)} />
       {filter === "business" ? <p className="text-sm text-muted">{t("Business: Kontakte und Kooperationen. Kein Date.")}</p> : null}
       {filter === "classifieds" ? <p className="text-sm text-muted">{t("Kleinanzeigen: Dinge und Angebote statt Verabredungen.")}</p> : null}
       {filter === "classifieds" ? null : (
@@ -168,10 +173,13 @@ function Feed() {
           <button
             type="button"
             aria-pressed={soon}
-            onClick={() => setSoon((value) => !value)}
-            className={`inline-flex h-10 items-center gap-2 rounded-control px-3.5 text-sm font-semibold ${soon ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}
-          >{t("Gleich in der Nähe")}</button>
-          {soon ? <p className="text-sm text-muted">{t("Was in den nächsten vier Stunden anfängt, das Nächstgelegene zuerst.")}</p> : <WhenBar days={days} onChange={setDays} />}
+            onClick={() => { setSoon((value) => !value); setSoonKm(NOW_KM); }}
+            className={`inline-flex min-h-10 flex-col items-start justify-center rounded-control px-3.5 py-1 text-left ${soon ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}
+          >
+            <span className="text-sm font-semibold leading-tight">{t("Jetzt & hier")}</span>
+            <span className={`text-[11px] leading-tight ${soon ? "" : "text-muted"}`}>{nowLine}</span>
+          </button>
+          {soon ? <p className="text-sm text-muted">{t("In den nächsten Stunden, nur ein paar Meter weg. Läuft schon und hat noch Platz zählt auch.")}</p> : <WhenBar days={days} onChange={setDays} />}
           {soon ? null : (
             <div className="flex items-center gap-2" role="group" aria-label={t("Sortierung")}>
               {([["time", "Nach Zeit"], ["fit", "Passend für dich"]] as const).map(([id, label]) => (
@@ -199,6 +207,7 @@ function Feed() {
         {data?.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} onChanged={reloadFeed} />)}
       </div>
       )}
+      {filter !== "classifieds" && data && data.items.length < 3 ? <LoosenCard hidden={data.hiddenByTraits ?? 0} onChanged={reloadFeed} /> : null}
       {filter !== "classifieds" && data && data.total > data.items.length ? (
         <Button type="button" tone="ghost" className="w-full" onClick={() => setMore({ key: viewKey, limit: limit + 30 })}>{t("Mehr zeigen · noch {0}", data.total - data.items.length)}
         </Button>
@@ -207,9 +216,14 @@ function Feed() {
         soon ? (
           <Empty
             art="calendar"
-            title={t("Gleich ist nichts in der Nähe")}
-            body={t("In den nächsten vier Stunden fängt nichts an. Schau, was heute oder morgen kommt.")}
-            action={<Button type="button" className="w-full" onClick={() => setSoon(false)}>{t("Alle Treffen zeigen")}</Button>}
+            title={t("Jetzt & hier ist gerade nichts")}
+            body={hasOrigin ? t("In den nächsten {0} Stunden fängt im Umkreis von {1} km nichts an.", NOW_HOURS, soonKm) : t("In den nächsten {0} Stunden fängt nichts an.", NOW_HOURS)}
+            action={
+              <span className="flex flex-col gap-2">
+                {hasOrigin && soonKm < NOW_WIDE_KM ? <Button type="button" className="w-full" onClick={() => setSoonKm(NOW_WIDE_KM)}>{t("Auf {0} km erweitern", NOW_WIDE_KM)}</Button> : null}
+                <Button type="button" tone="ghost" className="w-full" onClick={() => { setSoon(false); setDays([berlinDay()]); }}>{t("Alles von heute zeigen")}</Button>
+              </span>
+            }
           />
         ) : data.nextDay ? (
           <Empty
@@ -234,55 +248,19 @@ function Feed() {
       ) : null}
       {hosts.length ? (
         <div>
-          <h2 className="text-base font-semibold">{t("Wer einlädt")}</h2>
-          <div className="-mx-4 mt-3 flex gap-3 overflow-x-auto px-4">
+          <h2 className="text-sm font-semibold text-muted">{t("Wer einlädt")}</h2>
+          <div className="-mx-4 mt-2 flex gap-3 overflow-x-auto px-4 pb-1">
             {hosts.map((item) => (
-              <Link key={item.hostId} to="/activity/$id" params={{ id: item.id }} className="w-16 shrink-0 text-center">
+              <Link key={item.hostId} to="/activity/$id" params={{ id: item.id }} className="w-14 shrink-0 text-center">
                 {item.hostAvatar ? (
-                  <img src={item.hostAvatar} alt="" className="mx-auto h-16 w-16 rounded-2xl object-cover" />
+                  <img src={item.hostAvatar} alt="" className="mx-auto h-11 w-11 rounded-full border border-line object-cover" />
                 ) : (
-                  <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-card font-display text-xl">{item.hostName.slice(0, 1)}</span>
+                  <span className="mx-auto grid h-11 w-11 place-items-center rounded-full border border-line bg-card text-base font-semibold text-muted">{item.hostName.slice(0, 1)}</span>
                 )}
-                <span className="mt-1 block truncate text-xs font-semibold">{item.hostName.split(" ")[0]}</span>
+                <span className="mt-1 block truncate text-[11px] font-medium text-muted">{item.hostName.split(" ")[0]}</span>
               </Link>
             ))}
           </div>
-        </div>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Link to="/search" className={face}>{t("Suche")}</Link>
-        <button type="button" className={face} onClick={() => setTraitsOpen((value) => !value)}>{t("Mindestens")}</button>
-      </div>
-      {traitsOpen ? (
-        <div className="space-y-3">
-        {gate.panel}
-        <div className="card space-y-2 p-3">
-          <p className="text-sm text-muted">{t("Ohne diese Eigenschaft bleibt es unsichtbar. Gilt für Feed, Suche, Communities und Anzeigen.")}</p>
-          <div className="flex flex-wrap gap-2">
-            {TRAITS.map((trait) => {
-              const on = profile?.requireTraits.includes(trait) ?? false;
-              return (
-                <button
-                  key={trait}
-                  type="button"
-                  className={`inline-flex h-10 items-center rounded-control border-2 px-3 text-sm font-semibold ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
-                  onClick={() => {
-                    const next = on ? (profile?.requireTraits ?? []).filter((item) => item !== trait) : [...(profile?.requireTraits ?? []), trait];
-                    const apply = async () => {
-                      await setRequireTraits({ data: { traits: next } });
-                      await reload();
-                      reloadFeed();
-                    };
-                    if (on) void apply();
-                    else gate.guard(next, () => void apply());
-                  }}
-                >
-                  {t(trait)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
         </div>
       ) : null}
       {locError ? <Note>{locError}</Note> : null}
@@ -311,6 +289,7 @@ function Feed() {
       {data?.againTitle ? (
         <Note>{t("Letzte Woche: {0}. Diese Woche ist wieder etwas frei, oder du legst selbst eines an.", data.againTitle)}</Note>
       ) : null}
+      <FilterSheet open={traitsOpen} onClose={() => setTraitsOpen(false)} onApplied={reloadFeed} shown={data?.total} hidden={data?.hiddenByTraits} />
     </div>
   );
 }

@@ -334,7 +334,8 @@ export function Skeleton({ lines = 3, photo = false }: { lines?: number; photo?:
   );
 }
 
-export function Note({ children }: { children: ReactNode }) {
+export function Note({ children, tone = "plain" }: { children: ReactNode; tone?: "plain" | "warn" }) {
+  if (tone === "warn") return <p role="status" className="rounded-2xl bg-warn px-4 py-3 text-sm font-medium text-onwarn">{children}</p>;
   return <p className="rounded-2xl bg-sand-deep px-4 py-3 text-sm text-ink">{children}</p>;
 }
 

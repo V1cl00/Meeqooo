@@ -97,6 +97,9 @@ export default async function grokPwaMiddleware(
   }
 
   if (!isDocumentPath(path)) return next();
+  // MeeQo: activity pages render their own per-activity og/twitter tags (src/lib/meeqo/share.ts).
+  // The generic injector would strip them and put the app-wide card back, so leave these pages alone.
+  if (/^\/activity\/[^/]+\/?$/.test(path)) return next();
 
   const result = await next();
   if (

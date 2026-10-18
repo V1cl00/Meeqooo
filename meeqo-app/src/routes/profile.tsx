@@ -6,6 +6,7 @@ import { SeekingPicker } from "@/components/categories";
 import { PostBoard } from "@/components/posts";
 import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
+import { MinimumWarning } from "@/components/feed-filters";
 import { Shell, useMe } from "@/components/shell";
 import { friendOverview, listCategories, setAvatar, updateProfile } from "@/lib/meeqo/api";
 import { AreaPicker } from "@/components/areas";
@@ -128,6 +129,7 @@ function ProfilePage() {
         </div>
         <TraitPicker label={t("Das trifft auf mich zu")} hint={t("Andere können danach filtern. Queer und vegan sind Eigenschaften, keine Kategorien.")} selected={traits} onChange={setTraits} personal />
         <TraitPicker label={t("Mindestens vorhanden")} hint={t("Feed, Suche, Communities und Anzeigen ohne diese Eigenschaft siehst du nicht.")} selected={requireTraits} onChange={setRequireTraits} personal />
+        <MinimumWarning count={requireTraits.length} />
         <div className="card space-y-3 p-4">
           <VisibilityPicker value={see} onChange={setSee} communityIds={audienceIds} onCommunityIds={setAudienceIds} />
           <p className="text-sm text-muted">{t("Das ist die Vorgabe für neue Beiträge, Treffen und Anzeigen. Jedes einzelne kannst du noch anders stellen.")}</p>

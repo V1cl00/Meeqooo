@@ -19,6 +19,9 @@
   --color-onaccent: #fff8f4;
   /* Text on solid accent fills. Dark on #e07a5f gives 5.7:1, light gave 2.8:1. */
   --color-onfill: #241c18;
+  /* Warm yellow for "this narrows what you see" notes. */
+  --color-warn: #fbf0c9;
+  --color-onwarn: #5a4300;
   --font-sans: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fraunces Variable", Georgia, serif;
   --radius-card: 1.5rem;
@@ -38,6 +41,8 @@
     --color-accent-deep: #f1a690;
     --color-friend: #9dceb8;
     --color-onaccent: #171412;
+    --color-warn: #3a3118;
+    --color-onwarn: #f2dc98;
   }
 }
 

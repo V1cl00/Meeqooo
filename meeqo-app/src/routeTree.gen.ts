@@ -49,6 +49,7 @@ import { Route as SicherTokenRouteImport } from './routes/sicher.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ChatAnzeigeIdRouteImport } from './routes/chat.anzeige.$id'
 import { Route as MediaActivityIdRouteImport } from './routes/media.activity.$id'
+import { Route as OgActivityIdRouteImport } from './routes/og.activity.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -250,6 +251,11 @@ const MediaActivityIdRoute = MediaActivityIdRouteImport.update({
   path: '/media/activity/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OgActivityIdRoute = OgActivityIdRouteImport.update({
+  id: '/og/activity/$id',
+  path: '/og/activity/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -292,6 +298,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
   '/media/activity/$id': typeof MediaActivityIdRoute
+  '/og/activity/$id': typeof OgActivityIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -334,6 +341,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
   '/media/activity/$id': typeof MediaActivityIdRoute
+  '/og/activity/$id': typeof OgActivityIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -377,6 +385,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
   '/media/activity/$id': typeof MediaActivityIdRoute
+  '/og/activity/$id': typeof OgActivityIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -421,6 +430,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/chat/anzeige/$id'
     | '/media/activity/$id'
+    | '/og/activity/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -463,6 +473,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/chat/anzeige/$id'
     | '/media/activity/$id'
+    | '/og/activity/$id'
   id:
     | '__root__'
     | '/'
@@ -505,6 +516,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/chat/anzeige/$id'
     | '/media/activity/$id'
+    | '/og/activity/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -542,6 +554,7 @@ export interface RootRouteChildren {
   SicherTokenRoute: typeof SicherTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   MediaActivityIdRoute: typeof MediaActivityIdRoute
+  OgActivityIdRoute: typeof OgActivityIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -826,6 +839,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MediaActivityIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/og/activity/$id': {
+      id: '/og/activity/$id'
+      path: '/og/activity/$id'
+      fullPath: '/og/activity/$id'
+      preLoaderRoute: typeof OgActivityIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -913,6 +933,7 @@ const rootRouteChildren: RootRouteChildren = {
   SicherTokenRoute: SicherTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   MediaActivityIdRoute: MediaActivityIdRoute,
+  OgActivityIdRoute: OgActivityIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

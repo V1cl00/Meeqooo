@@ -4,7 +4,7 @@ import { BadgeRow, Button, IntentPill, Note, Skeleton, SparteStrip, StatusLine }
 import { RidesCard } from "@/components/rides";
 import { SafetyMenu } from "@/components/safety";
 import { icsFor, mapUrl } from "@/lib/meeqo/ics";
-import { ShareSheet } from "@/components/share";
+import { activityLink, openShare, ShareSheet } from "@/components/share";
 import { Shell, useMe } from "@/components/shell";
 import { isPhotoMissing, PhotoMissing } from "@/components/photo";
 import { checkIn, confirmAttendance, confirmSafe, createInvite, createSafetyLink, getActivity, hideActivity, leaveActivity, removeGuest, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
@@ -13,8 +13,14 @@ import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
 import { WeatherChip } from "@/components/weather-chip";
+import { getShareMeta, shareMetaTags } from "@/lib/meeqo/share";
 
-export const Route = createFileRoute("/activity/$id")({ component: Page });
+export const Route = createFileRoute("/activity/$id")({
+  // Link previews (WhatsApp, Telegram, iMessage) read these tags from the server-rendered HTML.
+  loader: ({ params }) => getShareMeta({ data: { id: params.id } }).catch(() => undefined),
+  head: ({ loaderData }) => ({ meta: shareMetaTags(loaderData) }),
+  component: Page,
+});
 
 function Page() {
   const { id } = Route.useParams();
@@ -51,7 +57,7 @@ function Detail({ id }: { id: string }) {
     setFail("");
     setNeedPhoto(false);
     try {
-      const result = await requestJoin({ data: { id: item.id, mood } });
+      const result = await requestJoin({ data: { id: item.id, mood: item.area !== "event" && item.bookingMode !== "instant" ? mood : "" } });
       const reply = data?.hostReplyHours != null ? " " + t("{0} antwortet meist in {1}.", item.hostName.split(" ")[0], replyLabel(data.hostReplyHours)) : "";
       notice(result.status === "waitlist" ? t("Du stehst auf der Warteliste. Wenn ein Platz frei wird, rückst du nach.") : result.status === "accepted" ? t("Du bist dabei. Der Chat ist offen.") : t("Anfrage ist raus.{0} Du bekommst eine Mitteilung, sobald es eine Antwort gibt.", reply));
       reload();
@@ -227,7 +233,7 @@ function Detail({ id }: { id: string }) {
   const sparte = sparteOf(item.area, item.category);
   const business = sparte.kind === "business";
   const oneToOne = !business && item.intent === "date" && item.spots <= 2;
-  const shareText = t("MeeQo: {0}\n{1}\n{2}, {3}\nMit {4}.\nLeute über eine Aktivität kennenlernen. Dating und Freundschaft bleiben getrennt.", item.title, formatWhen(item.startsAt), item.placeName, item.city, item.hostName);
+  const sharePayload = { title: item.title, text: t("{0} · {1} · {2}", item.title, formatWhen(item.startsAt), item.placeName), url: activityLink(item.id), activityId: item.id };
 
   return (
     <article className="space-y-4">
@@ -314,7 +320,8 @@ function Detail({ id }: { id: string }) {
           </div>
         </div>
       ) : null}
-      {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" && item.myStatus !== "waitlist" ? (
+      {/* Only for request-based meetups: organizer events and instant booking have no request the host would read. */}
+      {!item.isHost && !item.cancelled && item.area !== "event" && item.bookingMode !== "instant" && item.myStatus !== "accepted" && item.myStatus !== "pending" && item.myStatus !== "waitlist" ? (
         <div className="card space-y-3 p-4">
           <h2 className="font-display text-2xl">{t("Was erwartest du heute?")}</h2>
           <div className="flex flex-wrap gap-1.5">
@@ -333,7 +340,7 @@ function Detail({ id }: { id: string }) {
             ? t("Erstes Date nur an diesem öffentlichen Ort. Die Vertrauensperson bekommt Zeit und Ort, wenn du den Text weiterleitest.")
             : t("Schick das Treffen an jemanden, der dazugehört.")}
         </p>
-        <Button type="button" tone="ghost" className="w-full" onClick={() => { setTrust(null); setShareOpen(true); }}>{t("Teilen")}</Button>
+        <Button type="button" tone="ghost" className="w-full" onClick={() => { setTrust(null); void openShare(sharePayload, () => setShareOpen(true)); }}>{t("Teilen")}</Button>
         <div className="flex gap-2">
           <a href={mapUrl(item.lat, item.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 flex-1 items-center justify-center rounded-control border border-line bg-card px-4 text-sm font-semibold">{t("Karte öffnen")}</a>
           {item.myStatus === "accepted" || item.isHost ? (
@@ -359,7 +366,7 @@ function Detail({ id }: { id: string }) {
         ) : null}
       </div>
       {!item.isHost ? <SafetyMenu kind="activity" targetId={item.id} personId={item.hostId} personName={item.hostName.split(" ")[0]} onBlocked={() => navigate({ to: "/" })} /> : null}
-      <ShareSheet open={shareOpen} title={trust ? trust.title : item.title} text={trust ? trust.text : shareText} onClose={() => setShareOpen(false)} />
+      <ShareSheet open={shareOpen} {...(trust ?? sharePayload)} onClose={() => setShareOpen(false)} />
       <StatusLine error={fail} />
       {data.hidden ? <Note>{t("Diese Aktivität ist für dich ausgeblendet. Feed, Suche und Vorschläge überspringen sie.")}</Note> : null}
       {data.mutual ? <Note>{t("Ihr möchtet euch beide wiedersehen.")}</Note> : null}

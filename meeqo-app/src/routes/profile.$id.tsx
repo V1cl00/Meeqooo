@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { STYLE_COLORS } from "@/components/page-style";
 import { BadgeRow, Button, Note } from "@/components/bits";
 import { ActivityCard } from "@/components/bits";
 import { PostBoard } from "@/components/posts";
@@ -70,9 +71,9 @@ function Person({ id }: { id: string }) {
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
-      <div>
+      <div className="rounded-card p-5" style={{ background: (STYLE_COLORS[data.pageStyle] ?? STYLE_COLORS[""]).bg, color: (STYLE_COLORS[data.pageStyle] ?? STYLE_COLORS[""]).fg }}>
         <h1 className="font-display text-4xl leading-none">{data.displayName}</h1>
-        <p className="mt-2 text-sm text-muted">{areaSummary(data.areas)}{data.city ? ` · ${data.city}` : ""}</p>
+        <p className="mt-2 text-sm opacity-80">{areaSummary(data.areas)}{data.city ? ` · ${data.city}` : ""}</p>
       </div>
       <BadgeRow badges={data.badges} />
       {data.bio ? <p className="text-sm">{data.bio}</p> : null}

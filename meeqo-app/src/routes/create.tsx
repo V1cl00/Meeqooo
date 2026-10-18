@@ -6,8 +6,9 @@ import { CategorySelect } from "@/components/categories";
 import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
 import { Shell, useMe } from "@/components/shell";
-import { createActivity, listCategories, suggestVenues } from "@/lib/meeqo/api";
+import { createActivity, getActivity, listCategories, suggestVenues } from "@/lib/meeqo/api";
 import { listVenues } from "@/lib/meeqo/round3";
+import { VoiceButton } from "@/components/voice";
 import { errText, splitCategory, templateFor } from "@/lib/meeqo/labels";
 import { compress } from "@/lib/meeqo/image";
 import { PhotoPicker } from "@/components/photo";
@@ -18,23 +19,26 @@ import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/create")({
-  validateSearch: (search: Record<string, unknown>): { community: string; venue?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { community: string; venue?: string; idea?: string; title?: string; from?: string } => ({
     community: typeof search.community === "string" ? search.community : "",
     ...(typeof search.venue === "string" && search.venue ? { venue: search.venue } : {}),
+    ...(typeof search.idea === "string" && search.idea ? { idea: search.idea } : {}),
+    ...(typeof search.title === "string" && search.title ? { title: search.title.slice(0, 120) } : {}),
+    ...(typeof search.from === "string" && search.from ? { from: search.from } : {}),
   }),
   component: Page,
 });
 
 function Page() {
-  const { community, venue } = Route.useSearch();
+  const { community, venue, idea, title, from } = Route.useSearch();
   return (
     <Shell>
-      <Create communityId={community} venueId={venue ?? ""} />
+      <Create communityId={community} venueId={venue ?? ""} ideaId={idea ?? ""} ideaTitle={title ?? ""} fromId={from ?? ""} />
     </Shell>
   );
 }
 
-function Create({ communityId, venueId }: { communityId: string; venueId: string }) {
+function Create({ communityId, venueId, ideaId, ideaTitle, fromId }: { communityId: string; venueId: string; ideaId: string; ideaTitle: string; fromId: string }) {
   const { profile } = useMe();
   const navigate = useNavigate();
   const cats = useLoad(() => listCategories(), []);
@@ -109,6 +113,22 @@ function Create({ communityId, venueId }: { communityId: string; venueId: string
           setPlaceName(hit.name);
           setCity("Karlsruhe");
           setDescription(hit.address);
+        })
+        .catch(() => {});
+    }
+    if (ideaId && ideaTitle && !draft) setTitle(ideaTitle);
+    // "Nochmal treffen": same idea as an earlier meetup, new date. Nothing is copied about the people.
+    if (fromId && !draft) {
+      getActivity({ data: { id: fromId } })
+        .then((result) => {
+          const prev = result.activity;
+          setTitle(prev.title);
+          setDescription(prev.description);
+          setCategory(prev.category);
+          setPlaceName(prev.placeName);
+          setCity(prev.city);
+          setSpots(prev.spots);
+          setDurationMin(prev.durationMin);
         })
         .catch(() => {});
     }
@@ -263,6 +283,7 @@ function Create({ communityId, venueId }: { communityId: string; venueId: string
           startsAt: new Date(when).toISOString(),
           spots,
           minPeople,
+          ideaId: ideaId || undefined,
           imageUrl,
           bookingMode,
           communityId,
@@ -316,6 +337,7 @@ function Create({ communityId, venueId }: { communityId: string; venueId: string
                 placeholder={t("Samstag 10 Uhr Bouldern am Ostkreuz, sechs Leute")}
               />
             </Field>
+            <VoiceButton onText={(text) => { setSentence(text); setSentenceNote(t("Verstanden. Tipp auf „Ausfüllen“.")); }} />
             <Button type="button" tone="ghost" className="w-full" disabled={sentence.trim().length < 3} onClick={fillFromSentence}>{t("Ausfüllen")}</Button>
             {sentenceNote ? <p className="text-sm text-muted">{sentenceNote}</p> : null}
           </div>

@@ -8,6 +8,7 @@ import { berlinDay } from "@/lib/meeqo/labels";
 import type { ActivityCard } from "@/lib/meeqo/types";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { locale, t } from "@/lib/meeqo/i18n";
+import { drawTicket, saveOrShare } from "@/lib/meeqo/canvas-cards";
 
 export const Route = createFileRoute("/calendar")({ component: Page });
 
@@ -135,12 +136,34 @@ function MyDates() {
       {past.length ? (
         <section className="space-y-2">
           <button type="button" aria-expanded={pastOpen} onClick={() => setPastOpen((value) => !value)} className="flex h-11 w-full items-center justify-between rounded-control px-1 text-sm font-semibold text-muted">
-            {t("Vergangen · {0}", past.length)}
+            {t("Meine bisherigen Treffen · {0}", past.length)}
             <ChevronDown className={`h-5 w-5 transition-transform ${pastOpen ? "rotate-180" : ""}`} />
           </button>
-          {pastOpen ? <div className="space-y-2 opacity-80">{past.map((entry) => <Row key={entry.item.id} entry={entry} showDay />)}</div> : null}
+          {pastOpen ? <div className="space-y-2">{past.map((entry) => <PastRow key={entry.item.id} entry={entry} />)}</div> : null}
         </section>
       ) : null}
+    </div>
+  );
+}
+
+/** History row with a souvenir ticket. Tickets exist only here, for meetups that already happened. */
+function PastRow({ entry }: { entry: Entry }) {
+  const [busy, setBusy] = useState(false);
+  const went = entry.kind === "host" || entry.kind === "accepted";
+  async function ticket() {
+    setBusy(true);
+    try {
+      const when = new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }).format(new Date(entry.item.startsAt));
+      const blob = await drawTicket({ title: entry.item.title, when, place: `${entry.item.placeName}${entry.item.city ? `, ${entry.item.city}` : ""}`, label: entry.kind === "host" ? t("Eingeladen von mir") : t("Ich war dabei"), footer: t("Erinnerung, kein Eintritt") });
+      await saveOrShare(blob, `meeqo-${entry.day}.png`);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="space-y-1.5 opacity-90">
+      <Row entry={entry} showDay />
+      {went ? <button type="button" disabled={busy} onClick={() => void ticket()} className="ml-auto flex h-9 items-center gap-1.5 rounded-control px-3 text-xs font-semibold text-accent-deep underline">{busy ? t("Einen Moment…") : t("Ticket speichern")}</button> : null}
     </div>
   );
 }

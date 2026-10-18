@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { drawWeekStory, saveOrShare } from "@/lib/meeqo/canvas-cards";
 import { weekSummary } from "@/lib/meeqo/api";
 import { formatWhen } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -10,6 +12,22 @@ import { t } from "@/lib/meeqo/i18n";
  */
 export function WeekCard({ nearby }: { nearby: number }) {
   const { data } = useLoad(() => weekSummary(), []);
+  const [busy, setBusy] = useState(false);
+  const sunday = new Date().getDay() === 0;
+  async function story() {
+    if (!data) return;
+    setBusy(true);
+    try {
+      const lines = [
+        data.weekMeetups === 1 ? t("1 Treffen") : t("{0} Treffen", data.weekMeetups),
+        data.weekPeople === 1 ? t("1 Mensch dabei") : t("{0} Menschen dabei", data.weekPeople),
+      ];
+      const blob = await drawWeekStory({ heading: t("Deine Woche mit MeeQo"), lines, footer: "meeqo" });
+      await saveOrShare(blob, "meeqo-woche.png");
+    } finally {
+      setBusy(false);
+    }
+  }
   if (!data || (data.ahead === 0 && data.regulars.length === 0 && data.yearMeetups === 0)) return null;
   return (
     <section className="card space-y-3 p-4" aria-label={t("Deine Woche")}>
@@ -25,6 +43,11 @@ export function WeekCard({ nearby }: { nearby: number }) {
           <span className="shrink-0 text-muted">{formatWhen(item.startsAt)}</span>
         </Link>
       ))}
+      {sunday && data.weekMeetups > 0 ? (
+        <button type="button" disabled={busy} onClick={() => void story()} className="flex w-full items-center justify-between rounded-control bg-accent px-3 py-2.5 text-left text-sm font-semibold text-onfill">
+          <span>{t("Deine Woche mit MeeQo: {0} Treffen. Als Story teilen", data.weekMeetups)}</span>
+        </button>
+      ) : null}
       {data.yearMeetups > 0 ? (
         <p className="text-sm text-muted">
           {data.yearMeetups === 1 ? t("In diesem Jahr: ein Treffen") : t("In diesem Jahr: {0} Treffen", data.yearMeetups)}

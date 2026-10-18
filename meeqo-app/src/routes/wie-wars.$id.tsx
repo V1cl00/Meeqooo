@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, Note, Skeleton } from "@/components/bits";
 import { Shell } from "@/components/shell";
+import { Album, Thanks } from "@/components/recap";
 import { getAfterMeet, saveAfterMeet } from "@/lib/meeqo/round3";
 import { errText } from "@/lib/meeqo/labels";
 import { buzz } from "@/lib/meeqo/feel";
@@ -43,6 +44,7 @@ function AfterMeet({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [fail, setFail] = useState("");
   const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (!data?.mine) return;
@@ -65,6 +67,7 @@ function AfterMeet({ id }: { id: string }) {
       await saveAfterMeet({ data: { id, wasThere, wasNice: wasThere ? wasNice : null, againGroup: wasThere ? again : null, keepGroup: wasThere && keep, hostThere: data?.isHost ? null : hostThere } });
       buzz(20);
       setSaved(true);
+      setEditing(false);
       reload();
     } catch (err) {
       setFail(errText(err));
@@ -73,18 +76,30 @@ function AfterMeet({ id }: { id: string }) {
     }
   }
 
-  if (saved || (data.mine && !busy && saved)) {
+  if ((saved || data.mine) && !editing) {
+    const went = saved ? wasThere : data.mine?.wasThere;
     return (
       <div className="mx-auto max-w-lg space-y-4">
-        <h1 className="font-display text-4xl leading-none">{t("Danke!")}</h1>
-        <p className="text-sm text-muted">{t("Deine Antworten sieht niemand einzeln. Es gibt keine Sterne.")}</p>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Dein Abend")}</p>
+          <h1 className="font-display text-4xl leading-none">{data.title}</h1>
+          <p className="mt-2 text-sm text-muted">{t("Deine Antworten sieht niemand einzeln. Es gibt keine Sterne.")}</p>
+        </div>
+        {went ? <Album id={id} /> : null}
+        {went ? <Thanks id={id} /> : null}
+        {went ? (
+          <Link to="/create" search={{ community: "", from: id }} className="inline-flex h-12 w-full items-center justify-center rounded-control bg-accent px-5 text-sm font-semibold text-onfill">{t("Nochmal treffen")}</Link>
+        ) : null}
         {data.groupId ? (
           <Link to="/communities/$id" params={{ id: data.groupId }} className="card block p-4 font-semibold">{t("Eure private Gruppe öffnen")}</Link>
         ) : keep && wasThere ? (
           <Note>{t("Die Gruppe entsteht, sobald noch jemand „Gruppe behalten“ wählt.")}</Note>
         ) : null}
         {data.checkedIn ? <Link to="/rating/$id" params={{ id }} className="card block p-4 text-sm font-semibold">{t("Einzelne Person wiedersehen? Das bleibt unsichtbar, bis es gegenseitig ist.")}</Link> : null}
-        <Link to="/activity/$id" params={{ id }} className="inline-flex h-12 items-center rounded-control border border-line bg-card px-5 text-sm font-semibold">{t("Zurück zum Treffen")}</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/activity/$id" params={{ id }} className="inline-flex h-12 items-center rounded-control border border-line bg-card px-5 text-sm font-semibold">{t("Zurück zum Treffen")}</Link>
+          <button type="button" onClick={() => { setSaved(false); setEditing(true); }} className="inline-flex h-12 items-center rounded-control px-3 text-sm font-semibold text-muted underline">{t("Antworten ändern")}</button>
+        </div>
       </div>
     );
   }

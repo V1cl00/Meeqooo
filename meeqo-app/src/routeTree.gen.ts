@@ -18,6 +18,7 @@ import { Route as CommunitiesRouteImport } from './routes/communities'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as DatenschutzRouteImport } from './routes/datenschutz'
 import { Route as FriendsRouteImport } from './routes/friends'
+import { Route as IdeenRouteImport } from './routes/ideen'
 import { Route as ImpressumRouteImport } from './routes/impressum'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyActivitiesRouteImport } from './routes/my-activities'
@@ -45,6 +46,7 @@ import { Route as FreundeIdRouteImport } from './routes/freunde.$id'
 import { Route as KalenderTokenRouteImport } from './routes/kalender.$token'
 import { Route as OrganizerCreateRouteImport } from './routes/organizer.create'
 import { Route as OrganizerRegisterRouteImport } from './routes/organizer.register'
+import { Route as OrteIdRouteImport } from './routes/orte.$id'
 import { Route as ProfileIdRouteImport } from './routes/profile.$id'
 import { Route as RatingIdRouteImport } from './routes/rating.$id'
 import { Route as RatingCompleteRouteImport } from './routes/rating.complete'
@@ -98,6 +100,11 @@ const DatenschutzRoute = DatenschutzRouteImport.update({
 const FriendsRoute = FriendsRouteImport.update({
   id: '/friends',
   path: '/friends',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdeenRoute = IdeenRouteImport.update({
+  id: '/ideen',
+  path: '/ideen',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ImpressumRoute = ImpressumRouteImport.update({
@@ -235,6 +242,11 @@ const OrganizerRegisterRoute = OrganizerRegisterRouteImport.update({
   path: '/register',
   getParentRoute: () => OrganizerRoute,
 } as any)
+const OrteIdRoute = OrteIdRouteImport.update({
+  id: '/orte/$id',
+  path: '/orte/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileIdRoute = ProfileIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -291,6 +303,7 @@ export interface FileRoutesByFullPath {
   '/create': typeof CreateRoute
   '/datenschutz': typeof DatenschutzRoute
   '/friends': typeof FriendsRoute
+  '/ideen': typeof IdeenRoute
   '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
   '/my-activities': typeof MyActivitiesRoute
@@ -318,6 +331,7 @@ export interface FileRoutesByFullPath {
   '/kalender/$token': typeof KalenderTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
+  '/orte/$id': typeof OrteIdRoute
   '/profile/$id': typeof ProfileIdRoute
   '/rating/$id': typeof RatingIdRoute
   '/rating/complete': typeof RatingCompleteRoute
@@ -338,6 +352,7 @@ export interface FileRoutesByTo {
   '/create': typeof CreateRoute
   '/datenschutz': typeof DatenschutzRoute
   '/friends': typeof FriendsRoute
+  '/ideen': typeof IdeenRoute
   '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
   '/my-activities': typeof MyActivitiesRoute
@@ -365,6 +380,7 @@ export interface FileRoutesByTo {
   '/kalender/$token': typeof KalenderTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
+  '/orte/$id': typeof OrteIdRoute
   '/profile/$id': typeof ProfileIdRoute
   '/rating/$id': typeof RatingIdRoute
   '/rating/complete': typeof RatingCompleteRoute
@@ -386,6 +402,7 @@ export interface FileRoutesById {
   '/create': typeof CreateRoute
   '/datenschutz': typeof DatenschutzRoute
   '/friends': typeof FriendsRoute
+  '/ideen': typeof IdeenRoute
   '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
   '/my-activities': typeof MyActivitiesRoute
@@ -413,6 +430,7 @@ export interface FileRoutesById {
   '/kalender/$token': typeof KalenderTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
+  '/orte/$id': typeof OrteIdRoute
   '/profile/$id': typeof ProfileIdRoute
   '/rating/$id': typeof RatingIdRoute
   '/rating/complete': typeof RatingCompleteRoute
@@ -435,6 +453,7 @@ export interface FileRouteTypes {
     | '/create'
     | '/datenschutz'
     | '/friends'
+    | '/ideen'
     | '/impressum'
     | '/login'
     | '/my-activities'
@@ -462,6 +481,7 @@ export interface FileRouteTypes {
     | '/kalender/$token'
     | '/organizer/create'
     | '/organizer/register'
+    | '/orte/$id'
     | '/profile/$id'
     | '/rating/$id'
     | '/rating/complete'
@@ -482,6 +502,7 @@ export interface FileRouteTypes {
     | '/create'
     | '/datenschutz'
     | '/friends'
+    | '/ideen'
     | '/impressum'
     | '/login'
     | '/my-activities'
@@ -509,6 +530,7 @@ export interface FileRouteTypes {
     | '/kalender/$token'
     | '/organizer/create'
     | '/organizer/register'
+    | '/orte/$id'
     | '/profile/$id'
     | '/rating/$id'
     | '/rating/complete'
@@ -529,6 +551,7 @@ export interface FileRouteTypes {
     | '/create'
     | '/datenschutz'
     | '/friends'
+    | '/ideen'
     | '/impressum'
     | '/login'
     | '/my-activities'
@@ -556,6 +579,7 @@ export interface FileRouteTypes {
     | '/kalender/$token'
     | '/organizer/create'
     | '/organizer/register'
+    | '/orte/$id'
     | '/profile/$id'
     | '/rating/$id'
     | '/rating/complete'
@@ -577,6 +601,7 @@ export interface RootRouteChildren {
   CreateRoute: typeof CreateRoute
   DatenschutzRoute: typeof DatenschutzRoute
   FriendsRoute: typeof FriendsRoute
+  IdeenRoute: typeof IdeenRoute
   ImpressumRoute: typeof ImpressumRoute
   LoginRoute: typeof LoginRoute
   MyActivitiesRoute: typeof MyActivitiesRoute
@@ -600,6 +625,7 @@ export interface RootRouteChildren {
   EinladungTokenRoute: typeof EinladungTokenRoute
   FreundeIdRoute: typeof FreundeIdRoute
   KalenderTokenRoute: typeof KalenderTokenRoute
+  OrteIdRoute: typeof OrteIdRoute
   RatingIdRoute: typeof RatingIdRoute
   RatingCompleteRoute: typeof RatingCompleteRoute
   SicherTokenRoute: typeof SicherTokenRoute
@@ -672,6 +698,13 @@ declare module '@tanstack/react-router' {
       path: '/friends'
       fullPath: '/friends'
       preLoaderRoute: typeof FriendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ideen': {
+      id: '/ideen'
+      path: '/ideen'
+      fullPath: '/ideen'
+      preLoaderRoute: typeof IdeenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/impressum': {
@@ -863,6 +896,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrganizerRegisterRouteImport
       parentRoute: typeof OrganizerRoute
     }
+    '/orte/$id': {
+      id: '/orte/$id'
+      path: '/orte/$id'
+      fullPath: '/orte/$id'
+      preLoaderRoute: typeof OrteIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile/$id': {
       id: '/profile/$id'
       path: '/$id'
@@ -988,6 +1028,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreateRoute: CreateRoute,
   DatenschutzRoute: DatenschutzRoute,
   FriendsRoute: FriendsRoute,
+  IdeenRoute: IdeenRoute,
   ImpressumRoute: ImpressumRoute,
   LoginRoute: LoginRoute,
   MyActivitiesRoute: MyActivitiesRoute,
@@ -1011,6 +1052,7 @@ const rootRouteChildren: RootRouteChildren = {
   EinladungTokenRoute: EinladungTokenRoute,
   FreundeIdRoute: FreundeIdRoute,
   KalenderTokenRoute: KalenderTokenRoute,
+  OrteIdRoute: OrteIdRoute,
   RatingIdRoute: RatingIdRoute,
   RatingCompleteRoute: RatingCompleteRoute,
   SicherTokenRoute: SicherTokenRoute,

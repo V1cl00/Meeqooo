@@ -9,6 +9,7 @@ import { VisibilityPicker } from "@/components/visibility";
 import { MinimumWarning } from "@/components/feed-filters";
 import { Shell, useMe } from "@/components/shell";
 import { SelfieCard } from "@/components/trust";
+import { PageStylePicker } from "@/components/page-style";
 import { ChipToggle, LANGUAGES } from "@/components/quick-interests";
 import { friendOverview, listCategories, setAvatar, updateProfile } from "@/lib/meeqo/api";
 import { AreaPicker } from "@/components/areas";
@@ -116,6 +117,7 @@ function ProfilePage() {
         </Link>
       </div>
       <BadgeRow badges={profile.badges} />
+      <PageStylePicker value={profile.pageStyle} onSaved={() => void reload()} />
       <PostBoard userId={profile.userId} canPost />
       <form onSubmit={save} className="space-y-4">
         <div className="card space-y-3 p-4">

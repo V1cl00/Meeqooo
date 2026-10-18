@@ -1,10 +1,10 @@
-/** Shrinks a photo to a JPEG of at most 960 px before it is uploaded. */
-export function compress(file: File) {
+/** Shrinks a photo to a JPEG of at most `max` px (default 960) before it is uploaded. */
+export function compress(file: File, max = 960) {
   return new Promise<string>((resolve, reject) => {
     const image = new Image();
     const url = URL.createObjectURL(file);
     image.onload = () => {
-      const scale = Math.min(1, 960 / Math.max(image.width, image.height));
+      const scale = Math.min(1, max / Math.max(image.width, image.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(image.width * scale);
       canvas.height = Math.round(image.height * scale);

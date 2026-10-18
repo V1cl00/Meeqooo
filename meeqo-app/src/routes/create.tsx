@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea, TextInput } from "@/components/bits";
 import { CategorySelect } from "@/components/categories";
@@ -6,8 +6,10 @@ import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
 import { Shell, useMe } from "@/components/shell";
 import { createActivity, listCategories, suggestVenues } from "@/lib/meeqo/api";
-import { errText, templateFor } from "@/lib/meeqo/labels";
+import { errText, splitCategory, templateFor } from "@/lib/meeqo/labels";
 import { compress } from "@/lib/meeqo/image";
+import { PhotoPicker } from "@/components/photo";
+import { clearDraft, markReturn, readDraft, takePicked, writeDraft } from "@/lib/meeqo/draft";
 import { parseMeetup } from "@/lib/meeqo/parse";
 import type { VenueHit } from "@/lib/meeqo/types";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -43,6 +45,8 @@ function Create({ communityId }: { communityId: string }) {
   const [spots, setSpots] = useState(4);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [imageUrl, setImageUrl] = useState("");
+  const [photoMissing, setPhotoMissing] = useState(false);
+  const photoRef = useRef<HTMLDivElement>(null);
   const [bookingMode, setBookingMode] = useState<"request" | "instant">(profile?.bookingMode ?? "request");
   const [publicPlace, setPublicPlace] = useState(true);
   const [traits, setTraits] = useState<string[]>([]);
@@ -57,6 +61,61 @@ function Create({ communityId }: { communityId: string }) {
   const [venues, setVenues] = useState<VenueHit[]>([]);
   const venuePoint = coords ?? (profile?.lat != null && profile?.lng != null ? { lat: profile.lat, lng: profile.lng } : null);
   const template = templateFor(category);
+  const [templateUsed, setTemplateUsed] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const [restored, setRestored] = useState(false);
+
+  // Restore the draft after a round trip (e.g. to /categories), and select a subcategory created there.
+  useEffect(() => {
+    const draft = readDraft();
+    if (draft) {
+      setTitle(draft.title);
+      setDescription(draft.description);
+      setCategory(draft.category);
+      setIntent(draft.intent);
+      setPlaceName(draft.placeName);
+      setCity(draft.city);
+      setWhen(draft.when);
+      setSpots(draft.spots);
+      setCoords(draft.coords);
+      setImageUrl(draft.imageUrl);
+      setBookingMode(draft.bookingMode);
+      setPublicPlace(draft.publicPlace);
+      setTraits(draft.traits);
+      setVisibility(draft.visibility);
+      setCommunityIds(draft.communityIds);
+      setDurationMin(draft.durationMin);
+      setStep(draft.step);
+      setSentence(draft.sentence);
+      setRestored(true);
+    }
+    const picked = takePicked();
+    if (picked) setCategory(picked);
+    setDraftReady(true);
+  }, []);
+
+  const dirty = Boolean(title.trim() || description.trim() || imageUrl || placeName.trim() || when || sentence.trim());
+  useEffect(() => {
+    if (!draftReady) return;
+    if (!dirty) {
+      clearDraft();
+      return;
+    }
+    writeDraft({ title, description, category, intent, placeName, city, when, spots, coords, imageUrl, bookingMode, publicPlace, traits, visibility, communityIds, durationMin, step, sentence, communityId });
+  }, [draftReady, dirty, title, description, category, intent, placeName, city, when, spots, coords, imageUrl, bookingMode, publicPlace, traits, visibility, communityIds, durationMin, step, sentence, communityId]);
+
+  function startOver() {
+    clearDraft();
+    setTitle("");
+    setDescription("");
+    setPlaceName("");
+    setWhen("");
+    setImageUrl("");
+    setSentence("");
+    setTraits([]);
+    setStep(1);
+    setRestored(false);
+  }
 
   useEffect(() => {
     if (step !== 2 || !venuePoint) return;
@@ -105,6 +164,7 @@ function Create({ communityId }: { communityId: string }) {
     if (!template) return;
     setSpots(template.spots);
     setDurationMin(template.durationMin);
+    setTemplateUsed(true);
     if (!description.trim()) setDescription(template.description);
   }
 
@@ -112,9 +172,20 @@ function Create({ communityId }: { communityId: string }) {
     if (!file) return;
     try {
       setImageUrl(await compress(file));
+      setPhotoMissing(false);
+      setError("");
     } catch (err) {
       setError(errText(err));
     }
+  }
+
+  /** Photo is required: scroll to the picker and highlight it. */
+  function flagPhoto() {
+    setPhotoMissing(true);
+    window.setTimeout(() => {
+      photoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      photoRef.current?.focus({ preventScroll: true });
+    }, 50);
   }
 
   function locate() {
@@ -138,6 +209,7 @@ function Create({ communityId }: { communityId: string }) {
   function next() {
     const message = problem(step);
     setError(message);
+    if (step === 1 && title.trim().length >= 3 && !imageUrl) flagPhoto();
     if (!message) setStep((value) => Math.min(3, value + 1));
   }
 
@@ -151,6 +223,7 @@ function Create({ communityId }: { communityId: string }) {
     if (message) {
       setError(message);
       setStep(problem(1) ? 1 : 2);
+      if (problem(1) && title.trim().length >= 3 && !imageUrl) flagPhoto();
       return;
     }
     setPending(true);
@@ -178,6 +251,7 @@ function Create({ communityId }: { communityId: string }) {
           durationMin,
         },
       });
+      clearDraft();
       await navigate({ to: "/activity/$id", params: { id: created.id } });
     } catch (err) {
       setError(errText(err));
@@ -197,6 +271,12 @@ function Create({ communityId }: { communityId: string }) {
           ))}
         </div>
         <p className="text-sm text-muted">{t("Schritt {0} von 3: {1}", step, titles[step - 1])}</p>
+        {restored ? (
+          <p className="flex items-center justify-between gap-2 text-sm text-muted">
+            <span>{t("Dein Entwurf ist noch da.")}</span>
+            <button type="button" className="font-semibold text-ink underline" onClick={startOver}>{t("Neu beginnen")}</button>
+          </p>
+        ) : null}
       </div>
       {step === 1 ? (
         <div className="space-y-4">
@@ -223,14 +303,18 @@ function Create({ communityId }: { communityId: string }) {
             <CategorySelect value={category} onChange={setCategory} custom={cats.data ?? []} />
           </Field>
           {template ? (
-            <button type="button" onClick={applyTemplate} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t("Vorlage einsetzen: {0} Leute · {1} Min.", template.spots, template.durationMin)}</button>
+            <div className="space-y-1">
+              <Button type="button" tone="ghost" className="w-full border-accent" onClick={applyTemplate}>{t("Vorlage einsetzen: {0} Leute · {1} Min.", template.spots, template.durationMin)}</Button>
+              {templateUsed ? <p className="text-sm text-muted">{t("Vorlage eingesetzt. Du kannst alles unten noch ändern.")}</p> : null}
+            </div>
           ) : null}
-          <p className="text-sm text-muted">{t("Fehlt deine Unterkategorie?")}{" "}<Link to="/categories" className={face}>{t("Selbst anlegen")}</Link>
+          <SizeControls spots={spots} onSpots={setSpots} durationMin={durationMin} onDuration={setDurationMin} />
+          <p className="text-sm text-muted">{t("Fehlt deine Unterkategorie?")}{" "}<Link to="/categories" className={face} onClick={() => markReturn(splitCategory(category).parent)}>{t("Selbst anlegen")}</Link>
           </p>
-          <Field label={t("Foto, Pflicht")}>
-            <input type="file" accept="image/*" className="text-sm" onChange={(event) => onFile(event.target.files?.[0])} />
-          </Field>
-          {imageUrl ? <img src={imageUrl} alt={t("Vorschau")} className="aspect-[3/2] w-full rounded-card object-cover" /> : null}
+          <div className="space-y-1.5">
+            <span className="text-[13px] font-semibold text-ink">{t("Foto, Pflicht")}</span>
+            <PhotoPicker ref={photoRef} value={imageUrl} onFile={onFile} invalid={photoMissing} />
+          </div>
         </div>
       ) : null}
       {step === 2 ? (
@@ -252,12 +336,6 @@ function Create({ communityId }: { communityId: string }) {
           <Field label={t("Stadt")}><TextInput value={city} onChange={(event) => setCity(event.target.value)} /></Field>
           <button type="button" className={face} onClick={locate}>{coords ? t("Standort übernommen") : t("Diesen Ort vom Handy nehmen")}</button>
           <Field label={t("Beginn")}><TextInput type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} /></Field>
-          <Field label={t("Dauer")}>
-            <select value={durationMin} onChange={(event) => setDurationMin(Number(event.target.value))} className="h-12 w-full rounded-2xl border border-line bg-sand px-4 text-base outline-none focus:border-accent">
-              {[30, 60, 90, 120, 180, 240, 360].map((minutes) => <option key={minutes} value={minutes}>{minutes < 60 ? t("{0} Minuten", minutes) : minutes % 60 === 0 ? t("{0} Std.", minutes / 60) : t("{0} Std. {1} Min.", Math.floor(minutes / 60), minutes % 60)}</option>)}
-            </select>
-          </Field>
-          <Field label={t("Plätze für Gäste")}><TextInput type="number" min={1} max={40} value={spots} onChange={(event) => setSpots(Number(event.target.value))} /></Field>
           <label className="flex items-start gap-3 text-sm">
             <input type="checkbox" className="mt-1 h-5 w-5" checked={intent === "date" ? true : publicPlace} disabled={intent === "date"} onChange={(event) => setPublicPlace(event.target.checked)} />
             <span>{intent === "date" ? t("Dates sind nur an öffentlichen Orten.") : t("Öffentlicher Ort.")}</span>
@@ -295,5 +373,56 @@ function Create({ communityId }: { communityId: string }) {
         )}
       </div>
     </form>
+  );
+}
+
+const DURATIONS = [30, 60, 90, 120, 180] as const;
+const LONGER = [240, 300, 360, 420, 480] as const;
+
+function durationLabel(minutes: number) {
+  return minutes < 60 ? t("{0} Minuten", minutes) : minutes % 60 === 0 ? t("{0} Std.", minutes / 60) : t("{0} Std. {1} Min.", Math.floor(minutes / 60), minutes % 60);
+}
+
+/** Guests (stepper, 1 to 40 like the server) and duration (chips, longer via select). Always editable; a template only prefills. */
+function SizeControls({ spots, onSpots, durationMin, onDuration }: { spots: number; onSpots: (next: number) => void; durationMin: number; onDuration: (next: number) => void }) {
+  const step = "grid h-12 w-12 place-items-center rounded-full border border-line bg-card text-2xl font-semibold text-ink disabled:opacity-40";
+  const chip = (on: boolean) => `inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
+  return (
+    <div className="card space-y-4 p-4">
+      <div className="space-y-1.5">
+        <span className="text-[13px] font-semibold text-ink">{t("Plätze für Gäste")}</span>
+        <div className="flex items-center gap-3">
+          <button type="button" className={step} aria-label={t("Ein Platz weniger")} disabled={spots <= 1} onClick={() => onSpots(Math.max(1, spots - 1))}>−</button>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={40}
+            aria-label={t("Plätze für Gäste")}
+            value={spots}
+            onChange={(event) => onSpots(Math.min(40, Math.max(1, Math.round(Number(event.target.value)) || 1)))}
+            className="h-12 w-20 rounded-2xl border border-line bg-sand text-center text-lg font-semibold outline-none focus:border-accent"
+          />
+          <button type="button" className={step} aria-label={t("Ein Platz mehr")} disabled={spots >= 40} onClick={() => onSpots(Math.min(40, spots + 1))}>+</button>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <span className="text-[13px] font-semibold text-ink">{t("Dauer")}</span>
+        <div className="flex flex-wrap gap-2">
+          {DURATIONS.map((minutes) => (
+            <button key={minutes} type="button" aria-pressed={durationMin === minutes} className={chip(durationMin === minutes)} onClick={() => onDuration(minutes)}>{durationLabel(minutes)}</button>
+          ))}
+          <select
+            aria-label={t("Länger")}
+            value={(LONGER as readonly number[]).includes(durationMin) ? durationMin : ""}
+            onChange={(event) => event.target.value && onDuration(Number(event.target.value))}
+            className={`${chip((LONGER as readonly number[]).includes(durationMin))} pr-2 outline-none`}
+          >
+            <option value="">{t("Länger…")}</option>
+            {LONGER.map((minutes) => <option key={minutes} value={minutes}>{durationLabel(minutes)}</option>)}
+          </select>
+        </div>
+      </div>
+    </div>
   );
 }

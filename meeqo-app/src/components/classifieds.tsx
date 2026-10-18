@@ -6,6 +6,7 @@ import { SafetyMenu } from "@/components/safety";
 import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
 import { useMe } from "@/components/shell";
+import { isPhotoMissing, PhotoMissing } from "@/components/photo";
 import { createClassified, expressInterest, listClassifieds } from "@/lib/meeqo/api";
 import { CLASSIFIED_CATS, errText, formatWhen } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -28,15 +29,18 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
   const [communityIds, setCommunityIds] = useState<string[]>(profile?.audienceIds ?? []);
   const [fail, setFail] = useState("");
   const [open, setOpen] = useState(false);
+  const [needPhoto, setNeedPhoto] = useState<string | null>(null);
   const items = (data ?? []).filter((item) => !sub || item.category === sub);
 
   async function interest(id: string) {
     setFail("");
+    setNeedPhoto(null);
     try {
       const result = await expressInterest({ data: { id } });
       await navigate({ to: "/chat/anzeige/$id", params: { id: result.threadId } });
     } catch (err) {
-      setFail(errText(err));
+      if (isPhotoMissing(err)) setNeedPhoto(id);
+      else setFail(errText(err));
     }
   }
 
@@ -76,6 +80,7 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
       ) : null}
       {error ? <Note>{error}</Note> : null}
       {!open && fail ? <Note>{fail}</Note> : null}
+      {needPhoto ? <PhotoMissing onDone={() => { const id = needPhoto; setNeedPhoto(null); void interest(id); }} /> : null}
       {loading ? <p className="text-sm text-muted">{t("Anzeigen werden geladen…")}</p> : null}
       {items.map((item) => (
         <article key={item.id} className="overflow-hidden rounded-[1.5rem] border-2 border-dashed border-ink/40 bg-sand-deep">

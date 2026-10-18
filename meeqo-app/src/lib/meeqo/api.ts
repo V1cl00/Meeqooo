@@ -4,6 +4,7 @@ import { getSql, type Sql } from "@/lib/db";
 import { kmBetween, cityCoords, matchCities } from "@/lib/meeqo/geo";
 import { MOODS, REPORT_REASONS } from "@/lib/meeqo/labels";
 import { addDaysBerlin } from "@/lib/meeqo/time";
+import { isNowHere, NOW_KM, NOW_WIDE_KM } from "@/lib/meeqo/now-here";
 import { fitOf } from "@/lib/meeqo/fit";
 import { bump, waitBump } from "@/lib/meeqo/live";
 import { confirmAction } from "@/lib/meeqo/attendance";
@@ -1090,8 +1091,10 @@ type FeedInput = {
   includePast?: boolean;
   days?: string[];
   limit?: number;
-  /** Only meetups starting within the next four hours, nearest first. */
+  /** "Jetzt & hier": next 3 hours or running and joinable, within 2 km, nearest first. */
   soon?: boolean;
+  /** Radius for "Jetzt & hier": 2 (default) or 5. */
+  soonKm?: number;
   /** "fit" orders by how well a meetup suits the person; default is by time. */
   sort?: "time" | "fit";
 };
@@ -1175,17 +1178,22 @@ export const getFeed = createServerFn({ method: "POST" })
       if (!canSeeActivity(profile.areas, profile.openTo, item.intent, item.category)) return false;
       return true;
     });
+    const traitDropped: ActivityCard[] = [];
     const base = pool.filter((item) => {
       if (data.mineOnly && !item.isHost && item.myStatus !== "accepted" && item.myStatus !== "pending") return false;
       if (data.communityId && item.communityId !== data.communityId) return false;
       if (!passesLens(filter, item)) return false;
       if (sub && !categoryMatches(item.category, sub)) return false;
       if (category && !categoryMatches(item.category, category)) return false;
-      if (!covers([...item.traits, ...item.hostTraits], profile.requireTraits)) return false;
       if (!sees(item.visibility, item.hostId, item.communityId, item.hostBirthYear, audience, item.isHost || Boolean(item.myStatus), item.audienceIds)) return false;
       if (q) {
         const blob = `${item.title} ${item.city} ${item.category} ${item.placeName} ${item.hostName}`.toLowerCase();
         if (!blob.includes(q)) return false;
+      }
+      // Last on purpose: what fails only here is what the "Mindestens" filter hides, and the feed says so.
+      if (!data.mineOnly && !covers([...item.traits, ...item.hostTraits], profile.requireTraits)) {
+        traitDropped.push(item);
+        return false;
       }
       return true;
     });
@@ -1207,13 +1215,12 @@ export const getFeed = createServerFn({ method: "POST" })
         .sort((a, b) => b.fit.score - a.fit.score || new Date(a.item.startsAt).getTime() - new Date(b.item.startsAt).getTime())
         .map((entry) => entry.item);
     };
-    const soonUntil = Date.now() + 4 * 60 * 60 * 1000;
-    const soonFrom = Date.now() - 60 * 60 * 1000;
+    // "Jetzt & hier": next NOW_HOURS, or running and still joinable, within soonKm (2 km, widen to 5).
+    const soonKm = Number(data.soonKm) === NOW_WIDE_KM ? NOW_WIDE_KM : NOW_KM;
+    const nowMs = Date.now();
+    const nowHere = (item: ActivityCard) => isNowHere(item, nowMs, { km: soonKm, hasOrigin: Boolean(origin) && !(place && !looked) });
     const matched = data.soon
-      ? base.filter((item) => {
-          const at = new Date(item.startsAt).getTime();
-          return at >= soonFrom && at <= soonUntil;
-        })
+      ? base.filter(nowHere)
       : days.length
         ? base.filter((item) => days.includes(berlinDay(item.startsAt)))
         : base;
@@ -1224,7 +1231,7 @@ export const getFeed = createServerFn({ method: "POST" })
         await notify(sql, context.userId, "week", "Nächste Woche wieder?", `${againTitle} war letzte Woche. Schau, was diese Woche frei ist.`, "/", "week");
       }
     }
-    const hint = (items: ActivityCard[]) => {
+    const hintBase = (items: ActivityCard[]) => {
       let nextDay: string | null = null;
       let nextCount = 0;
       if (days.length && items.length === 0) {
@@ -1243,14 +1250,25 @@ export const getFeed = createServerFn({ method: "POST" })
       }
       return { nextDay, nextCount, againTitle };
     };
+    // Same window and place/radius as the list itself, so the number matches what loosening would add.
+    const hiddenByTraits = traitDropped.filter((item) => {
+      if (data.soon) {
+        if (!nowHere(item)) return false;
+      } else if (days.length && !days.includes(berlinDay(item.startsAt))) return false;
+      if (place && !looked) return item.city.trim().toLowerCase() === place.toLowerCase();
+      if (!origin || data.mineOnly || data.soon) return true;
+      return item.km != null && item.km <= radius;
+    }).length;
+    const hint = (items: ActivityCard[]) => ({ ...hintBase(items), hiddenByTraits });
     if (place && !looked) {
       const named = matched.filter((item) => item.city.trim().toLowerCase() === place.toLowerCase());
       named.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
       return { items: ordered(named).slice(0, limit), total: named.length, missed: 0, hasLocation: true, around: place, ...hint(named) };
     }
     if (!origin || data.mineOnly) return { items: ordered(matched).slice(0, limit), total: matched.length, missed: 0, hasLocation: Boolean(origin), around: place || undefined, ...hint(matched) };
-    const near = matched.filter((item) => item.km != null && item.km <= radius);
-    const missed = matched.filter((item) => item.km != null && item.km > radius && item.km <= 120).length;
+    // Jetzt & hier already applied its own small radius.
+    const near = data.soon ? matched : matched.filter((item) => item.km != null && item.km <= radius);
+    const missed = data.soon ? 0 : matched.filter((item) => item.km != null && item.km > radius && item.km <= 120).length;
     if (data.soon) near.sort((a, b) => (a.km ?? 1e9) - (b.km ?? 1e9));
     else near.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
     return { items: ordered(near).slice(0, limit), total: near.length, missed, hasLocation: true, around: place || undefined, ...hint(near) };

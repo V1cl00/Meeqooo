@@ -84,6 +84,8 @@ export type FeedResult = {
   nextDay: string | null;
   nextCount: number;
   againTitle: string | null;
+  /** Meetups that only the "Mindestens" filter hides, within the same day and radius. */
+  hiddenByTraits: number;
 };
 
 export type RequestItem = {

@@ -107,9 +107,8 @@ async function createMeetup(page, title, hoursAhead, { spots } = {}) {
 }
 
 async function shareLink(page) {
-  await page.evaluate(() => { window.open = (u) => { window.__opened = String(u); return null; }; });
-  await page.getByRole("button", { name: "WhatsApp" }).click();
-  const opened = await page.evaluate(() => window.__opened || "");
+  // The share sheet channels are real links now (wa.me/?text=...).
+  const opened = (await page.getByRole("link", { name: "WhatsApp" }).getAttribute("href")) || "";
   return decodeURIComponent(opened.split("text=")[1] ?? "").match(/http\S+/)?.[0];
 }
 
@@ -183,6 +182,11 @@ describe("Treffen", () => {
     const html = await (await pub.request.get(invite)).text();
     assert.match(html, /og:title/, "Einladung braucht eine Vorschau fuer WhatsApp");
     assert.match(html, /Anna lädt dich ein|Anna l&#228;dt dich ein|lädt dich ein: Lauftreff/);
+    // Treffen-Link selbst: eigene Vorschau mit generiertem Bild
+    const page = await (await pub.request.get(url)).text();
+    assert.match(page, /property="og:image" content="[^"]*\/og\/activity\//, "Treffen-Link braucht ein eigenes Vorschaubild");
+    const card = await pub.request.get(page.match(/property="og:image" content="([^"]+)"/)[1].replace(/&amp;/g, "&"));
+    assert.equal(card.headers()["content-type"], "image/jpeg");
     await pub.goto(invite);
     await pub.waitForTimeout(2000);
     assert.match(await text(pub), /Anna lädt dich ein/);
@@ -290,18 +294,18 @@ describe("Bedienung", () => {
     const ben = await newUser(browser, "Ben");
     await ben.page.goto(`${base}/`);
     await ben.page.waitForTimeout(1500);
-    await ben.page.getByRole("button", { name: "Gleich in der Nähe" }).click();
+    await ben.page.getByRole("button", { name: /Jetzt & hier/ }).click();
     await ben.page.waitForTimeout(1800);
     const card = ben.page.locator("article", { hasText: `Eiltreff ${tag}` });
     assert.ok(await card.count(), "Gleich zeigt das Treffen in einer Stunde");
     await card.getByRole("button", { name: "Mehr zu diesem Treffen" }).click();
-    await ben.page.getByRole("button", { name: "Sport", exact: true }).click();
+    await ben.page.getByRole("button", { name: "Fokus aufs Thema", exact: true }).click();
     await ben.page.getByRole("dialog").getByRole("button", { name: "Anfragen" }).click();
     await ben.page.waitForTimeout(1500);
     assert.match(await text(ben.page), /Anfrage ist raus/);
     await anna.page.goto(`${base}/requests`);
     await anna.page.waitForTimeout(1500);
-    assert.match(await text(anna.page), /Erwartet: Sport/);
+    assert.match(await text(anna.page), /Erwartet: Fokus aufs Thema/);
     await anna.page.getByRole("button", { name: "Annehmen" }).first().click();
     await anna.page.waitForTimeout(1200);
 

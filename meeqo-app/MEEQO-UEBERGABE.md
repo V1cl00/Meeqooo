@@ -54,14 +54,18 @@ Weitere Seiten: Login, Onboarding, Aktivität, Suche, Communities, Community-Det
 
 Linsen: Alles, Dating, Freunde, Essen, Business, Kleinanzeigen, Veranstaltungen. Darunter Unterkategorien, wenn die Linse welche hat.
 
-Reihenfolge auf der Seite, absichtlich so:
+Reihenfolge auf der Seite (Okt. 2026 geändert: Suche und Filter stehen jetzt oben, auf Kevins Wunsch):
 
-1. Stadtname und Titel „Treffen in der Nähe“
+1. Stadtname und Titel „Treffen in der Nähe“, Ortszeile (`PlaceBar`)
 2. Linsen und Unterkategorien
-3. Wochentagsleiste (`WhenBar`)
-4. Hinweis, wenn kein Profilfoto da ist
-5. Die Treffen-Karten
-6. Erst danach: wer einlädt, Ort/Radius, Suche, Filter „Mindestens“
+3. Kompakte Leiste (`FilterBar` in `components/feed-filters.tsx`): Suchfeld (führt zu `/search`) und Filter-Knopf mit Zähler; bei aktiven Filtern zusätzlich der Chip „Filter aktiv · N“. N = Anzahl „Mindestens“-Eigenschaften, plus 1 bei Umkreis unter 25 km.
+4. „Jetzt & hier“, Wochentagsleiste (`WhenBar`), Sortierung
+5. Hinweis, wenn kein Profilfoto da ist
+6. Die Treffen-Karten
+7. Bei leerem oder fast leerem Feed (unter 3 Karten), wenn „Mindestens“ etwas ausblendet: „Deine Filter blenden X Treffen aus“ mit „Filter lockern“ und Rückgängig (`LoosenCard`). X kommt vom Server (`FeedResult.hiddenByTraits`, gleicher Tag und Umkreis).
+8. Danach: „Wer einlädt“ als schmale Reihe kleiner runder Avatare
+
+Filter öffnen sich als Bottom-Sheet (`FilterSheet`): „Mindestens vorhanden“-Chips, Umkreis, gelber Warnhinweis („Damit siehst du X statt Y Treffen“, sonst allgemein), „Zurücksetzen“ und „Anwenden“. Nichts klappt mehr inline am Feed-Ende auf. Derselbe Warnhinweis steht im Profil unter „Mindestens vorhanden“.
 
 Heute ist vorausgewählt. Ist an dem Tag nichts, sagt die leere Karte, an welchem nächsten Tag etwas liegt, mit Button „Diesen Tag zeigen“.
 
@@ -190,7 +194,7 @@ Liste und einzelne Nachrichten zeigen das Profilfoto, sonst den Anfangsbuchstabe
 - **Terminabstimmung** im Chat (`polls`, `poll_votes`): nur Zeitpunkte. Der Gastgeber kann das Ergebnis als neuen Start festlegen, dann verlieren die Bestätigungen „Ich komme“ ihre Gültigkeit und alle bekommen Bescheid.
 - **Mitfahren** (`rides`, `ride_riders`): nur für Gastgeber und Zugesagte. Voll heißt voll, geprüft nach dem Eintragen.
 - **Zuverlässigkeit** in den Anfragen: „Kam zu 4 von 5 Treffen · 2× bei dir“, nur aus echten Check-ins.
-- **Gleich in der Nähe** (`soon` im Feed): nächste vier Stunden, nächstgelegenes zuerst.
+- **Jetzt & hier** (`soon` im Feed, Logik in `lib/meeqo/now-here.ts`, Unit-Test `now-here.test.ts`): beginnt in den nächsten 3 Stunden oder läuft schon und hat noch Platz, und liegt höchstens 2 km weg (ohne Standort nur die Zeit). Nächstgelegenes zuerst. Unterzeile zeigt die echten Werte („Nächste 3 Std · bis 2 km“). Leer: „Auf 5 km erweitern“ (`soonKm: 5`) oder „Alles von heute zeigen“.
 - **Kalender abonnieren** (`calendar_tokens`, Route `/kalender/$token`): Link in den Einstellungen, ersetzbar. Wer ihn kennt, sieht Titel und Orte.
 - **Karten-Menü**: gedrückt halten oder „Mehr“ an der Karte. Anfragen mit Tempo, Teilen, Weg, Ausblenden. Es geht um Treffen, nicht um Leute.
 - Neue Tabellen mit Personenbezug stehen in `deleteAccount`. `exportMyData` enthält auch Fahrten und Abstimmungen.

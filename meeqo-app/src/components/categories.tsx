@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { Search } from "lucide-react";
 import { addCategory, searchCategories } from "@/lib/meeqo/api";
 import { CATEGORIES, CATEGORY_TREE, MORE_SUGGESTIONS, categoryShort, joinCategory, splitCategory, subsFor, type CustomCategory } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -18,16 +19,33 @@ function chip(active: boolean) {
   return `inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
 }
 
+type ExtraMode = "" | "more" | "search";
+
+/** "Andere" and "Suchen" as the last chips of the main category row. */
+function ExtraChips({ mode, setMode }: { mode: ExtraMode; setMode: (next: ExtraMode) => void }) {
+  return (
+    <>
+      <button type="button" aria-pressed={mode === "more"} className={chip(mode === "more")} onClick={() => setMode(mode === "more" ? "" : "more")}>{t("Andere")}</button>
+      <button type="button" aria-pressed={mode === "search"} className={`${chip(mode === "search")} gap-1.5`} onClick={() => setMode(mode === "search" ? "" : "search")}>
+        <Search className="h-4 w-4" aria-hidden="true" />
+        {t("Suchen")}
+      </button>
+    </>
+  );
+}
+
+/** Panel for "Andere" (more suggestions) or "Suchen" (search or create). */
 function Extras({
+  mode,
   onPick,
   active,
 }: {
+  mode: ExtraMode;
   onPick: (label: string) => void;
   active: (label: string) => boolean;
 }) {
   const open = useOpenCategories();
   const shown = (label: string) => open.includes(splitCategory(label).parent);
-  const [mode, setMode] = useState<"" | "more" | "search">("");
   const [q, setQ] = useState("");
   const [parent, setParent] = useState<string>(CATEGORIES[0]);
   const [fail, setFail] = useState("");
@@ -50,11 +68,7 @@ function Extras({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-1.5">
-        <button type="button" className={chip(mode === "more")} onClick={() => setMode(mode === "more" ? "" : "more")}>{t("Andere")}</button>
-        <button type="button" className={chip(mode === "search")} onClick={() => setMode(mode === "search" ? "" : "search")}>{t("Suchen")}</button>
-      </div>
+    <>
       {mode === "more" ? (
         <div className="card space-y-3 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Mehr Vorschläge")}</p>
@@ -117,7 +131,7 @@ function Extras({
           {fail ? <Note>{fail}</Note> : null}
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -126,12 +140,16 @@ export function CategorySelect({
   onChange,
   custom = [],
   allowAll = false,
+  subFooter,
 }: {
   value: string;
   onChange: (next: string) => void;
   custom?: CustomCategory[];
   allowAll?: boolean;
+  /** Last line inside the subcategory card, e.g. "Fehlt deine Unterkategorie? Selbst anlegen". */
+  subFooter?: ReactNode;
 }) {
+  const [mode, setMode] = useState<ExtraMode>("");
   const open = useOpenCategories();
   const parsed = splitCategory(value);
   const parent = open.includes(parsed.parent) ? parsed.parent : allowAll ? "" : open[0];
@@ -148,7 +166,9 @@ export function CategorySelect({
             {t(item)}
           </button>
         ))}
+        <ExtraChips mode={mode} setMode={setMode} />
       </div>
+      <Extras mode={mode} onPick={onChange} active={(label) => value === label} />
       {parent ? (
         <div className="card space-y-2 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Unterkategorien · {0}", parent)}</p>
@@ -163,9 +183,9 @@ export function CategorySelect({
               );
             })}
           </div>
+          {subFooter ? <div className="border-t border-line pt-2 text-sm text-muted">{subFooter}</div> : null}
         </div>
       ) : null}
-      <Extras onPick={onChange} active={(label) => value === label} />
     </div>
   );
 }
@@ -180,6 +200,7 @@ export function SeekingPicker({
   custom?: CustomCategory[];
 }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [mode, setMode] = useState<ExtraMode>("");
   const allowed = useOpenCategories();
   const group = CATEGORY_TREE.find((item) => item.name === open);
 
@@ -202,7 +223,9 @@ export function SeekingPicker({
             {item.name}
           </button>
         ))}
+        <ExtraChips mode={mode} setMode={setMode} />
       </div>
+      <Extras mode={mode} onPick={toggle} active={(label) => selected.includes(label)} />
       {group ? (
         <div className="card space-y-2 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Unterkategorien · {0}", group.name)}</p>
@@ -219,9 +242,8 @@ export function SeekingPicker({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-muted">{t("Tippe eine Kategorie an. Andere und Suchen liegen darunter.")}</p>
+        <p className="text-sm text-muted">{t("Tippe eine Kategorie an.")}</p>
       )}
-      <Extras onPick={toggle} active={(label) => selected.includes(label)} />
     </div>
   );
 }

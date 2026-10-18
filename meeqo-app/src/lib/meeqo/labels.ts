@@ -91,7 +91,8 @@ export function hasSensitive(traits: readonly string[]) {
 
 export const CLASSIFIED_CATS = ["Verkaufen", "Suchen", "Tauschen", "Verschenken", "Mitfahrgelegenheit"] as const;
 
-export const MOODS = ["Locker", "Gespräch", "Sport", "Nur Essen"] as const;
+/** What a guest expects, shown to the host with a request. Category-neutral, so it fits cooking as well as sport. */
+export const MOODS = ["Locker", "Gespräch", "Fokus aufs Thema"] as const;
 
 export const HANDOVER_SPOTS = ["Bahnhof", "Rathaus", "Marktplatz", "Bibliothek"] as const;
 

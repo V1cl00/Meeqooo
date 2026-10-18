@@ -4,7 +4,7 @@ import { notice } from "@/lib/meeqo/feel";
 import { routeUrl } from "@/lib/meeqo/ics";
 import { errText, formatWhen, MOODS } from "@/lib/meeqo/labels";
 import type { ActivityCard as Activity } from "@/lib/meeqo/types";
-import { ShareSheet } from "@/components/share";
+import { activityLink, openShare, ShareSheet } from "@/components/share";
 import { useMe } from "@/components/shell";
 import { isPhotoMissing, PhotoMissing } from "@/components/photo";
 import { t } from "@/lib/meeqo/i18n";
@@ -19,6 +19,8 @@ export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity
   const [share, setShare] = useState(false);
   const [needPhoto, setNeedPhoto] = useState(false);
   const { profile } = useMe();
+  // Mood only for request-based meetups; organizer events and instant booking have no request to read.
+  const askMood = item.area !== "event" && item.bookingMode !== "instant";
   const canRequest = !item.isHost && !item.myStatus && !item.cancelled && item.spotsLeft > 0;
 
   async function request(photoJustAdded = false) {
@@ -29,7 +31,7 @@ export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity
     setBusy(true);
     setFail("");
     try {
-      const result = await requestJoin({ data: { id: item.id, mood } });
+      const result = await requestJoin({ data: { id: item.id, mood: askMood ? mood : "" } });
       notice(result.status === "accepted" ? "Du bist dabei." : t("Anfrage ist raus."));
       onChanged?.();
       onClose();
@@ -40,12 +42,13 @@ export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity
     }
   }
 
+  const payload = { title: item.title, text: t("{0} · {1} · {2}", item.title, formatWhen(item.startsAt), item.placeName), url: activityLink(item.id), activityId: item.id };
+
   if (share) {
     return (
       <ShareSheet
         open
-        title={item.title}
-        text={t("MeeQo: {0}\n{1}\n{2}, {3}\nMit {4}.", item.title, formatWhen(item.startsAt), item.placeName, item.city, item.hostName)}
+        {...payload}
         onClose={() => {
           setShare(false);
           onClose();
@@ -63,12 +66,14 @@ export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity
         </div>
         {canRequest ? (
           <div className="space-y-2">
+            {askMood ? <>
             <p className="text-sm font-semibold">{t("Was erwartest du?")}</p>
             <div className="flex flex-wrap gap-1.5">
               {MOODS.map((option) => (
                 <button key={option} type="button" onClick={() => setMood(option)} className={`inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${mood === option ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{t(option)}</button>
               ))}
             </div>
+            </> : null}
             <button type="button" disabled={busy} onClick={() => void request()} className="inline-flex h-12 w-full items-center justify-center rounded-control bg-accent px-5 text-sm font-semibold text-onfill disabled:opacity-50">
               {item.bookingMode === "instant" ? t("Sofort dabei") : t("Anfragen")}
             </button>
@@ -78,7 +83,7 @@ export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity
         {item.myStatus === "pending" ? <p className="text-sm font-semibold">{t("Du hast schon angefragt.")}</p> : null}
         {fail ? <p className="text-sm text-accent-deep">{fail}</p> : null}
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" className={pill} onClick={() => setShare(true)}>{t("Teilen")}</button>
+          <button type="button" className={pill} onClick={() => void openShare(payload, () => setShare(true))}>{t("Teilen")}</button>
           <a className={pill} href={routeUrl(item.lat, item.lng)} target="_blank" rel="noopener noreferrer">{t("Weg")}</a>
         </div>
         {onHide && !item.isHost ? (

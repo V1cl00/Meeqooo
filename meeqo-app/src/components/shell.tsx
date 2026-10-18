@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, Navigate, useRouterState } from "@tanstack/react-router";
-import { Bell, CalendarDays, Compass, MessageCircle, Plus, UserRound } from "lucide-react";
+import { Link, Navigate, useNavigate, useRouterState } from "@tanstack/react-router";
+import { goBack, isTabRoot, useHasBackOverride } from "@/lib/meeqo/back";
+import { Bell, CalendarDays, ChevronLeft, Compass, MessageCircle, Plus, UserRound } from "lucide-react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { chatUnread, getProfile, listNotifications } from "@/lib/meeqo/api";
@@ -59,6 +60,7 @@ export function Shell({
   const [online, setOnline] = useState(true);
   const seen = useRef<Set<string>>(new Set());
   const primed = useRef(false);
+  const hasOverride = useHasBackOverride();
 
   async function reload() {
     const next = await getProfile();
@@ -175,6 +177,7 @@ export function Shell({
   }
 
   const value = { profile, reload, unread, unreadChats };
+  const showBack = !isTabRoot(path) || hasOverride;
 
   if (bare) {
     return (
@@ -215,10 +218,16 @@ export function Shell({
               <p role="status" className="bg-ink px-4 py-2 text-center text-sm font-semibold text-onaccent">{t("Du bist offline. Zum Senden und Anfragen braucht MeeQo Netz.")}</p>
             )}
             <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line/70 bg-sand/80 px-4 py-3 backdrop-blur-xl md:px-8">
-              <Link to="/" className="md:hidden">
-                <Wordmark className="text-[1.65rem]" />
-              </Link>
-              <p className="hidden text-sm text-muted md:block">{t("Aktivitäten, nicht Profile.")}</p>
+              {showBack ? (
+                <BackButton path={path} />
+              ) : (
+                <>
+                  <Link to="/" className="md:hidden">
+                    <Wordmark className="text-[1.65rem]" />
+                  </Link>
+                  <p className="hidden text-sm text-muted md:block">{t("Aktivitäten, nicht Profile.")}</p>
+                </>
+              )}
               <Link to="/notifications" aria-label={unread > 0 ? `Benachrichtigungen, ${unread} neu` : "Benachrichtigungen"} className="relative grid h-11 w-11 place-items-center rounded-full border border-line bg-card shadow-sm">
                 <Bell className="h-5 w-5" />
                 {unread > 0 ? (
@@ -281,5 +290,20 @@ function NavLink({
       {label}
       {badge > 0 ? <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-onfill" aria-label={`${badge} ungelesen`}>{badge}</span> : null}
     </Link>
+  );
+}
+
+/** 44px back arrow: in-app history first, otherwise the page's parent (shared links open without history). */
+function BackButton({ path }: { path: string }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      aria-label={t("Zurück")}
+      onClick={() => goBack((to) => void navigate({ to }), path)}
+      className="-ml-1.5 grid h-11 w-11 place-items-center rounded-full text-ink hover:bg-card active:bg-sand-deep"
+    >
+      <ChevronLeft className="h-7 w-7" strokeWidth={2.4} />
+    </button>
   );
 }

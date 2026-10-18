@@ -630,7 +630,7 @@ async function memberCommunities(sql: Sql, userId: string, ids: unknown) {
   return wanted.filter((id) => allowed.has(id));
 }
 
-async function friendState(sql: Sql, me: string, them: string): Promise<"none" | "out" | "in" | "friends"> {
+export async function friendState(sql: Sql, me: string, them: string): Promise<"none" | "out" | "in" | "friends"> {
   if (!them || me === them) return "none";
   const rows = await sql<{ status: string; requester_id: string }>`
     select status, requester_id from friendships
@@ -1430,6 +1430,7 @@ export const createActivity = createServerFn({ method: "POST" })
     communityIds?: string[];
     durationMin?: number;
     minPeople?: number;
+    ideaId?: string;
   }) => input)
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
@@ -1493,6 +1494,10 @@ export const createActivity = createServerFn({ method: "POST" })
         ${areaOf(category, profile.isOrganizer)}, ${durationMin}, ${minPeopleOf(data.minPeople, spots)}
       )
     `;
+    if (data.ideaId && visibility === "all") {
+      const { ideaBecameMeetup } = await import("@/lib/meeqo/design");
+      await ideaBecameMeetup(sql, clean(data.ideaId, 80), id, context.userId, title).catch(() => {});
+    }
     return { id };
   });
 
@@ -3373,6 +3378,11 @@ export const deleteAccount = createServerFn({ method: "POST" })
     await sql`delete from meet_feedback where user_id = ${me}`;
     await sql`delete from nudges_sent where user_id = ${me}`;
     await sql`delete from funnel_events where user_id = ${me}`;
+    await sql`delete from free_signals where user_id = ${me}`;
+    await sql`delete from idea_votes where user_id = ${me}`;
+    await sql`delete from ideas where user_id = ${me}`;
+    await sql`delete from friend_messages where pair like ${`%${me}%`}`;
+    await sql`delete from thanks where from_id = ${me} or to_id = ${me}`;
     await sql`delete from messages where sender_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from checkins where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from ratings where rater_id = ${me} or ratee_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
@@ -3875,6 +3885,9 @@ export const exportMyData = createServerFn({ method: "POST" })
       meineStimmen: votes,
       nachDemTreffen: await sql`select activity_id, was_there, was_nice, again_group, keep_group, host_there, created_at from meet_feedback where user_id = ${me}`,
       selfiePruefung: await sql`select status, created_at, reviewed_at from selfie_checks where user_id = ${me}`,
+      ideen: await sql`select text, city, created_at from ideas where user_id = ${me}`,
+      freundesNachrichtenDieIchGeschriebenHabe: await sql`select body, created_at from friend_messages where sender_id = ${me}`,
+      dankeGesagt: await sql`select activity_id, created_at from thanks where from_id = ${me}`,
       hinweis: "Nachrichten anderer Personen und deren Profile sind nicht enthalten. Ein Selfie wird nach der Prüfung gelöscht und ist deshalb nicht enthalten.",
     };
     return { filename: `meeqo-daten-${new Date().toISOString().slice(0, 10)}.json`, json: JSON.stringify(data, null, 2) };

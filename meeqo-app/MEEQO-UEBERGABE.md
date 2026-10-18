@@ -302,6 +302,7 @@ Siehe `NATIVE-APPS.md`. Kurz: Capacitor-Hülle (`capacitor.config.ts`, Ordner `a
 - 18 zusätzliche Seed-Personen (Tim, Selin, Marco, Hanna, Felix, Aylin, David, Johanna, Lukas, Mei, Sabine, Noah, Lea, Elias, Paula, Kemal, Sofía, Jan) mit KI-Foto, kurzer Bio und 3 Interessen. Jede richtet ein Freundschafts-Treffen aus, für jede eingeschaltete Kategorie 1–2 (Sport, Essen, Outdoor, Kultur, Spiele, Wellness, Musik, Kreativ, Lernen, Tiere; Dating und Business nicht).
 - Treffen (`act-s-*`) an echten Karlsruher Orten. Vier starten immer in den nächsten 3 Stunden im Zentrum („Jetzt & hier“), die übrigen verteilen sich über die nächsten 7 Tage. Teilnehmende sind andere Seed-Personen (`jr-s-*`), dazu ein paar offene Anfragen. Ideenwand: 5 Ideen (`idea-s-*`) mit Stimmen von Seed-Personen.
 - **Frisch halten:** Tabelle `seed_schedule` und `src/lib/meeqo/seed-refresh.ts`. `getFeed` ruft das höchstens alle 10 Minuten auf: „bald“-Treffen springen 30 Minuten nach Beginn wieder auf jetzt + Versatz, Wochentreffen rücken 2 Stunden nach Ende um 7 Tage weiter.
+- Migration 0034 nimmt auch die alten Seed-Treffen (0002/0007, außer `act-past`) in `seed_schedule` auf, Wochentakt.
 - Die Stadtzahl (`cityPulse`) zählt weiterhin keine `seed:`-Gastgeber. Seed-Konten bekommen keine Mitteilungen.
 - Offene Anfragen an Kevins Testkonto sind nicht eingebaut: In den Migrationen ist kein Konto von Kevin bekannt.
 - **Alles auf einmal entfernen** (neue Migration, z. B. `00xx_seeds_weg.sql`):

@@ -44,14 +44,14 @@ describe("Runde 3", () => {
   test("Mitteilungen lassen sich einzeln abschalten", async () => {
     const user = await newUser(browser, "Nora", { photo: false });
     await user.page.goto(`${base}/settings`);
-    const reminder = user.page.getByRole("switch", { name: /^Erinnerung · Push$/ });
+    const reminder = user.page.getByRole("switch", { name: /^Erinnerung$/ });
     await reminder.waitFor({ timeout: 15000 });
     assert.equal(await reminder.isChecked(), true);
     await reminder.uncheck();
     await user.page.waitForTimeout(800);
     await user.page.reload();
-    await user.page.getByRole("switch", { name: /^Erinnerung · Push$/ }).waitFor({ timeout: 15000 });
-    assert.equal(await user.page.getByRole("switch", { name: /^Erinnerung · Push$/ }).isChecked(), false);
+    await user.page.getByRole("switch", { name: /^Erinnerung$/ }).waitFor({ timeout: 15000 });
+    assert.equal(await user.page.getByRole("switch", { name: /^Erinnerung$/ }).isChecked(), false);
     await user.context.close();
   });
 });

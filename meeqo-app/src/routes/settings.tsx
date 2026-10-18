@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea } from "@/components/bits";
 import { Shell, useMe } from "@/components/shell";
 import { adminStatus, deleteAccount, withdrawSensitiveConsent, exportMyData, designTheme, listBlocked, listHiddenAll, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity, unhideRule } from "@/lib/meeqo/api";
-import { EmailCard, NotifyList, PermissionCard, QuietCard } from "@/components/notify-settings";
+import { NotifyList, PermissionCard, QuietCard } from "@/components/notify-settings";
 import { CalendarSettings } from "@/components/cal-subscribe";
 import { authEnabled, signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
@@ -197,7 +197,6 @@ function Settings() {
       </div>
       <h2 className="px-1 pt-2 font-display text-3xl leading-none">{t("Mitteilungen")}</h2>
       <PermissionCard profile={profile} onAllow={push} />
-      <EmailCard profile={profile} reload={reload} />
       <NotifyList profile={profile} />
       <QuietCard profile={profile} />
       <div className="card space-y-2 p-4">

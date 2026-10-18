@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { shareText } from "@/lib/meeqo/native";
+import { isNative, shareLink, shareText } from "@/lib/meeqo/native";
+import { linkShareData, shareRoute } from "@/lib/meeqo/share-plan";
 import { t } from "@/lib/meeqo/i18n";
 
 export type SharePayload = {
@@ -19,11 +20,15 @@ export function activityLink(id: string) {
 
 /**
  * The system share sheet where there is one (Capacitor app, phones, some desktops); otherwise our own sheet.
+ * A link is shared alone (no title, no text, no picture): WhatsApp and Co. show the preview card from it.
  * Call it straight from the tap handler so the browser still counts it as a user gesture.
  */
 export async function openShare(payload: SharePayload, fallback: () => void) {
   try {
-    if (await shareText(payload.title, payload.text, payload.url)) return;
+    const route = shareRoute({ native: isNative(), webShare: typeof navigator !== "undefined" && Boolean(navigator.share) });
+    if (route !== "sheet") {
+      if (payload.url ? await shareLink(linkShareData(payload.url).url) : await shareText(payload.title, payload.text)) return;
+    }
   } catch (err) {
     // The person closed the system sheet: that is an answer, not an error.
     if ((err as Error)?.name === "AbortError") return;
@@ -42,10 +47,11 @@ export function ShareSheet({ open, title, text, url, activityId, onClose }: Shar
   }, [open]);
   if (!open) return null;
   const link = url ?? "";
-  const full = link ? `${text}\n${link}` : text;
+  // With a link, only the link: the chat app builds the preview card from it.
+  const full = link || text;
   const channels = [
     { name: "WhatsApp", href: `https://wa.me/?text=${encodeURIComponent(full)}`, color: "#25D366", icon: "M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3Zm4.4 12.4c-.2.5-1.1 1-1.6 1-.4.1-.9.1-1.5-.1-2.6-1-4.3-3.6-4.4-3.8-.1-.2-1-1.4-1-2.6s.6-1.8.9-2.1c.2-.2.5-.3.6-.3h.5c.1 0 .4 0 .5.4l.7 1.7c.1.1.1.3 0 .4l-.3.5-.4.4c-.1.1-.3.3-.1.6.2.3.7 1.2 1.6 1.9 1.1.9 2 1.2 2.3 1.3.3.1.4.1.6-.1l.8-.9c.2-.2.4-.2.6-.1l1.6.8c.2.1.4.2.4.3.1.1.1.6-.1 1.2Z" },
-    { name: "Telegram", href: `https://t.me/share/url?url=${encodeURIComponent(link || text)}&text=${encodeURIComponent(link ? text : "")}`, color: "#2AABEE", icon: "M20.7 4.3 3.4 11c-1.2.5-1.2 1.2-.2 1.5l4.4 1.4 1.7 5.2c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.1-2 4.4 3.2c.8.4 1.4.2 1.6-.8l2.9-13.6c.3-1.2-.5-1.7-1.3-1.4ZM8.5 13.6l9.6-6.1c.5-.3.9-.1.5.2l-8.2 7.4-.3 3.4-1.6-4.9Z" },
+    { name: "Telegram", href: `https://t.me/share/url?url=${encodeURIComponent(link || text)}`, color: "#2AABEE", icon: "M20.7 4.3 3.4 11c-1.2.5-1.2 1.2-.2 1.5l4.4 1.4 1.7 5.2c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.1-2 4.4 3.2c.8.4 1.4.2 1.6-.8l2.9-13.6c.3-1.2-.5-1.7-1.3-1.4ZM8.5 13.6l9.6-6.1c.5-.3.9-.1.5.2l-8.2 7.4-.3 3.4-1.6-4.9Z" },
     { name: t("E-Mail"), href: `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(full)}`, color: "#6f6159", icon: "M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Zm0 1.5V8l8 5 8-5v-.5H4Z" },
   ];
 

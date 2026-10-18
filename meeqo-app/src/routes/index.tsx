@@ -9,7 +9,7 @@ import { AvatarUpload } from "@/components/photo";
 import { WhenBar } from "@/components/when-bar";
 import { NOW_HOURS, NOW_KM, NOW_WIDE_KM } from "@/lib/meeqo/now-here";
 import { activeFilterCount, FilterBar, FilterSheet, LoosenCard } from "@/components/feed-filters";
-import { hideActivity, makeWish, setRadius, unhideActivity, wishInfo } from "@/lib/meeqo/api";
+import { makeWish, setRadius, wishInfo } from "@/lib/meeqo/api";
 import { berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
 import { RegionNote } from "@/components/region-note";
@@ -19,6 +19,7 @@ import { sliderStops, sortByMood, withinHours, type Mood } from "@/lib/meeqo/com
 import { useLoad } from "@/lib/meeqo/use-load";
 import { takeFeed } from "@/lib/meeqo/warm";
 import { locale, t } from "@/lib/meeqo/i18n";
+import { useHide } from "@/components/hide-sheet";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -69,7 +70,6 @@ function Feed() {
   const [sub, setSub] = useState("");
   const [traitsOpen, setTraitsOpen] = useState(false);
   const [locError, setLocError] = useState("");
-  const [gone, setGone] = useState<{ id: string; title: string } | null>(null);
   const [days, setDays] = useState<string[]>(() => [berlinDay()]);
   const [soon, setSoon] = useState(false);
   const [soonKm, setSoonKm] = useState(NOW_KM);
@@ -98,28 +98,8 @@ function Feed() {
     () => takeFeed(filter, sub, days, limit, soon, sort, soonKm),
     [filter, sub, days.join(","), limit, soon, soonKm, sort, profile?.radiusKm, profile?.lat, profile?.city, profile?.areas.join(","), profile?.openTo, profile?.requireTraits.join(",")],
   );
+  const hider = useHide(() => reloadFeed());
 
-  async function hide(item: Card) {
-    setLocError("");
-    try {
-      await hideActivity({ data: { id: item.id } });
-      setGone({ id: item.id, title: item.title });
-      reloadFeed();
-    } catch (err) {
-      setLocError(errText(err));
-    }
-  }
-
-  async function undoHide() {
-    if (!gone) return;
-    try {
-      await unhideActivity({ data: { id: gone.id } });
-      setGone(null);
-      reloadFeed();
-    } catch (err) {
-      setLocError(errText(err));
-    }
-  }
 
   const on = profile?.flags;
   const lenses = ([
@@ -143,6 +123,7 @@ function Feed() {
 
   return (
     <div className="space-y-5">
+      {hider.ui}
       <RegionNote />
       <CityScene city={profile?.city ?? ""} />
       <NextUpCard />
@@ -218,7 +199,7 @@ function Feed() {
       {error ? <Note>{error}</Note> : null}
       {filter === "classifieds" ? <ClassifiedBoard city={profile?.city ?? ""} sub={sub} /> : (
       <div className="grid gap-4 md:grid-cols-2">
-        {shown.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} onChanged={reloadFeed} />)}
+        {shown.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hider.ask(item)} onChanged={reloadFeed} />)}
       </div>
       )}
       {filter !== "classifieds" && data && data.items.length < 3 ? <LoosenCard hidden={data.hiddenByTraits ?? 0} onChanged={reloadFeed} /> : null}
@@ -278,12 +259,6 @@ function Feed() {
         </div>
       ) : null}
       {locError ? <Note>{locError}</Note> : null}
-      {gone ? (
-        <div className="card flex items-center justify-between gap-3 p-4">
-          <p className="text-sm">{t("„{0}“ bleibt ausgeblendet.", gone.title)}</p>
-          <button type="button" className={face} onClick={undoHide}>{t("Rückgängig")}</button>
-        </div>
-      ) : null}
       {!profile?.lat ? <Note>{t("Ohne Standort zeige ich dir alles, was zu deiner Absicht passt. Mit Standort gilt der Radius.")}</Note> : null}
       {data && data.missed > 0 ? (
         <div className="card flex items-center justify-between gap-3 p-4">

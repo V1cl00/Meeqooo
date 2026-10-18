@@ -39,6 +39,12 @@ describe("Sensible Angaben", () => {
 
     // Widerruf in den Einstellungen loescht die Angabe
     await page.goto(`${base}/settings`);
+    // collapsed at the very end, under Datenschutz
+    const row = page.getByTestId("sensitive-row");
+    await row.waitFor({ timeout: 15000 });
+    assert.equal(await row.evaluate((el) => el.open), false);
+    assert.equal(await page.getByTestId("privacy-section").evaluate((el) => !el.nextElementSibling), true);
+    await row.locator("summary").click();
     await page.waitForSelector("text=Du hast eingewilligt.");
     await page.getByRole("button", { name: /Einwilligung widerrufen/ }).click();
     await page.waitForFunction(() => document.body.innerText.includes("Keine Einwilligung gegeben"), null, { timeout: 10000 });

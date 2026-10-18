@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CalendarSubscribe } from "@/components/cal-subscribe";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Empty, Note } from "@/components/bits";
@@ -91,6 +92,7 @@ function MyDates() {
       <div>
         <h1 className="font-display text-4xl leading-none">{t("Meine Termine")}</h1>
         <p className="mt-2 text-sm text-muted">{t("Was du veranstaltest, zugesagt oder angefragt hast.")}</p>
+        <div className="mt-3"><CalendarSubscribe /></div>
       </div>
 
       <div className="card space-y-2 p-3">

@@ -9,6 +9,7 @@ import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { isNative, registerNativePush } from "@/lib/meeqo/native";
 import { setNotifyPrefs } from "@/lib/meeqo/round3";
+import { chime, setSound, soundOn } from "@/lib/meeqo/sound";
 import { useNavigate } from "@tanstack/react-router";
 import { setLang, t, useLang } from "@/lib/meeqo/i18n";
 
@@ -233,6 +234,12 @@ function Settings() {
             hint={t("Höchstens einmal am Tag, nur passend zu deinen Interessen.")}
             on={profile.notifyNearby}
             onChange={async (next) => { await setNotifyPrefs({ data: { nearby: next } }); await reload(); }}
+          />
+          <PrefSwitch
+            label={t("MeeQo-Klang")}
+            hint={t("Ein kurzer Ton, wenn du anfragst oder zusagst. Nur auf diesem Gerät.")}
+            on={soundOn()}
+            onChange={async (next) => { setSound(next); if (next) chime(true); }}
           />
         </div>
       </div>

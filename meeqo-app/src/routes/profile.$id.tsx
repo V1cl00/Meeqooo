@@ -78,6 +78,7 @@ function Person({ id }: { id: string }) {
       {data.bio ? <p className="text-sm">{data.bio}</p> : null}
       <div className="flex flex-wrap gap-2">
         <Button type="button" tone={data.friend === "friends" ? "ghost" : "accent"} disabled={busy || data.friend === "out"} onClick={befriend}>{label}</Button>
+        {data.friend === "friends" ? <Link to="/freunde/$id" params={{ id }} className="inline-flex h-12 items-center rounded-control bg-ink px-5 text-sm font-semibold text-onaccent">{t("Privat schreiben")}</Link> : null}
         <Button type="button" tone="ghost" disabled={busy} onClick={star}>{data.favorite ? t("Favorit lösen") : t("Favorit")}</Button>
         <Link to="/friends" className="inline-flex h-12 items-center rounded-control border-2 border-line bg-card px-5 text-sm font-semibold">{t("Was Freunde machen")}</Link>
       </div>

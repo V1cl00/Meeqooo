@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { NextUpCard } from "@/components/next-up";
 import { PlaceBar } from "@/components/place-bar";
@@ -14,6 +14,8 @@ import { berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
 import { RegionNote } from "@/components/region-note";
 import { WeekCard } from "@/components/week-card";
+import { CityScene, FreeSignal, MoodBar, readMood, TimeSlider, WeekPicks } from "@/components/feed-extras";
+import { sliderStops, sortByMood, withinHours, type Mood } from "@/lib/meeqo/companion";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { takeFeed } from "@/lib/meeqo/warm";
 import { locale, t } from "@/lib/meeqo/i18n";
@@ -71,6 +73,9 @@ function Feed() {
   const [days, setDays] = useState<string[]>(() => [berlinDay()]);
   const [soon, setSoon] = useState(false);
   const [soonKm, setSoonKm] = useState(NOW_KM);
+  const [mood, setMood] = useState<Mood>("");
+  useEffect(() => setMood(readMood()), []);
+  const [hours, setHours] = useState(99);
   const [sort, setSort] = useState<"time" | "fit">(() => {
     try {
       return window.localStorage.getItem("meeqo-sort") === "fit" ? "fit" : "time";
@@ -131,13 +136,19 @@ function Feed() {
   const hasOrigin = profile?.lat != null;
   const nowLine = hasOrigin ? t("Nächste {0} Std · bis {1} km", NOW_HOURS, soon ? soonKm : NOW_KM) : t("Nächste {0} Std", NOW_HOURS);
   const filterCount = activeFilterCount(profile?.requireTraits, profile?.lat != null ? profile?.radiusKm : undefined);
+  const todayOnly = !soon && days.length === 1 && days[0] === berlinDay();
+  const stops = sliderStops();
+  const shown = sortByMood(todayOnly ? withinHours(data?.items ?? [], hours, stops) : data?.items ?? [], mood, profile?.seeking ?? []);
   const hosts = (data?.items ?? []).filter((item, index, list) => list.findIndex((other) => other.hostId === item.hostId) === index).slice(0, 12);
 
   return (
     <div className="space-y-5">
       <RegionNote />
+      <CityScene city={profile?.city ?? ""} />
       <NextUpCard />
       <WeekCard nearby={(data?.items ?? []).filter((item) => !item.isHost && !item.myStatus && !item.cancelled && new Date(item.startsAt).getTime() < Date.now() + 7 * 86_400_000).length} />
+      <FreeSignal />
+      <WeekPicks items={data?.items ?? []} mood={mood} seeking={profile?.seeking ?? []} />
       <div className="space-y-3">
         <h1 className="font-display text-4xl leading-none">{t("Treffen in der Nähe")}</h1>
         <PlaceBar onChange={reloadFeed} />
@@ -180,6 +191,8 @@ function Feed() {
             <span className={`text-[11px] leading-tight ${soon ? "" : "text-muted"}`}>{nowLine}</span>
           </button>
           {soon ? <p className="text-sm text-muted">{t("In den nächsten Stunden, nur ein paar Meter weg. Läuft schon und hat noch Platz zählt auch.")}</p> : <WhenBar days={days} onChange={setDays} />}
+          {todayOnly ? <TimeSlider hours={hours} onChange={setHours} /> : null}
+          <MoodBar mood={mood} onChange={setMood} />
           {soon ? null : (
             <div className="flex items-center gap-2" role="group" aria-label={t("Sortierung")}>
               {([["time", "Nach Zeit"], ["fit", "Passend für dich"]] as const).map(([id, label]) => (
@@ -204,7 +217,7 @@ function Feed() {
       {error ? <Note>{error}</Note> : null}
       {filter === "classifieds" ? <ClassifiedBoard city={profile?.city ?? ""} sub={sub} /> : (
       <div className="grid gap-4 md:grid-cols-2">
-        {data?.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} onChanged={reloadFeed} />)}
+        {shown.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} onChanged={reloadFeed} />)}
       </div>
       )}
       {filter !== "classifieds" && data && data.items.length < 3 ? <LoosenCard hidden={data.hiddenByTraits ?? 0} onChanged={reloadFeed} /> : null}

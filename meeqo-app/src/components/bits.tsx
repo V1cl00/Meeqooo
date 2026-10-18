@@ -182,7 +182,7 @@ export function ActivityCard({ item, onHide, onChanged }: { item: Activity; onHi
       >
         <SparteStrip kind={sparte.kind} sub={sparte.sub} />
         <div className="relative aspect-[16/11] bg-sand-deep">
-          {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : null}
+          {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" decoding="async" style={{ viewTransitionName: `act-${item.id}` }} className="h-full w-full object-cover" /> : null}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-3 pt-12">
             <h2 className="font-display text-[1.45rem] leading-tight text-white">{item.title}</h2>
           </div>

@@ -7,13 +7,15 @@ import { icsFor, mapUrl } from "@/lib/meeqo/ics";
 import { activityLink, openShare, ShareSheet } from "@/components/share";
 import { Shell, useMe } from "@/components/shell";
 import { isPhotoMissing, PhotoMissing } from "@/components/photo";
-import { checkIn, confirmAttendance, confirmSafe, createInvite, createSafetyLink, getActivity, hideActivity, leaveActivity, removeGuest, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
+import { checkIn, confirmAttendance, confirmSafe, createInvite, createSafetyLink, getActivity, hideActivity, leaveActivity, removeGuest, repeatActivity, requestJoin, sendMessage, unhideActivity } from "@/lib/meeqo/api";
 import { bookingLabel, countdownLabel, errText, formatWhen, MOODS, replyLabel, sparteOf } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
 import { WeatherChip } from "@/components/weather-chip";
 import { HostTrust } from "@/components/host-trust";
+import { HoldButton } from "@/components/hold-button";
+import { Anticipation, CANCEL_TEMPLATES, Chemistry, GroupSign, IcebreakerCards } from "@/components/meet-extras";
 import { getShareMeta, shareMetaTags } from "@/lib/meeqo/share";
 
 export const Route = createFileRoute("/activity/$id")({
@@ -42,6 +44,7 @@ function Detail({ id }: { id: string }) {
   const [trust, setTrust] = useState<{ title: string; text: string } | null>(null);
   const [weeks, setWeeks] = useState(1);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [cancelNote, setCancelNote] = useState("");
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [needPhoto, setNeedPhoto] = useState(false);
   const { profile } = useMe();
@@ -145,6 +148,7 @@ function Detail({ id }: { id: string }) {
     setBusy(true);
     setFail("");
     try {
+      if (cancelNote && item.myStatus === "accepted") await sendMessage({ data: { id: item.id, body: t(cancelNote) } }).catch(() => {});
       await leaveActivity({ data: { id: item.id } });
       notice(item.myStatus === "waitlist" ? t("Du bist nicht mehr auf der Warteliste.") : t("Du bist raus. Der Platz ist wieder frei."));
       setConfirmLeave(false);
@@ -254,9 +258,11 @@ function Detail({ id }: { id: string }) {
           <Button type="button" tone="ink" className="h-11 shrink-0" disabled={busy} onClick={allGood}>{t("Gut angekommen")}</Button>
         </div>
       ) : null}
-      <div className={`card overflow-hidden ${business ? "!border-2 !border-ink" : sparte.kind === "event" ? "!border-2 !border-accent-deep" : ""}`}>
+      <div className="-mx-4 -mt-2 md:mx-0 md:mt-0">
+        {item.imageUrl ? <img src={item.imageUrl} alt="" style={{ viewTransitionName: `act-${item.id}` }} className="aspect-[4/3] w-full object-cover md:rounded-card" /> : <div className="aspect-[4/3] bg-sand-deep md:rounded-card" />}
+      </div>
+      <div className={`card -mt-10 overflow-hidden ${business ? "!border-2 !border-ink" : sparte.kind === "event" ? "!border-2 !border-accent-deep" : ""}`}>
         <SparteStrip kind={sparte.kind} sub={sparte.sub} />
-        {item.imageUrl ? <img src={item.imageUrl} alt="" className="aspect-[3/2] w-full object-cover" /> : <div className="aspect-[3/2] bg-sand-deep" />}
         <div className="space-y-3 p-4">
           <div className="flex flex-wrap gap-1.5">
             {business ? null : <IntentPill intent={item.intent} />}
@@ -265,6 +271,7 @@ function Detail({ id }: { id: string }) {
           </div>
           <h1 className="font-display text-4xl leading-none">{item.title}</h1>
           <p className="text-sm text-muted">{formatWhen(item.startsAt)} · {item.placeName}, {item.city}</p>
+          {(item.isHost || item.myStatus === "accepted") && !item.cancelled ? <Anticipation startsAt={item.startsAt} isHost={item.isHost} hostName={item.hostName} going={data.going} /> : null}
           {(item.isHost || item.myStatus === "accepted") && countdownLabel(item.startsAt) ? (
             <p className="inline-flex rounded-full bg-accent px-3 py-1 text-sm font-semibold text-onfill">{countdownLabel(item.startsAt)}</p>
           ) : null}
@@ -276,6 +283,9 @@ function Detail({ id }: { id: string }) {
           {item.cancelled ? <Note>{t("Diese Aktivität ist abgesagt.")}</Note> : null}
         </div>
       </div>
+      {(item.isHost || item.myStatus === "accepted") && !item.cancelled ? <GroupSign id={item.id} startsAt={item.startsAt} durationMin={item.durationMin} /> : null}
+      {(item.isHost || item.myStatus === "accepted") && !item.cancelled && item.spots > 1 ? <IcebreakerCards id={item.id} startsAt={item.startsAt} /> : null}
+      {!business && !item.cancelled ? <Chemistry id={item.id} /> : null}
       <div className="card p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">{business ? t("Ansprechperson") : t("Gastgeber")}</p>
         <div className="mt-3 flex items-center gap-3">
@@ -384,7 +394,20 @@ function Detail({ id }: { id: string }) {
         {item.myStatus === "waitlist" ? <Note>{t("Du bist auf der Warteliste{0}. Sagt jemand ab, rückst du nach.", data.waitlistPosition ? t(", Platz {0}", data.waitlistPosition) : "")}</Note> : null}
         {!item.isHost && !item.cancelled && (item.myStatus === "accepted" || item.myStatus === "pending" || item.myStatus === "waitlist") ? (
           confirmLeave ? (
-            <Button type="button" tone="ink" disabled={busy} onClick={leave}>{item.myStatus === "waitlist" ? t("Ja, von der Warteliste") : t("Ja, ich sage ab")}</Button>
+            <div className="card w-full space-y-2 p-4">
+              {item.myStatus === "accepted" ? (
+                <>
+                  <p className="text-sm font-semibold">{t("Kurz Bescheid geben? Geht in den Gruppenchat.")}</p>
+                  {CANCEL_TEMPLATES.map((text) => (
+                    <button key={text} type="button" aria-pressed={cancelNote === text} onClick={() => setCancelNote(cancelNote === text ? "" : text)} className={`block w-full rounded-control border-2 px-3 py-2 text-left text-sm ${cancelNote === text ? "border-accent bg-accent/10" : "border-line bg-card"}`}>{t(text)}</button>
+                  ))}
+                </>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" tone="ink" disabled={busy} onClick={leave}>{item.myStatus === "waitlist" ? t("Ja, von der Warteliste") : cancelNote ? t("Absagen und Bescheid geben") : t("Ja, ich sage ab")}</Button>
+                <Button type="button" tone="ghost" disabled={busy} onClick={() => { setConfirmLeave(false); setCancelNote(""); }}>{t("Doch nicht")}</Button>
+              </div>
+            </div>
           ) : (
             <Button type="button" tone="ghost" disabled={busy} onClick={() => setConfirmLeave(true)}>{item.myStatus === "waitlist" ? t("Warteliste verlassen") : t("Absagen")}</Button>
           )
@@ -403,9 +426,12 @@ function Detail({ id }: { id: string }) {
         ) : null}
         <div className="mx-auto flex max-w-lg gap-2">
           {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" && item.myStatus !== "waitlist" ? (
-            <Button type="button" disabled={busy} className="h-12 flex-1" onClick={() => void join()}>
-              {item.spotsLeft < 1 ? t("Auf die Warteliste") : item.bookingMode === "instant" ? t("Sofort dabei") : business ? t("Kontakt anfragen") : t("Anfragen")}
-            </Button>
+            <HoldButton disabled={busy} className="h-12 flex-1" onCommit={() => void join()}>
+              <span className="flex flex-col items-start leading-tight">
+                <span>{item.spotsLeft < 1 ? t("Auf die Warteliste") : item.bookingMode === "instant" ? t("Sofort dabei") : business ? t("Kontakt anfragen") : t("Anfragen")}</span>
+                <span className="hidden text-[11px] font-normal opacity-80 pointer-coarse:inline">{t("Gedrückt halten")}</span>
+              </span>
+            </HoldButton>
           ) : null}
           {item.myStatus === "accepted" || item.isHost ? (
             <Link to="/chat/$id" params={{ id: item.id }} className="inline-flex h-12 flex-1 items-center justify-center rounded-control bg-ink px-5 text-sm font-semibold text-onaccent">{item.spots > 2 ? t("Gruppenchat") : t("Chat")}</Link>

@@ -41,6 +41,7 @@ import { Route as BearbeitenIdRouteImport } from './routes/bearbeiten.$id'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as CommunitiesIdRouteImport } from './routes/communities.$id'
 import { Route as EinladungTokenRouteImport } from './routes/einladung.$token'
+import { Route as FreundeIdRouteImport } from './routes/freunde.$id'
 import { Route as KalenderTokenRouteImport } from './routes/kalender.$token'
 import { Route as OrganizerCreateRouteImport } from './routes/organizer.create'
 import { Route as OrganizerRegisterRouteImport } from './routes/organizer.register'
@@ -214,6 +215,11 @@ const EinladungTokenRoute = EinladungTokenRouteImport.update({
   path: '/einladung/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FreundeIdRoute = FreundeIdRouteImport.update({
+  id: '/freunde/$id',
+  path: '/freunde/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KalenderTokenRoute = KalenderTokenRouteImport.update({
   id: '/kalender/$token',
   path: '/kalender/$token',
@@ -308,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
+  '/freunde/$id': typeof FreundeIdRoute
   '/kalender/$token': typeof KalenderTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
@@ -354,6 +361,7 @@ export interface FileRoutesByTo {
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
+  '/freunde/$id': typeof FreundeIdRoute
   '/kalender/$token': typeof KalenderTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
@@ -401,6 +409,7 @@ export interface FileRoutesById {
   '/chat/$id': typeof ChatIdRoute
   '/communities/$id': typeof CommunitiesIdRoute
   '/einladung/$token': typeof EinladungTokenRoute
+  '/freunde/$id': typeof FreundeIdRoute
   '/kalender/$token': typeof KalenderTokenRoute
   '/organizer/create': typeof OrganizerCreateRoute
   '/organizer/register': typeof OrganizerRegisterRoute
@@ -449,6 +458,7 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
+    | '/freunde/$id'
     | '/kalender/$token'
     | '/organizer/create'
     | '/organizer/register'
@@ -495,6 +505,7 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
+    | '/freunde/$id'
     | '/kalender/$token'
     | '/organizer/create'
     | '/organizer/register'
@@ -541,6 +552,7 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/communities/$id'
     | '/einladung/$token'
+    | '/freunde/$id'
     | '/kalender/$token'
     | '/organizer/create'
     | '/organizer/register'
@@ -586,6 +598,7 @@ export interface RootRouteChildren {
   AdminZahlenRoute: typeof AdminZahlenRoute
   BearbeitenIdRoute: typeof BearbeitenIdRoute
   EinladungTokenRoute: typeof EinladungTokenRoute
+  FreundeIdRoute: typeof FreundeIdRoute
   KalenderTokenRoute: typeof KalenderTokenRoute
   RatingIdRoute: typeof RatingIdRoute
   RatingCompleteRoute: typeof RatingCompleteRoute
@@ -822,6 +835,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EinladungTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/freunde/$id': {
+      id: '/freunde/$id'
+      path: '/freunde/$id'
+      fullPath: '/freunde/$id'
+      preLoaderRoute: typeof FreundeIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/kalender/$token': {
       id: '/kalender/$token'
       path: '/kalender/$token'
@@ -989,6 +1009,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminZahlenRoute: AdminZahlenRoute,
   BearbeitenIdRoute: BearbeitenIdRoute,
   EinladungTokenRoute: EinladungTokenRoute,
+  FreundeIdRoute: FreundeIdRoute,
   KalenderTokenRoute: KalenderTokenRoute,
   RatingIdRoute: RatingIdRoute,
   RatingCompleteRoute: RatingCompleteRoute,

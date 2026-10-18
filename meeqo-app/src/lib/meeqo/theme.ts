@@ -86,7 +86,7 @@ export function hsl(h: number, s: number, l: number) {
 export function normalizeTheme(raw: unknown): AppTheme | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
-  const sand = hex(row.sand) ?? "#f7f1ea";
+  const sand = hex(row.sand) ?? "#f4e8d8";
   const accent = hex(row.accent) ?? "#e07a5f";
   let friend = hex(row.friend) ?? "#3f6b58";
   const ink = readable(sand, hex(row.ink));
@@ -123,7 +123,7 @@ const PRESETS: { keys: string[]; theme: Record<string, string> }[] = [
 export function localTheme(note: string): AppTheme {
   const text = note.toLowerCase();
   const preset = PRESETS.find((item) => item.keys.some((key) => text.includes(key)));
-  if (preset) return normalizeTheme(preset.theme) ?? normalizeTheme({ sand: "#f7f1ea", accent: "#e07a5f" })!;
+  if (preset) return normalizeTheme(preset.theme) ?? normalizeTheme({ sand: "#f4e8d8", accent: "#e07a5f" })!;
   let hash = 0;
   for (const char of note) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
   const hue = hash % 360;

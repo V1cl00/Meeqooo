@@ -27,6 +27,7 @@ export type CreateDraft = {
   step: number;
   sentence: string;
   communityId: string;
+  minPeople?: number;
 };
 
 function store(): Storage | null {

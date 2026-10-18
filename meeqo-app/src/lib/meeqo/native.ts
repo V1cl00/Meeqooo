@@ -25,7 +25,7 @@ export async function initNative(go: (path: string) => void) {
   const paint = async () => {
     try {
       await StatusBar.setStyle({ style: dark.matches ? Style.Dark : Style.Light });
-      if (platform() === "android") await StatusBar.setBackgroundColor({ color: dark.matches ? "#1c1815" : "#F7F1EA" });
+      if (platform() === "android") await StatusBar.setBackgroundColor({ color: dark.matches ? "#1c1815" : "#F4E8D8" });
     } catch {
       /* the bar keeps its default */
     }

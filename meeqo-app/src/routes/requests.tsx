@@ -6,6 +6,7 @@ import { listRequests, respondRequest } from "@/lib/meeqo/api";
 import { errText } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
+import { buzz } from "@/lib/meeqo/feel";
 
 export const Route = createFileRoute("/requests")({ component: Page });
 
@@ -32,6 +33,7 @@ function Requests() {
     setFail("");
     try {
       await respondRequest({ data: { id, accept } });
+      if (accept) buzz(20);
       reload();
     } catch (err) {
       setFail(errText(err));

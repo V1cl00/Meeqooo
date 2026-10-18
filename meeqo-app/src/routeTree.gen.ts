@@ -34,6 +34,8 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as ActivityIdRouteImport } from './routes/activity.$id'
 import { Route as AdminMeldungenRouteImport } from './routes/admin.meldungen'
+import { Route as AdminOrteRouteImport } from './routes/admin.orte'
+import { Route as AdminPruefungRouteImport } from './routes/admin.pruefung'
 import { Route as AdminZahlenRouteImport } from './routes/admin.zahlen'
 import { Route as BearbeitenIdRouteImport } from './routes/bearbeiten.$id'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
@@ -46,6 +48,7 @@ import { Route as ProfileIdRouteImport } from './routes/profile.$id'
 import { Route as RatingIdRouteImport } from './routes/rating.$id'
 import { Route as RatingCompleteRouteImport } from './routes/rating.complete'
 import { Route as SicherTokenRouteImport } from './routes/sicher.$token'
+import { Route as WieWarsIdRouteImport } from './routes/wie-wars.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ChatAnzeigeIdRouteImport } from './routes/chat.anzeige.$id'
 import { Route as MediaActivityIdRouteImport } from './routes/media.activity.$id'
@@ -176,6 +179,16 @@ const AdminMeldungenRoute = AdminMeldungenRouteImport.update({
   path: '/admin/meldungen',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminOrteRoute = AdminOrteRouteImport.update({
+  id: '/admin/orte',
+  path: '/admin/orte',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPruefungRoute = AdminPruefungRouteImport.update({
+  id: '/admin/pruefung',
+  path: '/admin/pruefung',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminZahlenRoute = AdminZahlenRouteImport.update({
   id: '/admin/zahlen',
   path: '/admin/zahlen',
@@ -236,6 +249,11 @@ const SicherTokenRoute = SicherTokenRouteImport.update({
   path: '/sicher/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WieWarsIdRoute = WieWarsIdRouteImport.update({
+  id: '/wie-wars/$id',
+  path: '/wie-wars/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -283,6 +301,8 @@ export interface FileRoutesByFullPath {
   '/support': typeof SupportRoute
   '/activity/$id': typeof ActivityIdRoute
   '/admin/meldungen': typeof AdminMeldungenRoute
+  '/admin/orte': typeof AdminOrteRoute
+  '/admin/pruefung': typeof AdminPruefungRoute
   '/admin/zahlen': typeof AdminZahlenRoute
   '/bearbeiten/$id': typeof BearbeitenIdRoute
   '/chat/$id': typeof ChatIdRoute
@@ -295,6 +315,7 @@ export interface FileRoutesByFullPath {
   '/rating/$id': typeof RatingIdRoute
   '/rating/complete': typeof RatingCompleteRoute
   '/sicher/$token': typeof SicherTokenRoute
+  '/wie-wars/$id': typeof WieWarsIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
   '/media/activity/$id': typeof MediaActivityIdRoute
@@ -326,6 +347,8 @@ export interface FileRoutesByTo {
   '/support': typeof SupportRoute
   '/activity/$id': typeof ActivityIdRoute
   '/admin/meldungen': typeof AdminMeldungenRoute
+  '/admin/orte': typeof AdminOrteRoute
+  '/admin/pruefung': typeof AdminPruefungRoute
   '/admin/zahlen': typeof AdminZahlenRoute
   '/bearbeiten/$id': typeof BearbeitenIdRoute
   '/chat/$id': typeof ChatIdRoute
@@ -338,6 +361,7 @@ export interface FileRoutesByTo {
   '/rating/$id': typeof RatingIdRoute
   '/rating/complete': typeof RatingCompleteRoute
   '/sicher/$token': typeof SicherTokenRoute
+  '/wie-wars/$id': typeof WieWarsIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
   '/media/activity/$id': typeof MediaActivityIdRoute
@@ -370,6 +394,8 @@ export interface FileRoutesById {
   '/support': typeof SupportRoute
   '/activity/$id': typeof ActivityIdRoute
   '/admin/meldungen': typeof AdminMeldungenRoute
+  '/admin/orte': typeof AdminOrteRoute
+  '/admin/pruefung': typeof AdminPruefungRoute
   '/admin/zahlen': typeof AdminZahlenRoute
   '/bearbeiten/$id': typeof BearbeitenIdRoute
   '/chat/$id': typeof ChatIdRoute
@@ -382,6 +408,7 @@ export interface FileRoutesById {
   '/rating/$id': typeof RatingIdRoute
   '/rating/complete': typeof RatingCompleteRoute
   '/sicher/$token': typeof SicherTokenRoute
+  '/wie-wars/$id': typeof WieWarsIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/chat/anzeige/$id': typeof ChatAnzeigeIdRoute
   '/media/activity/$id': typeof MediaActivityIdRoute
@@ -415,6 +442,8 @@ export interface FileRouteTypes {
     | '/support'
     | '/activity/$id'
     | '/admin/meldungen'
+    | '/admin/orte'
+    | '/admin/pruefung'
     | '/admin/zahlen'
     | '/bearbeiten/$id'
     | '/chat/$id'
@@ -427,6 +456,7 @@ export interface FileRouteTypes {
     | '/rating/$id'
     | '/rating/complete'
     | '/sicher/$token'
+    | '/wie-wars/$id'
     | '/api/auth/$'
     | '/chat/anzeige/$id'
     | '/media/activity/$id'
@@ -458,6 +488,8 @@ export interface FileRouteTypes {
     | '/support'
     | '/activity/$id'
     | '/admin/meldungen'
+    | '/admin/orte'
+    | '/admin/pruefung'
     | '/admin/zahlen'
     | '/bearbeiten/$id'
     | '/chat/$id'
@@ -470,6 +502,7 @@ export interface FileRouteTypes {
     | '/rating/$id'
     | '/rating/complete'
     | '/sicher/$token'
+    | '/wie-wars/$id'
     | '/api/auth/$'
     | '/chat/anzeige/$id'
     | '/media/activity/$id'
@@ -501,6 +534,8 @@ export interface FileRouteTypes {
     | '/support'
     | '/activity/$id'
     | '/admin/meldungen'
+    | '/admin/orte'
+    | '/admin/pruefung'
     | '/admin/zahlen'
     | '/bearbeiten/$id'
     | '/chat/$id'
@@ -513,6 +548,7 @@ export interface FileRouteTypes {
     | '/rating/$id'
     | '/rating/complete'
     | '/sicher/$token'
+    | '/wie-wars/$id'
     | '/api/auth/$'
     | '/chat/anzeige/$id'
     | '/media/activity/$id'
@@ -545,6 +581,8 @@ export interface RootRouteChildren {
   SupportRoute: typeof SupportRoute
   ActivityIdRoute: typeof ActivityIdRoute
   AdminMeldungenRoute: typeof AdminMeldungenRoute
+  AdminOrteRoute: typeof AdminOrteRoute
+  AdminPruefungRoute: typeof AdminPruefungRoute
   AdminZahlenRoute: typeof AdminZahlenRoute
   BearbeitenIdRoute: typeof BearbeitenIdRoute
   EinladungTokenRoute: typeof EinladungTokenRoute
@@ -552,6 +590,7 @@ export interface RootRouteChildren {
   RatingIdRoute: typeof RatingIdRoute
   RatingCompleteRoute: typeof RatingCompleteRoute
   SicherTokenRoute: typeof SicherTokenRoute
+  WieWarsIdRoute: typeof WieWarsIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   MediaActivityIdRoute: typeof MediaActivityIdRoute
   OgActivityIdRoute: typeof OgActivityIdRoute
@@ -734,6 +773,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMeldungenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/orte': {
+      id: '/admin/orte'
+      path: '/admin/orte'
+      fullPath: '/admin/orte'
+      preLoaderRoute: typeof AdminOrteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/pruefung': {
+      id: '/admin/pruefung'
+      path: '/admin/pruefung'
+      fullPath: '/admin/pruefung'
+      preLoaderRoute: typeof AdminPruefungRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/zahlen': {
       id: '/admin/zahlen'
       path: '/admin/zahlen'
@@ -816,6 +869,13 @@ declare module '@tanstack/react-router' {
       path: '/sicher/$token'
       fullPath: '/sicher/$token'
       preLoaderRoute: typeof SicherTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wie-wars/$id': {
+      id: '/wie-wars/$id'
+      path: '/wie-wars/$id'
+      fullPath: '/wie-wars/$id'
+      preLoaderRoute: typeof WieWarsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -924,6 +984,8 @@ const rootRouteChildren: RootRouteChildren = {
   SupportRoute: SupportRoute,
   ActivityIdRoute: ActivityIdRoute,
   AdminMeldungenRoute: AdminMeldungenRoute,
+  AdminOrteRoute: AdminOrteRoute,
+  AdminPruefungRoute: AdminPruefungRoute,
   AdminZahlenRoute: AdminZahlenRoute,
   BearbeitenIdRoute: BearbeitenIdRoute,
   EinladungTokenRoute: EinladungTokenRoute,
@@ -931,6 +993,7 @@ const rootRouteChildren: RootRouteChildren = {
   RatingIdRoute: RatingIdRoute,
   RatingCompleteRoute: RatingCompleteRoute,
   SicherTokenRoute: SicherTokenRoute,
+  WieWarsIdRoute: WieWarsIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   MediaActivityIdRoute: MediaActivityIdRoute,
   OgActivityIdRoute: OgActivityIdRoute,

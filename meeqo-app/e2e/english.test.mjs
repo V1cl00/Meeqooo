@@ -2,7 +2,7 @@
 // Voraussetzung wie smoke.test.mjs. Start: node --test e2e/english.test.mjs
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { base, jpeg, launch, text } from "./helpers.mjs";
+import { base, finishOnboarding, jpeg, launch, text } from "./helpers.mjs";
 
 let browser;
 before(async () => {
@@ -50,8 +50,7 @@ describe("English", () => {
     const friends = page.getByRole("button", { name: /^Friends/ }).first();
     if (await friends.count()) await friends.click();
     await page.getByPlaceholder(/Postcode|postal/i).fill("Karlsruhe");
-    await page.getByRole("button", { name: "On to the feed" }).click();
-    await page.waitForURL(`${base}/`, { timeout: 20000 });
+    await finishOnboarding(page, "Done", "Skip");
 
     for (const path of ["/", "/create", "/calendar", "/chat", "/profile", "/settings", "/search", "/categories", "/my-activities", "/notifications", "/friends", "/communities", "/support", "/requests"]) await visit(path);
 

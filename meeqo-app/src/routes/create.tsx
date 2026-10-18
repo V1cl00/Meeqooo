@@ -7,6 +7,7 @@ import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
 import { Shell, useMe } from "@/components/shell";
 import { createActivity, listCategories, suggestVenues } from "@/lib/meeqo/api";
+import { listVenues } from "@/lib/meeqo/round3";
 import { errText, splitCategory, templateFor } from "@/lib/meeqo/labels";
 import { compress } from "@/lib/meeqo/image";
 import { PhotoPicker } from "@/components/photo";
@@ -17,22 +18,23 @@ import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/create")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { community: string; venue?: string } => ({
     community: typeof search.community === "string" ? search.community : "",
+    ...(typeof search.venue === "string" && search.venue ? { venue: search.venue } : {}),
   }),
   component: Page,
 });
 
 function Page() {
-  const { community } = Route.useSearch();
+  const { community, venue } = Route.useSearch();
   return (
     <Shell>
-      <Create communityId={community} />
+      <Create communityId={community} venueId={venue ?? ""} />
     </Shell>
   );
 }
 
-function Create({ communityId }: { communityId: string }) {
+function Create({ communityId, venueId }: { communityId: string; venueId: string }) {
   const { profile } = useMe();
   const navigate = useNavigate();
   const cats = useLoad(() => listCategories(), []);
@@ -44,6 +46,7 @@ function Create({ communityId }: { communityId: string }) {
   const [city, setCity] = useState(profile?.city ?? "");
   const [when, setWhen] = useState("");
   const [spots, setSpots] = useState(4);
+  const [minPeople, setMinPeople] = useState(0);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [photoMissing, setPhotoMissing] = useState(false);
@@ -80,6 +83,7 @@ function Create({ communityId }: { communityId: string }) {
       setCity(draft.city);
       setWhen(draft.when);
       setSpots(draft.spots);
+      setMinPeople(draft.minPeople ?? 0);
       setCoords(draft.coords);
       setImageUrl(draft.imageUrl);
       setBookingMode(draft.bookingMode);
@@ -95,6 +99,20 @@ function Create({ communityId }: { communityId: string }) {
     const picked = takePicked();
     if (picked) setCategory(picked);
     setDraftReady(true);
+    // Admin template from /admin/orte: only prefills the form, nothing is sent anywhere.
+    if (venueId && !draft) {
+      listVenues()
+        .then((list) => {
+          const hit = list.find((item) => item.id === venueId);
+          if (!hit) return;
+          setTitle(hit.idea || hit.name);
+          setPlaceName(hit.name);
+          setCity("Karlsruhe");
+          setDescription(hit.address);
+        })
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dirty = Boolean(title.trim() || description.trim() || imageUrl || placeName.trim() || when || sentence.trim());
@@ -104,8 +122,8 @@ function Create({ communityId }: { communityId: string }) {
       clearDraft();
       return;
     }
-    writeDraft({ title, description, category, intent, placeName, city, when, spots, coords, imageUrl, bookingMode, publicPlace, traits, visibility, communityIds, durationMin, step, sentence, communityId });
-  }, [draftReady, dirty, title, description, category, intent, placeName, city, when, spots, coords, imageUrl, bookingMode, publicPlace, traits, visibility, communityIds, durationMin, step, sentence, communityId]);
+    writeDraft({ title, description, category, intent, placeName, city, when, spots, coords, imageUrl, bookingMode, publicPlace, traits, visibility, communityIds, durationMin, step, sentence, communityId, minPeople });
+  }, [draftReady, dirty, title, description, category, intent, placeName, city, when, spots, coords, imageUrl, bookingMode, publicPlace, traits, visibility, communityIds, durationMin, step, sentence, communityId, minPeople]);
 
   function startOver() {
     clearDraft();
@@ -244,6 +262,7 @@ function Create({ communityId }: { communityId: string }) {
           lng: coords?.lng,
           startsAt: new Date(when).toISOString(),
           spots,
+          minPeople,
           imageUrl,
           bookingMode,
           communityId,
@@ -316,7 +335,7 @@ function Create({ communityId }: { communityId: string }) {
               {templateUsed ? <p className="text-sm text-muted">{t("Vorlage eingesetzt. Du kannst alles unten noch ändern.")}</p> : null}
             </div>
           ) : null}
-          <SizeControls spots={spots} onSpots={setSpots} durationMin={durationMin} onDuration={setDurationMin} />
+          <SizeControls spots={spots} onSpots={setSpots} durationMin={durationMin} onDuration={setDurationMin} minPeople={minPeople} onMinPeople={setMinPeople} />
           <div className="space-y-1.5">
             <span className="text-[13px] font-semibold text-ink">{t("Foto, Pflicht")}</span>
             <PhotoPicker ref={photoRef} value={imageUrl} onFile={onFile} invalid={photoMissing} />
@@ -390,7 +409,8 @@ function durationLabel(minutes: number) {
 }
 
 /** Guests (stepper, 1 to 40 like the server) and duration (chips, longer via select). Always editable; a template only prefills. */
-function SizeControls({ spots, onSpots, durationMin, onDuration }: { spots: number; onSpots: (next: number) => void; durationMin: number; onDuration: (next: number) => void }) {
+function SizeControls({ spots, onSpots, durationMin, onDuration, minPeople, onMinPeople }: { spots: number; onSpots: (next: number) => void; durationMin: number; onDuration: (next: number) => void; minPeople: number; onMinPeople: (next: number) => void }) {
+  const minOptions = [0, 3, 4, 5, 6].filter((value) => value <= spots + 1);
   const step = "grid h-12 w-12 place-items-center rounded-full border border-line bg-card text-2xl font-semibold text-ink disabled:opacity-40";
   const chip = (on: boolean) => `inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
   return (
@@ -411,6 +431,15 @@ function SizeControls({ spots, onSpots, durationMin, onDuration }: { spots: numb
           />
           <button type="button" className={step} aria-label={t("Ein Platz mehr")} disabled={spots >= 40} onClick={() => onSpots(Math.min(40, spots + 1))}>+</button>
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <span className="text-[13px] font-semibold text-ink">{t("Findet statt ab")}</span>
+        <div className="flex flex-wrap gap-1.5">
+          {minOptions.map((value) => (
+            <button key={value} type="button" aria-pressed={minPeople === value} className={chip(minPeople === value)} onClick={() => onMinPeople(value)}>{value ? t("{0} Leuten", value) : t("Egal")}</button>
+          ))}
+        </div>
+        <p className="text-xs text-muted">{minPeople ? t("Mit dir gezählt. Bis dahin steht im Feed „Noch N Leute, dann findet es statt“.") : t("Auch zu zweit ok.")}</p>
       </div>
       <div className="space-y-1.5">
         <span className="text-[13px] font-semibold text-ink">{t("Dauer")}</span>

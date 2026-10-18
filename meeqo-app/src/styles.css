@@ -7,15 +7,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-sand: #f6f1eb;
-  --color-sand-deep: #efe6db;
-  --color-card: #fffcf9;
-  --color-ink: #241c18;
-  --color-muted: #6f6159;
-  --color-line: #eadfd4;
+  --color-sand: #f4e8d8;
+  --color-sand-deep: #eadbc6;
+  --color-card: #fffbf5;
+  --color-ink: #3d405b;
+  --color-muted: #5b5d75;
+  --color-line: #e5d5c0;
   --color-accent: #e07a5f;
   --color-accent-deep: #a8462f;
-  --color-friend: #3f6b58;
+  --color-friend: #3e6e59;
+  /* Brand green for fills (bars, dots, badges with dark text). As text use friend. */
+  --color-green: #81b29a;
   --color-onaccent: #fff8f4;
   /* Text on solid accent fills. Dark on #e07a5f gives 5.7:1, light gave 2.8:1. */
   --color-onfill: #241c18;

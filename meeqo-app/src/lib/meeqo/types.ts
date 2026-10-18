@@ -33,6 +33,13 @@ export type Profile = {
   avatarUrl: string;
   badges: string[];
   theme: AppTheme | null;
+  /** Karlsruhe district from onboarding, or empty. */
+  district: string;
+  languages: string[];
+  /** The optional "Profil vervollständigen" step was shown (done or skipped). */
+  profileMoreSeen: boolean;
+  notifyReminder: boolean;
+  notifyNearby: boolean;
 };
 
 export type ActivityCard = {
@@ -43,6 +50,10 @@ export type ActivityCard = {
   hostBadges: string[];
   hostOrganizer: boolean;
   durationMin: number;
+  /** Minimum people including the host for it to happen; 0 = none. */
+  minPeople: number;
+  /** People still missing until it happens (host counts). 0 = reached or no minimum. */
+  stillNeeded: number;
   area: "meetup" | "business" | "event";
   /** First names of the viewer's friends who are going. Filled by the feed only. */
   friendsGoing: string[];
@@ -320,6 +331,8 @@ export type AdminStats = {
 };
 
 export type Funnel = {
+  /** Last 7 days, distinct people per step (first-party: funnel_events and the meetup tables). */
+  week: { key: string; count: number }[];
   /** Accounts of the last 30 days and how far they got. */
   steps: { key: string; count: number }[];
   dau: number;

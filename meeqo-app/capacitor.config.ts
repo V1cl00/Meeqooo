@@ -21,9 +21,9 @@ const config: CapacitorConfig = {
       }
     : {}),
   android: { allowMixedContent: false },
-  ios: { contentInset: "always", backgroundColor: "#F7F1EA" },
+  ios: { contentInset: "always", backgroundColor: "#F4E8D8" },
   plugins: {
-    SplashScreen: { launchShowDuration: 800, backgroundColor: "#F7F1EA", showSpinner: false },
+    SplashScreen: { launchShowDuration: 800, backgroundColor: "#F4E8D8", showSpinner: false },
     Keyboard: { resize: "body" },
     PushNotifications: { presentationOptions: ["badge", "sound", "alert"] },
   },

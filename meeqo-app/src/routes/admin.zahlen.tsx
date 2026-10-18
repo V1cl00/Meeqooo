@@ -75,6 +75,17 @@ function FunnelCard() {
           <div className="mt-1 h-2 rounded-full bg-sand-deep"><div className="h-2 rounded-full bg-accent" style={{ width: `${top ? (step.count / top) * 100 : 0}%` }} /></div>
         </div>
       ))}
+      <h3 className="pt-2 text-base font-semibold">Trichter der letzten 7 Tage</h3>
+      <p className="text-sm text-muted">Verschiedene Menschen je Schritt: Feed gesehen (eigene Zählung, eine Zeile pro Konto und Tag) → Anfrage → Zusage → Eingecheckt.</p>
+      {data.week.map((step) => {
+        const base = data.week[0]?.count || 0;
+        return (
+          <div key={step.key}>
+            <div className="flex justify-between text-sm"><span>{step.key}</span><span className="font-semibold">{step.count}{base ? ` · ${Math.round((step.count / base) * 100)} %` : ""}</span></div>
+            <div className="mt-1 h-2 rounded-full bg-sand-deep"><div className="h-2 rounded-full bg-green" style={{ width: `${base ? Math.min(100, (step.count / base) * 100) : 0}%` }} /></div>
+          </div>
+        );
+      })}
       <div className="grid grid-cols-3 gap-2 pt-2 text-center">
         <Tile label="Heute aktiv" value={String(data.dau)} />
         <Tile label="7 Tage" value={String(data.wau)} />
@@ -98,7 +109,7 @@ function Stats() {
       <div>
         <h1 className="font-display text-4xl leading-none">Zahlen</h1>
         <p className="mt-2 text-sm text-muted">Aus deiner eigenen Datenbank, ohne Tracking-Dienst. Beispiel-Profile zählen nicht mit.</p>
-        <p className="mt-2 text-sm"><Link to="/admin/meldungen" className="underline">Meldungen</Link></p>
+        <p className="mt-2 text-sm"><Link to="/admin/meldungen" className="underline">Meldungen</Link> · <Link to="/admin/pruefung" className="underline">Selfie-Prüfung</Link> · <Link to="/admin/orte" className="underline">Orte</Link></p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Tile label="Konten" value={String(data.users)} hint={`${data.newUsers7} in 7 Tagen`} />

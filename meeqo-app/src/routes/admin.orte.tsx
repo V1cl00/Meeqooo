@@ -41,6 +41,7 @@ function Venues() {
               {item.idea ? <p className="text-sm">Idee: {item.idea}</p> : null}
               <div className="flex flex-wrap gap-3 pt-1 text-sm">
                 <Link to="/create" search={{ community: "", venue: item.id }} className="font-semibold text-accent-deep underline">Als Treffen anlegen</Link>
+                <Link to="/orte/$id" params={{ id: item.id }} className="text-muted underline">Ortsseite</Link>
                 {item.website ? <a href={item.website} target="_blank" rel="noreferrer noopener" className="text-muted underline">Website</a> : null}
               </div>
             </div>

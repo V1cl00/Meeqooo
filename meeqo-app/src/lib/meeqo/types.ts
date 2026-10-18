@@ -40,6 +40,7 @@ export type Profile = {
   profileMoreSeen: boolean;
   notifyReminder: boolean;
   notifyNearby: boolean;
+  pageStyle: string;
 };
 
 export type ActivityCard = {
@@ -225,6 +226,8 @@ export type ActivityDetail = {
 
 export type PublicProfile = {
   userId: string;
+  /** Own page colour from the brand palette, "" = default. */
+  pageStyle: string;
   displayName: string;
   bio: string;
   intent: string;
@@ -358,6 +361,9 @@ export type WeekSummary = {
   /** Meetups I checked in to since 1 January, and how many different people were there with me. */
   yearMeetups: number;
   yearPeople: number;
+  /** Checked-in meetups and different people in the last 7 days (for the Sunday story). */
+  weekMeetups: number;
+  weekPeople: number;
 };
 
 export type NextUp = {

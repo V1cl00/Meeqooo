@@ -148,6 +148,7 @@ function Feed() {
       <NextUpCard />
       <WeekCard nearby={(data?.items ?? []).filter((item) => !item.isHost && !item.myStatus && !item.cancelled && new Date(item.startsAt).getTime() < Date.now() + 7 * 86_400_000).length} />
       <FreeSignal />
+      <Link to="/ideen" className="card flex items-center justify-between gap-3 px-4 py-3 text-sm"><span><span className="block font-semibold">{t("Ideenwand")}</span><span className="block text-xs text-muted">{t("Schreib, was du gern machen würdest. Andere sagen „Ich auch“.")}</span></span><span aria-hidden="true">→</span></Link>
       <WeekPicks items={data?.items ?? []} mood={mood} seeking={profile?.seeking ?? []} />
       <div className="space-y-3">
         <h1 className="font-display text-4xl leading-none">{t("Treffen in der Nähe")}</h1>

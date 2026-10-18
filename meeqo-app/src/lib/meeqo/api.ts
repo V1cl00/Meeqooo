@@ -149,6 +149,7 @@ type ProfileRow = {
   profile_more_seen?: boolean;
   notify_reminder?: boolean;
   notify_nearby?: boolean;
+  page_style?: string;
   avatar_url: string;
   theme: string;
   traits: string;
@@ -402,6 +403,7 @@ function mapProfile(row: ProfileRow, stats: { n: number; yes: number; hosted: nu
     profileMoreSeen: flag(row.profile_more_seen),
     notifyReminder: row.notify_reminder !== false,
     notifyNearby: row.notify_nearby !== false,
+    pageStyle: row.page_style ?? "",
     badges: badgesFrom(
       flag(row.identity_confirmed),
       flag(row.is_organizer),
@@ -2293,6 +2295,7 @@ export const getPublicProfile = createServerFn({ method: "POST" })
     const stats = await ratingStats(sql, data.id);
     return {
       userId: row.user_id,
+      pageStyle: String((row as unknown as { page_style?: string }).page_style ?? ""),
       displayName: row.display_name,
       bio: row.bio,
       intent: row.intent,
@@ -3934,8 +3937,10 @@ export const weekSummary = createServerFn({ method: "GET" })
           and exists (select 1 from activities b where b.host_id = a.host_id and b.title = a.title and b.starts_at < a.starts_at and b.cancelled = false)
         order by a.title, a.starts_at asc
       `,
-      sql<{ meetups: number; people: number }>`
+      sql<{ meetups: number; people: number; week_meetups: number; week_people: number }>`
         select count(distinct c.activity_id)::int as meetups,
+          count(distinct c.activity_id) filter (where a.starts_at > now() - interval '7 days')::int as week_meetups,
+          count(distinct other.user_id) filter (where other.user_id <> ${me} and a.starts_at > now() - interval '7 days')::int as week_people,
           count(distinct other.user_id) filter (where other.user_id <> ${me})::int as people
         from checkins c
         join activities a on a.id = c.activity_id
@@ -3951,6 +3956,8 @@ export const weekSummary = createServerFn({ method: "GET" })
         .slice(0, 2),
       yearMeetups: num(met[0]?.meetups),
       yearPeople: num(met[0]?.people),
+      weekMeetups: num(met[0]?.week_meetups),
+      weekPeople: num(met[0]?.week_people),
     };
   });
 

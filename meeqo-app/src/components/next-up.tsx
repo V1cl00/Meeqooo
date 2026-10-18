@@ -73,11 +73,11 @@ export function NextUpCard() {
           </div>
         ) : null}
         <div className="flex flex-wrap gap-2">
-          <a href={routeUrl(data.lat, data.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center gap-2 rounded-full border border-line bg-card px-4 text-sm font-semibold">
+          <a href={routeUrl(data.lat, data.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center gap-2 rounded-control border border-line bg-card px-3.5 text-sm font-semibold">
             <Navigation className="h-4 w-4" />{t("Weg")}</a>
           {data.canCheckIn && !data.checkedIn ? <Button type="button" className="h-11" onClick={arrive}>{t("Einchecken")}</Button> : null}
           {data.chatOpen ? (
-            <Link to="/chat/$id" params={{ id: data.id }} className="inline-flex h-11 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{data.group ? t("Gruppenchat") : t("Chat")}</Link>
+            <Link to="/chat/$id" params={{ id: data.id }} className="inline-flex h-10 items-center rounded-control border border-line bg-card px-3.5 text-sm font-semibold">{data.group ? t("Gruppenchat") : t("Chat")}</Link>
           ) : null}
         </div>
         {data.checkedIn && !data.safe ? (

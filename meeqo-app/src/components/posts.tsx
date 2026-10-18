@@ -25,7 +25,10 @@ export function PostBoard({
     () => listPosts({ data: { userId, communityId } }),
     [userId, communityId],
   );
-  const fallback = profile?.openTo === "friends" ? "friends" : profile?.openTo === "dating" ? "date" : "both";
+  // Dating switched off (/admin/zahlen → Bereiche): only friendship, and the "Wer sieht das?" row is hidden.
+  const datingOn = profile?.flags.dating ?? false;
+  const audiences = datingOn ? AUDIENCES : (["friends"] as const);
+  const fallback = !datingOn || profile?.openTo === "friends" ? "friends" : profile?.openTo === "dating" ? "date" : "both";
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState<(typeof AUDIENCES)[number]>(fallback);
   const [visibility, setVisibility] = useState<string>(profile?.defaultVisibility ?? "all");
@@ -40,7 +43,7 @@ export function PostBoard({
     setPending(true);
     setFail("");
     try {
-      await createPost({ data: { body, audience, communityId, requireTraits, visibility, communityIds: visibility === "community" ? communityIds : [] } });
+      await createPost({ data: { body, audience: datingOn ? audience : "friends", communityId, requireTraits, visibility, communityIds: visibility === "community" ? communityIds : [] } });
       setBody("");
       reload();
     } catch (err) {
@@ -69,28 +72,28 @@ export function PostBoard({
       {canPost ? (
         <form onSubmit={submit} className="card space-y-3 p-4">
           <TextArea value={body} onChange={(event) => setBody(event.target.value)} placeholder={t("Ein Satz reicht.")} maxLength={500} />
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Wer sieht das?")}</p>
-          <div className="flex flex-wrap gap-2">
-            {AUDIENCES.map((item) => (
+          {audiences.length > 1 ? <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Wer sieht das?")}</p> : null}
+          {audiences.length > 1 ? <div className="flex flex-wrap gap-1.5">
+            {audiences.map((item) => (
               <button
                 key={item}
                 type="button"
                 onClick={() => setAudience(item)}
-                className={`inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${audience === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
+                className={`inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${audience === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
               >
                 {activityIntentLabel(item)}
               </button>
             ))}
-          </div>
+          </div> : null}
           <VisibilityPicker value={visibility} onChange={setVisibility} communityIds={communityIds} onCommunityIds={setCommunityIds} />
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Nur Menschen mit")}</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {TRAITS.map((trait) => (
               <button
                 key={trait}
                 type="button"
                 onClick={() => setRequireTraits((current) => current.includes(trait) ? current.filter((item) => item !== trait) : [...current, trait])}
-                className={`inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${requireTraits.includes(trait) ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
+                className={`inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${requireTraits.includes(trait) ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
               >
                 {t(trait)}
               </button>
@@ -118,7 +121,7 @@ export function PostBoard({
           </div>
           <p className="text-sm whitespace-pre-wrap">{post.body}</p>
           {post.requireTraits.length ? <p className="text-xs text-muted">{t("Nur für {0}", post.requireTraits.join(", "))}</p> : null}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <button type="button" className={face} onClick={() => setShare({ title: post.authorName, text: `${post.authorName}: ${post.body}` })}>{t("Teilen")}</button>
             {post.mine ? (
               <button type="button" className={face} onClick={() => remove(post.id)}>{t("Löschen")}</button>

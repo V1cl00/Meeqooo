@@ -27,8 +27,8 @@ function Mine() {
     <div className="space-y-4">
       <h1 className="font-display text-4xl leading-none">{t("Meine Aktivitäten")}</h1>
       <div className="flex gap-2">
-        <button type="button" onClick={() => setTab("host")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${tab === "host" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Ich lade ein")}</button>
-        <button type="button" onClick={() => setTab("join")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${tab === "join" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Ich komme")}</button>
+        <button type="button" onClick={() => setTab("host")} className={`inline-flex h-10 items-center rounded-control border px-3.5 text-sm font-semibold ${tab === "host" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Ich lade ein")}</button>
+        <button type="button" onClick={() => setTab("join")} className={`inline-flex h-10 items-center rounded-control border px-3.5 text-sm font-semibold ${tab === "join" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Ich komme")}</button>
       </div>
       {loading ? <p className="text-sm text-muted">{t("Wird geladen…")}</p> : null}
       {error ? <Note>{error}</Note> : null}

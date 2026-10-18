@@ -1384,10 +1384,10 @@ export const createActivity = createServerFn({ method: "POST" })
     const title = clean(data.title, 80);
     const description = clean(data.description, 800);
     const category = assertCategory(clean(data.category, 48));
-    let intent = data.intent === "date" || data.intent === "friends" || data.intent === "both" ? data.intent : "";
+    const intent = data.intent === "date" || data.intent === "friends" || data.intent === "both" ? data.intent : "";
     const on = await loadFlags(sql);
     if (intent === "date" && !on.dating) throw new Error("Dating ist noch nicht freigeschaltet.");
-    if (intent === "both" && !on.dating) intent = "friends";
+    if (intent === "both" && !on.dating) throw new Error("Dating ist noch nicht freigeschaltet.");
     if (areaOf(category, profile.isOrganizer) === "business" && !on.business) throw new Error("Business ist noch nicht freigeschaltet.");
     const placeName = clean(data.placeName, 80);
     const city = clean(data.city, 60);
@@ -2277,7 +2277,10 @@ export const createPost = createServerFn({ method: "POST" })
     if (!profile.onboardingDone) throw new Error("Schließ zuerst das Onboarding ab.");
     const body = clean(data.body, 500);
     if (body.length < 2) throw new Error("Schreib ein paar Worte.");
-    const audience = data.audience === "date" || data.audience === "friends" || data.audience === "both" ? data.audience : "both";
+    // Same rule as createActivity: while Dating is switched off, only friendship.
+    const datingOn = (await loadFlags(sql)).dating;
+    const audience = data.audience === "date" || data.audience === "friends" || data.audience === "both" ? data.audience : datingOn ? "both" : "friends";
+    if (audience !== "friends" && !datingOn) throw new Error("Dating ist noch nicht freigeschaltet.");
     const requireTraits = Array.isArray(data.requireTraits) ? data.requireTraits.map((item) => clean(item, 40)).filter(Boolean).slice(0, 8) : [];
     const visibility = cleanVisibility(data.visibility);
     const communityId = clean(data.communityId, 80);

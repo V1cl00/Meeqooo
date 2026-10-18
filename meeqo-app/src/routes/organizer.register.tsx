@@ -43,8 +43,8 @@ function Register() {
       <Field label={t("Stadt")}><TextInput value={city} onChange={(event) => setCity(event.target.value)} /></Field>
       <Field label={t("Was ihr anbietet")}><TextArea value={bio} onChange={(event) => setBio(event.target.value)} /></Field>
       <div className="flex gap-2">
-        <button type="button" onClick={() => setBookingMode("request")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${bookingMode === "request" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Anfrage")}</button>
-        <button type="button" onClick={() => setBookingMode("instant")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${bookingMode === "instant" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Sofortbuchung")}</button>
+        <button type="button" onClick={() => setBookingMode("request")} className={`inline-flex h-10 items-center rounded-control border px-3.5 text-sm font-semibold ${bookingMode === "request" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Anfrage")}</button>
+        <button type="button" onClick={() => setBookingMode("instant")} className={`inline-flex h-10 items-center rounded-control border px-3.5 text-sm font-semibold ${bookingMode === "instant" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Sofortbuchung")}</button>
       </div>
       {error ? <Note>{error}</Note> : null}
       <Button type="submit">{t("Speichern")}</Button>

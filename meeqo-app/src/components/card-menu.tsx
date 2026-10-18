@@ -9,7 +9,7 @@ import { useMe } from "@/components/shell";
 import { isPhotoMissing, PhotoMissing } from "@/components/photo";
 import { t } from "@/lib/meeqo/i18n";
 
-const pill = "inline-flex h-12 w-full items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold text-ink";
+const pill = "inline-flex h-12 w-full items-center justify-center rounded-control border border-line bg-card px-4 text-sm font-semibold text-ink";
 
 /** Quick actions for a meetup without opening it: request with a mood, share, route, hide. Not about people, only about the meetup. */
 export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity; onClose: () => void; onHide?: () => void; onChanged?: () => void }) {
@@ -64,12 +64,12 @@ export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity
         {canRequest ? (
           <div className="space-y-2">
             <p className="text-sm font-semibold">{t("Was erwartest du?")}</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {MOODS.map((option) => (
-                <button key={option} type="button" onClick={() => setMood(option)} className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${mood === option ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{t(option)}</button>
+                <button key={option} type="button" onClick={() => setMood(option)} className={`inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${mood === option ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{t(option)}</button>
               ))}
             </div>
-            <button type="button" disabled={busy} onClick={() => void request()} className="inline-flex h-12 w-full items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill disabled:opacity-50">
+            <button type="button" disabled={busy} onClick={() => void request()} className="inline-flex h-12 w-full items-center justify-center rounded-control bg-accent px-5 text-sm font-semibold text-onfill disabled:opacity-50">
               {item.bookingMode === "instant" ? t("Sofort dabei") : t("Anfragen")}
             </button>
           </div>

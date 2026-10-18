@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea } from "@/components/bits";
 import { Shell, useMe } from "@/components/shell";
 import { adminStatus, deleteAccount, withdrawSensitiveConsent, exportMyData, getCalendarLink, setNotifyEmail, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
-import { signOut } from "@/lib/auth/client";
+import { authEnabled, signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -30,6 +30,7 @@ function Settings() {
   const blocked = useLoad(() => listBlocked(), []);
   const admin = useLoad(() => adminStatus(), []);
   const [confirm, setConfirm] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
   const lang = useLang();
   const navigate = useNavigate();
   const [calendar, setCalendar] = useState("");
@@ -138,7 +139,7 @@ function Settings() {
         <h2 className="font-display text-2xl">{t("Sprache")}</h2>
         <div className="flex gap-2" role="group" aria-label={t("Sprache")}>
           {([["de", "Deutsch"], ["en", "English"]] as const).map(([code, name]) => (
-            <button key={code} type="button" lang={code} aria-pressed={lang === code} onClick={() => setLang(code)} className={`inline-flex h-11 items-center rounded-full border-2 px-5 text-sm font-semibold ${lang === code ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{name}</button>
+            <button key={code} type="button" lang={code} aria-pressed={lang === code} onClick={() => setLang(code)} className={`inline-flex h-10 items-center rounded-control border-2 px-5 text-sm font-semibold ${lang === code ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{name}</button>
           ))}
         </div>
       </section>
@@ -197,7 +198,7 @@ function Settings() {
                 await setRadius({ data: { radiusKm: item } });
                 await reload();
               }}
-              className={`inline-flex h-11 items-center rounded-full border px-3 text-sm font-semibold ${profile.radiusKm === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}
+              className={`inline-flex h-10 items-center rounded-control border px-3 text-sm font-semibold ${profile.radiusKm === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}
             >
               {t("{0} km", item)}</button>
           ))}
@@ -345,6 +346,7 @@ function Settings() {
         {admin.data?.admin ? <Link to="/admin/zahlen" className="font-semibold text-ink underline">{t("Zahlen")}</Link> : null}
       </p>
       {error ? <Note>{error}</Note> : null}
+      {authEnabled ? <Button type="button" tone="ghost" className="mb-6 w-full" disabled={signingOut} onClick={() => { setSigningOut(true); void signOut("/login").catch(() => setSigningOut(false)); }}>{signingOut ? t("Abmelden…") : t("Abmelden")}</Button> : null}
     </div>
   );
 }

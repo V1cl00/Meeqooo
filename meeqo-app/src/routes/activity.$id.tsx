@@ -251,7 +251,7 @@ function Detail({ id }: { id: string }) {
         <SparteStrip kind={sparte.kind} sub={sparte.sub} />
         {item.imageUrl ? <img src={item.imageUrl} alt="" className="aspect-[3/2] w-full object-cover" /> : <div className="aspect-[3/2] bg-sand-deep" />}
         <div className="space-y-3 p-4">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {business ? null : <IntentPill intent={item.intent} />}
             <span className="rounded-full bg-sand-deep px-2.5 py-1 text-xs font-semibold">{bookingLabel(item.bookingMode)}</span>
             {item.publicPlace ? <span className="rounded-full bg-sand-deep px-2.5 py-1 text-xs font-semibold">{t("Öffentlicher Ort")}</span> : null}
@@ -317,9 +317,9 @@ function Detail({ id }: { id: string }) {
       {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" && item.myStatus !== "waitlist" ? (
         <div className="card space-y-3 p-4">
           <h2 className="font-display text-2xl">{t("Was erwartest du heute?")}</h2>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {MOODS.map((item) => (
-              <button key={item} type="button" onClick={() => setMood(item)} className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${mood === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{t(item)}</button>
+              <button key={item} type="button" onClick={() => setMood(item)} className={`inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${mood === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{t(item)}</button>
             ))}
           </div>
           <p className="text-sm text-muted">{t("Der Ersteller sieht das bei deiner Anfrage.")}</p>
@@ -335,9 +335,9 @@ function Detail({ id }: { id: string }) {
         </p>
         <Button type="button" tone="ghost" className="w-full" onClick={() => { setTrust(null); setShareOpen(true); }}>{t("Teilen")}</Button>
         <div className="flex gap-2">
-          <a href={mapUrl(item.lat, item.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t("Karte öffnen")}</a>
+          <a href={mapUrl(item.lat, item.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 flex-1 items-center justify-center rounded-control border border-line bg-card px-4 text-sm font-semibold">{t("Karte öffnen")}</a>
           {item.myStatus === "accepted" || item.isHost ? (
-            <button type="button" onClick={addToCalendar} className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t("Zum Kalender")}</button>
+            <button type="button" onClick={addToCalendar} className="inline-flex h-12 flex-1 items-center justify-center rounded-control border border-line bg-card px-4 text-sm font-semibold">{t("Zum Kalender")}</button>
           ) : null}
         </div>
         {item.myStatus === "accepted" || item.isHost ? (
@@ -348,14 +348,14 @@ function Detail({ id }: { id: string }) {
         ) : null}
         {item.isHost && !item.cancelled ? (
           <div className="flex gap-2">
-            <select value={weeks} onChange={(event) => setWeeks(Number(event.target.value))} aria-label={t("Wie viele Wochen")} className="h-12 rounded-full border border-line bg-card px-4 text-sm font-semibold">
+            <select value={weeks} onChange={(event) => setWeeks(Number(event.target.value))} aria-label={t("Wie viele Wochen")} className="h-12 rounded-control border border-line bg-card px-4 text-sm font-semibold">
               {[1, 4, 8, 12].map((count) => <option key={count} value={count}>{count === 1 ? t("Nächste Woche") : t("{0} Wochen", count)}</option>)}
             </select>
             <Button type="button" tone="ghost" className="flex-1" disabled={busy} onClick={again}>{weeks === 1 ? t("Nochmal anlegen") : t("Als Serie anlegen")}</Button>
           </div>
         ) : null}
         {oneToOne ? (
-          <a className="inline-flex h-12 items-center justify-center rounded-full border-2 border-ink bg-card px-4 text-sm font-semibold" href="tel:112">{t("Notfall 112")}</a>
+          <a className="inline-flex h-12 items-center justify-center rounded-control border-2 border-ink bg-card px-4 text-sm font-semibold" href="tel:112">{t("Notfall 112")}</a>
         ) : null}
       </div>
       {!item.isHost ? <SafetyMenu kind="activity" targetId={item.id} personId={item.hostId} personName={item.hostName.split(" ")[0]} onBlocked={() => navigate({ to: "/" })} /> : null}
@@ -363,7 +363,7 @@ function Detail({ id }: { id: string }) {
       <StatusLine error={fail} />
       {data.hidden ? <Note>{t("Diese Aktivität ist für dich ausgeblendet. Feed, Suche und Vorschläge überspringen sie.")}</Note> : null}
       {data.mutual ? <Note>{t("Ihr möchtet euch beide wiedersehen.")}</Note> : null}
-      <div className="flex flex-wrap gap-2 pb-16">
+      <div className="flex flex-wrap gap-1.5 pb-16">
         {!item.isHost && !data.hidden ? (
           <Button type="button" tone="ghost" disabled={busy} onClick={conceal}>{t("Ausblenden")}</Button>
         ) : null}
@@ -379,10 +379,10 @@ function Detail({ id }: { id: string }) {
             <Button type="button" tone="ghost" disabled={busy} onClick={() => setConfirmLeave(true)}>{item.myStatus === "waitlist" ? t("Warteliste verlassen") : t("Absagen")}</Button>
           )
         ) : null}
-        {item.isHost && !item.cancelled ? <Link to="/bearbeiten/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-full border border-line bg-card px-5 text-sm font-semibold">{t("Bearbeiten")}</Link> : null}
+        {item.isHost && !item.cancelled ? <Link to="/bearbeiten/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-control border border-line bg-card px-5 text-sm font-semibold">{t("Bearbeiten")}</Link> : null}
         {item.isHost && data.waitlistCount > 0 ? <Note>{t("{0} {1} auf einen Platz.", data.waitlistCount, data.waitlistCount === 1 ? t("Person wartet") : t("Leute warten"))}</Note> : null}
         {(item.myStatus === "accepted" || item.isHost) && !data.checkedIn ? <Button type="button" tone="ghost" disabled={busy} onClick={arrive}>{t("Check-in")}</Button> : null}
-        {(item.myStatus === "accepted" || item.isHost) && data.checkedIn ? <Link to="/rating/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-full border border-line bg-card px-5 text-sm font-semibold">{t("Bewerten")}</Link> : null}
+        {(item.myStatus === "accepted" || item.isHost) && data.checkedIn ? <Link to="/rating/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-control border border-line bg-card px-5 text-sm font-semibold">{t("Bewerten")}</Link> : null}
       </div>
       <div className="fixed inset-x-0 bottom-[5.4rem] z-20 px-3 md:bottom-6">
         {needPhoto ? (
@@ -397,10 +397,10 @@ function Detail({ id }: { id: string }) {
             </Button>
           ) : null}
           {item.myStatus === "accepted" || item.isHost ? (
-            <Link to="/chat/$id" params={{ id: item.id }} className="inline-flex h-12 flex-1 items-center justify-center rounded-full bg-ink px-5 text-sm font-semibold text-onaccent">{item.spots > 2 ? t("Gruppenchat") : t("Chat")}</Link>
+            <Link to="/chat/$id" params={{ id: item.id }} className="inline-flex h-12 flex-1 items-center justify-center rounded-control bg-ink px-5 text-sm font-semibold text-onaccent">{item.spots > 2 ? t("Gruppenchat") : t("Chat")}</Link>
           ) : null}
           {oneToOne ? (
-            <a className="inline-flex h-12 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-card px-4 text-sm font-semibold" href="tel:112">112</a>
+            <a className="inline-flex h-12 shrink-0 items-center justify-center rounded-control border-2 border-ink bg-card px-4 text-sm font-semibold" href="tel:112">112</a>
           ) : null}
         </div>
       </div>

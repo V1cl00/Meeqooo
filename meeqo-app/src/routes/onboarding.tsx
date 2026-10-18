@@ -99,7 +99,7 @@ function Onboarding() {
           placeholder={t("Postleitzahl, Stadt oder Dorf")}
         />
       </Field>
-      <button type="button" className="inline-flex h-12 w-full items-center justify-center rounded-full border border-line bg-card text-sm font-semibold text-ink shadow-sm" onClick={locate}>{coords ? t("Standort übernommen") : t("Standort nutzen")}</button>
+      <button type="button" className="inline-flex h-12 w-full items-center justify-center rounded-control border border-line bg-card text-sm font-semibold text-ink shadow-sm" onClick={locate}>{coords ? t("Standort übernommen") : t("Standort nutzen")}</button>
       {locNote ? <p className="text-sm text-muted">{locNote}</p> : null}
       <details className="card p-4">
         <summary className="cursor-pointer text-sm font-semibold">{t("Was suchst du? (optional, geht auch später)")}</summary>

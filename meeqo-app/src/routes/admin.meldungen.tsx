@@ -48,7 +48,7 @@ function Reports() {
       </div>
       <div className="flex gap-2">
         {(["open", "all"] as const).map((item) => (
-          <button key={item} type="button" onClick={() => setOnly(item)} className={`inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold ${only === item ? "bg-ink text-onaccent" : "border border-line bg-card text-ink"}`}>
+          <button key={item} type="button" onClick={() => setOnly(item)} className={`inline-flex h-10 items-center rounded-control px-3.5 text-sm font-semibold ${only === item ? "bg-ink text-onaccent" : "border border-line bg-card text-ink"}`}>
             {item === "open" ? "Offen" : "Alle"}
           </button>
         ))}

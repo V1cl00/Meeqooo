@@ -52,7 +52,7 @@ function Page() {
               <>
                 <p className="font-display text-2xl leading-none">{t("Kein Check-in seit {0} Minuten", data.minutesLate)}</p>
                 <p className="mt-2 text-sm">{t("Melde dich bei {0}. Erreichst du die Person nicht, ruf im Zweifel den Notruf.", data.name)}</p>
-                <a href="tel:112" className="mt-4 inline-flex h-12 items-center justify-center rounded-full bg-ink px-6 text-sm font-semibold text-onaccent">{t("112 anrufen")}</a>
+                <a href="tel:112" className="mt-4 inline-flex h-12 items-center justify-center rounded-control bg-ink px-6 text-sm font-semibold text-onaccent">{t("112 anrufen")}</a>
               </>
             ) : (
               <>

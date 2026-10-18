@@ -74,7 +74,7 @@ function Community({ id }: { id: string }) {
       {data.joined ? (
         <>
           <PostBoard communityId={id} canPost />
-          <Link to="/create" search={{ community: id }} className="inline-flex h-12 items-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill">{t("Aktivität vorschlagen")}</Link>
+          <Link to="/create" search={{ community: id }} className="inline-flex h-12 items-center rounded-control bg-accent px-5 text-sm font-semibold text-onfill">{t("Aktivität vorschlagen")}</Link>
           <div className="grid gap-4 md:grid-cols-2">
             {data.activities.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} />)}
             {data.activities.length === 0 ? <p className="text-sm text-muted">{t("Noch keine passende Aktivität. Schlag die erste vor.")}</p> : null}

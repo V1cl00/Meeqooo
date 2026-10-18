@@ -79,7 +79,7 @@ function Person({ id }: { id: string }) {
       <div className="flex flex-wrap gap-2">
         <Button type="button" tone={data.friend === "friends" ? "ghost" : "accent"} disabled={busy || data.friend === "out"} onClick={befriend}>{label}</Button>
         <Button type="button" tone="ghost" disabled={busy} onClick={star}>{data.favorite ? t("Favorit lösen") : t("Favorit")}</Button>
-        <Link to="/friends" className="inline-flex h-12 items-center rounded-full border-2 border-line bg-card px-5 text-sm font-semibold">{t("Was Freunde machen")}</Link>
+        <Link to="/friends" className="inline-flex h-12 items-center rounded-control border-2 border-line bg-card px-5 text-sm font-semibold">{t("Was Freunde machen")}</Link>
       </div>
       {fail ? <Note>{fail}</Note> : null}
       {admin.data?.admin ? (

@@ -126,7 +126,7 @@ function Thread({ id }: { id: string }) {
                 key={spot}
                 type="button"
                 onClick={() => send(t("Übergabe öffentlich, zum Beispiel am {0} in {1}. Passt dir das?", t(spot), data.city))}
-                className="inline-flex h-10 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold"
+                className="inline-flex h-10 shrink-0 items-center rounded-control border border-line bg-card px-4 text-sm font-semibold"
               >
                 {t(spot)}
               </button>

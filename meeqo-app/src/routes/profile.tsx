@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { UserButton } from "@/lib/auth/gates";
+import { Camera, ChevronRight, Users } from "lucide-react";
 import { BadgeRow, Button, Field, Note, TextArea, TextInput } from "@/components/bits";
 import { SeekingPicker } from "@/components/categories";
 import { PostBoard } from "@/components/posts";
 import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
 import { Shell, useMe } from "@/components/shell";
-import { listCategories, setAvatar, updateProfile } from "@/lib/meeqo/api";
+import { friendOverview, listCategories, setAvatar, updateProfile } from "@/lib/meeqo/api";
 import { AreaPicker } from "@/components/areas";
 import { areaSummary, errText } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
@@ -54,6 +54,7 @@ function ProfilePage() {
   const [info, setInfo] = useState("");
   const [error, setError] = useState("");
   const cats = useLoad(() => listCategories(), []);
+  const friends = useLoad(() => friendOverview(), []);
   if (!profile) return null;
 
   async function save(event: FormEvent) {
@@ -70,10 +71,13 @@ function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
-      <div className="card overflow-hidden">
-        <div className="flex items-center gap-4 p-4">
-          <label className="relative shrink-0">
-            {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-20 w-20 rounded-2xl object-cover" /> : <span className="grid h-20 w-20 place-items-center rounded-2xl bg-sand-deep font-display text-3xl">{profile.displayName.slice(0, 1)}</span>}
+      <div className="card space-y-4 p-5">
+        <div className="flex items-center gap-4">
+          <label className="relative shrink-0 cursor-pointer">
+            {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-24 w-24 rounded-2xl object-cover" /> : <span className="grid h-24 w-24 place-items-center rounded-2xl bg-sand-deep font-display text-4xl">{profile.displayName.slice(0, 1)}</span>}
+            <span className="absolute -bottom-1.5 -right-1.5 grid h-9 w-9 place-items-center rounded-full border-2 border-card bg-accent text-onfill shadow" aria-hidden="true">
+              <Camera className="h-4 w-4" />
+            </span>
             <input
               type="file"
               accept="image/*"
@@ -89,12 +93,22 @@ function ProfilePage() {
             />
           </label>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate font-display text-3xl leading-none">{profile.displayName}</h1>
-            <p className="mt-1 text-sm text-muted">{profile.city || t("Ohne Stadt")} · {areaSummary(profile.areas)}</p>
-            <p className="mt-2 text-xs font-semibold text-accent-deep">{t("Foto antippen zum Wechseln")}</p>
+            <h1 className="break-words font-display text-3xl leading-tight">{profile.displayName}</h1>
+            {profile.city ? <p className="mt-1 text-sm text-muted">{profile.city}</p> : null}
+            {profile.areas.length ? <p className="text-sm text-muted">{areaSummary(profile.areas)}</p> : null}
           </div>
-          <UserButton />
         </div>
+        <p className="text-xs text-muted">{t("Foto antippen zum Wechseln")}</p>
+        <Link to="/friends" className="flex items-center gap-3 rounded-control border border-line bg-sand px-3 py-2.5">
+          <span className="flex -space-x-2">
+            {(friends.data?.friends ?? []).slice(0, 4).map((person) => (
+              <span key={person.userId} className="grid h-8 w-8 place-items-center rounded-full border-2 border-card bg-sand-deep text-xs font-semibold text-ink">{person.displayName.slice(0, 1)}</span>
+            ))}
+            {(friends.data?.friends.length ?? 0) === 0 ? <span className="grid h-8 w-8 place-items-center rounded-full border-2 border-card bg-sand-deep text-ink"><Users className="h-4 w-4" aria-hidden="true" /></span> : null}
+          </span>
+          <span className="flex-1 text-sm font-semibold text-ink">{(friends.data?.friends.length ?? 0) === 1 ? t("1 Freund") : t("{0} Freunde", friends.data?.friends.length ?? 0)}</span>
+          <ChevronRight className="h-4 w-4 text-muted" aria-hidden="true" />
+        </Link>
       </div>
       <BadgeRow badges={profile.badges} />
       <PostBoard userId={profile.userId} canPost />

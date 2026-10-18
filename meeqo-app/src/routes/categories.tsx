@@ -5,6 +5,7 @@ import { Shell } from "@/components/shell";
 import { addCategory, listCategories, removeCategory } from "@/lib/meeqo/api";
 import { CATEGORIES, CATEGORY_TREE, errText, joinCategory } from "@/lib/meeqo/labels";
 import { readDraft, returnTarget, setPicked } from "@/lib/meeqo/draft";
+import { useOpenCategories } from "@/components/categories";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
 
@@ -24,6 +25,7 @@ function Categories() {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const own = data ?? [];
+  const open = useOpenCategories();
   const navigate = useNavigate();
   const [fromCreate, setFromCreate] = useState(false);
 
@@ -67,7 +69,7 @@ function Categories() {
       <form onSubmit={submit} className="card space-y-3 p-4">
         <Field label={t("Kategorie")}>
           <select className="h-12 w-full rounded-2xl border border-line bg-card px-4" value={parent} onChange={(event) => setParent(event.target.value)}>
-            {CATEGORIES.map((item) => <option key={item} value={item}>{t(item)}</option>)}
+            {open.map((item) => <option key={item} value={item}>{t(item)}</option>)}
           </select>
         </Field>
         <Field label={t("Eigene Unterkategorie")}>
@@ -76,7 +78,7 @@ function Categories() {
         {error ? <Note>{error}</Note> : null}
         <Button type="submit">{fromCreate ? t("Hinzufügen und zurück zum Treffen") : t("Hinzufügen")}</Button>
       </form>
-      {CATEGORY_TREE.map((group) => {
+      {CATEGORY_TREE.filter((group) => open.includes(group.name)).map((group) => {
         const mine = own.filter((item) => item.parent === group.name);
         return (
           <section key={group.name} className="card space-y-3 p-4">

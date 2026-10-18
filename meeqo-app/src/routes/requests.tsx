@@ -42,8 +42,8 @@ function Requests() {
     <div className="space-y-4">
       <h1 className="font-display text-4xl leading-none">{t("Anfragen")}</h1>
       <div className="flex gap-2">
-        <button type="button" onClick={() => setTab("in")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${tab === "in" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Eingehend")}</button>
-        <button type="button" onClick={() => setTab("out")} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${tab === "out" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Ausgehend")}</button>
+        <button type="button" onClick={() => setTab("in")} className={`inline-flex h-10 items-center rounded-control border px-3.5 text-sm font-semibold ${tab === "in" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Eingehend")}</button>
+        <button type="button" onClick={() => setTab("out")} className={`inline-flex h-10 items-center rounded-control border px-3.5 text-sm font-semibold ${tab === "out" ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>{t("Ausgehend")}</button>
       </div>
       {loading ? <p className="text-sm text-muted">{t("Wird geladen…")}</p> : null}
       {error ? <Note>{error}</Note> : null}

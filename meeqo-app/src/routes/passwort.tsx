@@ -36,7 +36,7 @@ function Page() {
       {done ? (
         <>
           <Note>{t("Gespeichert. Du kannst dich jetzt mit dem neuen Passwort anmelden. Andere Geräte sind abgemeldet.")}</Note>
-          <Link to="/login" search={{ next: undefined }} className="inline-flex h-12 w-full items-center justify-center rounded-full bg-accent px-6 text-sm font-semibold text-onfill">{t("Zur Anmeldung")}</Link>
+          <Link to="/login" search={{ next: undefined }} className="inline-flex h-12 w-full items-center justify-center rounded-control bg-accent px-6 text-sm font-semibold text-onfill">{t("Zur Anmeldung")}</Link>
         </>
       ) : !token ? (
         <Note>{t("Dieser Link ist unvollständig. Fordere auf der Anmeldeseite einen neuen an.")}</Note>

@@ -50,18 +50,18 @@ export function SafetyMenu({
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex h-11 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold text-ink">{t("Melden{0}", personId ? t(" oder blockieren") : "")}
+      <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex h-10 items-center rounded-control border border-line bg-card px-3.5 text-sm font-semibold text-ink">{t("Melden{0}", personId ? t(" oder blockieren") : "")}
       </button>
       {open ? (
         <div className="card space-y-3 p-4">
           <p className="text-sm font-semibold">{t("Was stimmt nicht?")}</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {REPORT_REASONS.map((item) => (
-              <button key={item} type="button" onClick={() => setReason(item)} className={`inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${reason === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{t(item)}</button>
+              <button key={item} type="button" onClick={() => setReason(item)} className={`inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${reason === item ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>{t(item)}</button>
             ))}
           </div>
           <textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={400} placeholder={t("Optional: was ist passiert?")} className="min-h-20 w-full rounded-2xl border border-line bg-sand px-4 py-3 text-base outline-none focus:border-accent" />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <Button type="button" className="h-11" onClick={send}>{t("Melden")}</Button>
             {personId ? <Button type="button" tone="ink" className="h-11" onClick={block}>{personName ? t("{0} blockieren", personName) : t("Blockieren")}</Button> : null}
           </div>

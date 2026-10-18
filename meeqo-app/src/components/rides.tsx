@@ -38,11 +38,11 @@ export function RidesCard({ activityId }: { activityId: string }) {
           <p className="text-sm font-semibold">{ride.mine ? t("Du fährst") : t("{0} fährt", ride.driverName)}{ride.origin ? t(" ab {0}", ride.origin) : ""}</p>
           <p className="text-sm text-muted">{t("{0} von {1} Plätzen frei{2}", ride.free, ride.seats, ride.riders.length ? t(" · mit {0}", ride.riders.join(", ")) : "")}</p>
           {ride.mine ? (
-            <button type="button" className="inline-flex h-11 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold" onClick={() => run(() => cancelRide({ data: { rideId: ride.id } }), "Fahrt abgesagt.")}>{t("Fahrt absagen")}</button>
+            <button type="button" className="inline-flex h-10 items-center rounded-control border border-line bg-card px-3.5 text-sm font-semibold" onClick={() => run(() => cancelRide({ data: { rideId: ride.id } }), "Fahrt abgesagt.")}>{t("Fahrt absagen")}</button>
           ) : ride.iRide ? (
-            <button type="button" className="inline-flex h-11 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold" onClick={() => run(() => leaveRide({ data: { rideId: ride.id } }), t("Du fährst nicht mehr mit."))}>{t("Nicht mehr mitfahren")}</button>
+            <button type="button" className="inline-flex h-10 items-center rounded-control border border-line bg-card px-3.5 text-sm font-semibold" onClick={() => run(() => leaveRide({ data: { rideId: ride.id } }), t("Du fährst nicht mehr mit."))}>{t("Nicht mehr mitfahren")}</button>
           ) : ride.free > 0 ? (
-            <button type="button" className="inline-flex h-11 items-center rounded-full bg-accent px-4 text-sm font-semibold text-onfill" onClick={() => run(() => claimRide({ data: { rideId: ride.id } }), t("Du fährst mit."))}>{t("Mitfahren")}</button>
+            <button type="button" className="inline-flex h-10 items-center rounded-control bg-accent px-3.5 text-sm font-semibold text-onfill" onClick={() => run(() => claimRide({ data: { rideId: ride.id } }), t("Du fährst mit."))}>{t("Mitfahren")}</button>
           ) : (
             <p className="text-sm font-semibold">{t("Voll")}</p>
           )}
@@ -52,10 +52,10 @@ export function RidesCard({ activityId }: { activityId: string }) {
         open ? (
           <div className="space-y-2">
             <div className="flex gap-2">
-              <select value={seats} onChange={(event) => setSeats(Number(event.target.value))} aria-label={t("Freie Plätze")} className="h-12 rounded-full border border-line bg-card px-4 text-sm font-semibold">
+              <select value={seats} onChange={(event) => setSeats(Number(event.target.value))} aria-label={t("Freie Plätze")} className="h-12 rounded-control border border-line bg-card px-4 text-sm font-semibold">
                 {[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count} {count === 1 ? t("Platz") : t("Plätze")}</option>)}
               </select>
-              <input value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder={t("Ab wo? (optional)")} maxLength={60} aria-label={t("Abfahrtsort")} className="h-12 min-w-0 flex-1 rounded-full border border-line bg-sand px-4 text-base outline-none focus:border-accent" />
+              <input value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder={t("Ab wo? (optional)")} maxLength={60} aria-label={t("Abfahrtsort")} className="h-12 min-w-0 flex-1 rounded-control border border-line bg-sand px-4 text-base outline-none focus:border-accent" />
             </div>
             <Button type="button" className="w-full" onClick={() => run(() => offerRide({ data: { activityId, seats, origin } }), t("Danke, die anderen sehen deine Fahrt."))}>{t("Fahrt anbieten")}</Button>
           </div>

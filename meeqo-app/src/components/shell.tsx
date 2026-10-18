@@ -162,7 +162,7 @@ export function Shell({
         <div className="max-w-sm space-y-4">
           <Wordmark className="text-3xl" />
           <p>{error || t("Profil fehlt.")}</p>
-          <button type="button" className="inline-flex h-12 items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill" onClick={() => window.location.reload()}>{t("Neu laden")}</button>
+          <button type="button" className="inline-flex h-12 items-center justify-center rounded-control bg-accent px-5 text-sm font-semibold text-onfill" onClick={() => window.location.reload()}>{t("Neu laden")}</button>
         </div>
       </div>
     );

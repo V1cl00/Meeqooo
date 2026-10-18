@@ -5,7 +5,7 @@ import { errText, formatWhen } from "@/lib/meeqo/labels";
 import type { PollView } from "@/lib/meeqo/types";
 import { t } from "@/lib/meeqo/i18n";
 
-const chip = "inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold";
+const chip = "inline-flex h-10 items-center rounded-control border px-3.5 text-sm font-semibold";
 
 /** A vote on the time, inside the chat. The host can set the winner as the new start. */
 export function PollCard({ poll, onChanged }: { poll: PollView; onChanged: () => void }) {

@@ -56,7 +56,7 @@ export function WelcomeHero() {
 }
 
 export const face =
-  "inline-flex h-11 shrink-0 items-center justify-center rounded-full border border-line bg-card px-4 text-sm font-semibold text-ink shadow-[0_1px_0_rgba(255,255,255,0.7)] active:scale-[0.98]";
+  "inline-flex h-11 shrink-0 items-center justify-center rounded-control border border-line bg-card px-4 text-sm font-semibold text-ink shadow-[0_1px_0_rgba(255,255,255,0.7)] active:scale-[0.98]";
 
 export function Button({
   tone = "accent",
@@ -71,7 +71,7 @@ export function Button({
   return (
     <button
       {...props}
-      className={`inline-flex h-12 items-center justify-center rounded-full px-5 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 ${tones[tone]} ${className}`}
+      className={`inline-flex h-12 items-center justify-center rounded-control px-5 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 ${tones[tone]} ${className}`}
     />
   );
 }

@@ -22,6 +22,8 @@
   --font-sans: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fraunces Variable", Georgia, serif;
   --radius-card: 1.5rem;
+  /* Buttons, chips and other controls: less round than pills (12px). Round stays for icons, avatars, the + button. */
+  --radius-control: 0.75rem;
 }
 
 /* Follows the phone's dark mode. A personal theme from Settings sets these variables on the app shell and wins. */

@@ -13,7 +13,7 @@ import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
 
 function chip(active: boolean) {
-  return `inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
+  return `inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
 }
 
 export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
@@ -66,7 +66,7 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
         <form onSubmit={submit} className="card space-y-3 p-4">
           <Field label={t("Titel")}><TextInput value={title} onChange={(event) => setTitle(event.target.value)} required /></Field>
           <Field label={t("Worum geht's?")}><TextArea value={body} onChange={(event) => setBody(event.target.value)} /></Field>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {CLASSIFIED_CATS.map((item) => (
               <button key={item} type="button" className={chip((sub || category) === item)} onClick={() => setCategory(item)}>{t(item)}</button>
             ))}
@@ -99,7 +99,7 @@ export function ClassifiedBoard({ city, sub }: { city: string; sub: string }) {
             {item.mine ? (
               <p className="text-sm font-semibold">{item.interested ? t("{0} {1} geschrieben. Antworten findest du unter Chats.", item.interested, item.interested === 1 ? "Person hat" : "Leute haben") : t("Deine Anzeige. Noch niemand hat geschrieben.")}</p>
             ) : item.myThread ? (
-              <Link to="/chat/anzeige/$id" params={{ id: item.myThread }} className="inline-flex h-11 items-center justify-center rounded-full bg-ink px-5 text-sm font-semibold text-onaccent">{t("Chat öffnen")}</Link>
+              <Link to="/chat/anzeige/$id" params={{ id: item.myThread }} className="inline-flex h-11 items-center justify-center rounded-control bg-ink px-5 text-sm font-semibold text-onaccent">{t("Chat öffnen")}</Link>
             ) : (
               <Button type="button" className="h-11" onClick={() => interest(item.id)}>{t("Interesse melden")}</Button>
             )}

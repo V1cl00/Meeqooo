@@ -3,10 +3,19 @@ import { addCategory, searchCategories } from "@/lib/meeqo/api";
 import { CATEGORIES, CATEGORY_TREE, MORE_SUGGESTIONS, categoryShort, joinCategory, splitCategory, subsFor, type CustomCategory } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { Note } from "@/components/bits";
+import { useMe } from "@/components/shell";
 import { t } from "@/lib/meeqo/i18n";
 
+const isBusiness = (label: string) => label === "Business" || label.startsWith("Business · ");
+
+/** Main categories without switched-off areas: Business is hidden while it is off under /admin/zahlen → Bereiche. */
+export function useOpenCategories(): string[] {
+  const { profile } = useMe();
+  return profile && !profile.flags.business ? CATEGORIES.filter((item) => !isBusiness(item)) : CATEGORIES;
+}
+
 function chip(active: boolean) {
-  return `inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
+  return `inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
 }
 
 function Extras({
@@ -16,6 +25,8 @@ function Extras({
   onPick: (label: string) => void;
   active: (label: string) => boolean;
 }) {
+  const open = useOpenCategories();
+  const shown = (label: string) => open.includes(splitCategory(label).parent);
   const [mode, setMode] = useState<"" | "more" | "search">("");
   const [q, setQ] = useState("");
   const [parent, setParent] = useState<string>(CATEGORIES[0]);
@@ -40,15 +51,15 @@ function Extras({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         <button type="button" className={chip(mode === "more")} onClick={() => setMode(mode === "more" ? "" : "more")}>{t("Andere")}</button>
         <button type="button" className={chip(mode === "search")} onClick={() => setMode(mode === "search" ? "" : "search")}>{t("Suchen")}</button>
       </div>
       {mode === "more" ? (
         <div className="card space-y-3 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Mehr Vorschläge")}</p>
-          <div className="flex flex-wrap gap-2">
-            {MORE_SUGGESTIONS.map((item) => {
+          <div className="flex flex-wrap gap-1.5">
+            {MORE_SUGGESTIONS.filter((item) => shown(item.parent)).map((item) => {
               const label = joinCategory(item.parent, item.name);
               return (
                 <button key={label} type="button" className={chip(active(label))} onClick={() => onPick(label)}>
@@ -61,8 +72,8 @@ function Extras({
           {(catalog.data?.promoted.length ?? 0) === 0 ? (
             <p className="text-sm text-muted">{t("Wenn genug Leute dieselbe eigene Kategorie wählen, taucht sie hier auf.")}</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {catalog.data?.promoted.map((item) => {
+            <div className="flex flex-wrap gap-1.5">
+              {catalog.data?.promoted.filter((item) => shown(item.parent)).map((item) => {
                 const label = joinCategory(item.parent, item.name);
                 return (
                   <button key={label} type="button" className={chip(active(label))} onClick={() => onPick(label)}>
@@ -82,8 +93,8 @@ function Extras({
             placeholder={t("Kategorie suchen oder neu anlegen")}
             className="h-12 w-full rounded-2xl border border-line bg-card px-4 text-base outline-none focus:border-accent"
           />
-          <div className="flex flex-wrap gap-2">
-            {(found.data?.hits ?? []).filter((item) => item.name).map((item) => {
+          <div className="flex flex-wrap gap-1.5">
+            {(found.data?.hits ?? []).filter((item) => item.name && shown(item.parent)).map((item) => {
               const label = joinCategory(item.parent, item.name);
               return (
                 <button key={label} type="button" className={chip(active(label))} onClick={() => onPick(label)}>
@@ -95,8 +106,8 @@ function Extras({
           {q.trim().length >= 2 && !exact ? (
             <div className="space-y-2">
               <p className="text-sm text-muted">{t("Neu anlegen. Zuerst nur über die Suche auffindbar.")}</p>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map((item) => (
+              <div className="flex flex-wrap gap-1.5">
+                {open.map((item) => (
                   <button key={item} type="button" className={chip(parent === item)} onClick={() => setParent(item)}>{t(item)}</button>
                 ))}
               </div>
@@ -121,17 +132,18 @@ export function CategorySelect({
   custom?: CustomCategory[];
   allowAll?: boolean;
 }) {
+  const open = useOpenCategories();
   const parsed = splitCategory(value);
-  const parent = CATEGORIES.includes(parsed.parent) ? parsed.parent : allowAll ? "" : CATEGORIES[0];
+  const parent = open.includes(parsed.parent) ? parsed.parent : allowAll ? "" : open[0];
   const subs = parent ? subsFor(parent, custom) : [];
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {allowAll ? (
           <button type="button" onClick={() => onChange("")} className={chip(value === "")}>{t("Alle")}</button>
         ) : null}
-        {CATEGORIES.map((item) => (
+        {open.map((item) => (
           <button key={item} type="button" onClick={() => onChange(item)} className={chip(item === parent)}>
             {t(item)}
           </button>
@@ -140,7 +152,7 @@ export function CategorySelect({
       {parent ? (
         <div className="card space-y-2 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Unterkategorien · {0}", parent)}</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <button type="button" onClick={() => onChange(parent)} className={chip(value === parent)}>{t("Alles in {0}", parent)}</button>
             {subs.map((sub) => {
               const label = joinCategory(parent, sub);
@@ -168,6 +180,7 @@ export function SeekingPicker({
   custom?: CustomCategory[];
 }) {
   const [open, setOpen] = useState<string | null>(null);
+  const allowed = useOpenCategories();
   const group = CATEGORY_TREE.find((item) => item.name === open);
 
   function toggle(label: string) {
@@ -177,14 +190,14 @@ export function SeekingPicker({
   return (
     <div className="space-y-2">
       {selected.length ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {selected.map((label) => (
             <button key={label} type="button" className={chip(true)} onClick={() => toggle(label)}>{categoryShort(label)}</button>
           ))}
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        {CATEGORY_TREE.map((item) => (
+      <div className="flex flex-wrap gap-1.5">
+        {CATEGORY_TREE.filter((item) => allowed.includes(item.name)).map((item) => (
           <button key={item.name} type="button" onClick={() => setOpen(open === item.name ? null : item.name)} className={chip(open === item.name)}>
             {item.name}
           </button>
@@ -193,7 +206,7 @@ export function SeekingPicker({
       {group ? (
         <div className="card space-y-2 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Unterkategorien · {0}", group.name)}</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <button type="button" onClick={() => toggle(group.name)} className={chip(selected.includes(group.name))}>{t("Alles in {0}", group.name)}</button>
             {subsFor(group.name, custom).map((sub) => {
               const label = joinCategory(group.name, sub);

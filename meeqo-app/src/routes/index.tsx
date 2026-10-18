@@ -147,7 +147,7 @@ function Feed() {
               setFilter(id);
               setSub("");
             }}
-            className={`inline-flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold ${filter === id ? "bg-ink text-onaccent" : "border border-line bg-card text-ink"}`}
+            className={`inline-flex h-10 shrink-0 items-center rounded-control px-3 text-sm font-semibold ${filter === id ? "bg-ink text-onaccent" : "border border-line bg-card text-ink"}`}
           >
             {t(label)}
           </button>
@@ -155,9 +155,9 @@ function Feed() {
       </div>
       {subs.length ? (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4">
-          <button type="button" onClick={() => setSub("")} className={`inline-flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold ${sub === "" ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}>{t("Alle")}</button>
+          <button type="button" onClick={() => setSub("")} className={`inline-flex h-10 shrink-0 items-center rounded-control px-3 text-sm font-semibold ${sub === "" ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}>{t("Alle")}</button>
           {subs.map((item) => (
-            <button key={item} type="button" onClick={() => setSub(item)} className={`inline-flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold ${sub === item ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}>{item}</button>
+            <button key={item} type="button" onClick={() => setSub(item)} className={`inline-flex h-10 shrink-0 items-center rounded-control px-3 text-sm font-semibold ${sub === item ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}>{item}</button>
           ))}
         </div>
       ) : null}
@@ -169,13 +169,13 @@ function Feed() {
             type="button"
             aria-pressed={soon}
             onClick={() => setSoon((value) => !value)}
-            className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold ${soon ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}
+            className={`inline-flex h-10 items-center gap-2 rounded-control px-3.5 text-sm font-semibold ${soon ? "bg-accent text-onfill" : "border border-line bg-card text-ink"}`}
           >{t("Gleich in der Nähe")}</button>
           {soon ? <p className="text-sm text-muted">{t("Was in den nächsten vier Stunden anfängt, das Nächstgelegene zuerst.")}</p> : <WhenBar days={days} onChange={setDays} />}
           {soon ? null : (
             <div className="flex items-center gap-2" role="group" aria-label={t("Sortierung")}>
               {([["time", "Nach Zeit"], ["fit", "Passend für dich"]] as const).map(([id, label]) => (
-                <button key={id} type="button" aria-pressed={sort === id} onClick={() => chooseSort(id)} className={`inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold ${sort === id ? "bg-ink text-onaccent" : "border border-line bg-card text-ink"}`}>{t(label)}</button>
+                <button key={id} type="button" aria-pressed={sort === id} onClick={() => chooseSort(id)} className={`inline-flex h-10 items-center rounded-control px-3.5 text-sm font-semibold ${sort === id ? "bg-ink text-onaccent" : "border border-line bg-card text-ink"}`}>{t(label)}</button>
               ))}
             </div>
           )}
@@ -265,7 +265,7 @@ function Feed() {
                 <button
                   key={trait}
                   type="button"
-                  className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
+                  className={`inline-flex h-10 items-center rounded-control border-2 px-3 text-sm font-semibold ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}
                   onClick={() => {
                     const next = on ? (profile?.requireTraits ?? []).filter((item) => item !== trait) : [...(profile?.requireTraits ?? []), trait];
                     const apply = async () => {

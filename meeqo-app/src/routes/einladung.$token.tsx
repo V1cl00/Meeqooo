@@ -53,7 +53,7 @@ function Page() {
             </div>
           </article>
           <p className="text-sm text-muted">{t("Mitmachen geht über eine Anfrage. {0} sagt zu. Du brauchst dafür ein Konto und ein Profilfoto.", data.hostName)}</p>
-          <Link to="/login" search={{ next: `/activity/${data.activityId}` }} className="inline-flex h-12 w-full items-center justify-center rounded-full bg-accent px-6 text-sm font-semibold text-onfill">{t("Anmelden und ansehen")}</Link>
+          <Link to="/login" search={{ next: `/activity/${data.activityId}` }} className="inline-flex h-12 w-full items-center justify-center rounded-control bg-accent px-6 text-sm font-semibold text-onfill">{t("Anmelden und ansehen")}</Link>
         </>
       ) : null}
     </main>

@@ -169,7 +169,7 @@ function Thread({ id }: { id: string }) {
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Zum Anfangen")}</p>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
             {icebreakersFor(data.category, data.intent, data.people.length).map((line) => (
-              <button key={line} type="button" onClick={() => setBody(t(line))} className="inline-flex h-11 shrink-0 items-center rounded-full border border-dashed border-line bg-card px-4 text-sm">{t(line)}</button>
+              <button key={line} type="button" onClick={() => setBody(t(line))} className="inline-flex h-10 shrink-0 items-center rounded-control border border-dashed border-line bg-card px-3.5 text-sm">{t(line)}</button>
             ))}
           </div>
         </div>
@@ -177,13 +177,13 @@ function Thread({ id }: { id: string }) {
       <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {data.dayOf
           ? ARRIVAL_REPLIES.map((reply) => (
-              <button key={reply} type="button" onClick={() => send(t(reply))} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t(reply)}</button>
+              <button key={reply} type="button" onClick={() => send(t(reply))} className="inline-flex h-10 shrink-0 items-center rounded-control border border-line bg-card px-3.5 text-sm font-semibold">{t(reply)}</button>
             ))
           : null}
         {data.people.find((person) => person.me)?.isHost ? (
-          <button type="button" onClick={() => setAnnounceOpen((value) => !value)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t("Ansage an alle")}</button>
+          <button type="button" onClick={() => setAnnounceOpen((value) => !value)} className="inline-flex h-10 shrink-0 items-center rounded-control border border-line bg-card px-3.5 text-sm font-semibold">{t("Ansage an alle")}</button>
         ) : null}
-        <button type="button" onClick={() => setPollOpen((value) => !value)} className="inline-flex h-11 shrink-0 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold">{t("Termin abstimmen")}</button>
+        <button type="button" onClick={() => setPollOpen((value) => !value)} className="inline-flex h-10 shrink-0 items-center rounded-control border border-line bg-card px-3.5 text-sm font-semibold">{t("Termin abstimmen")}</button>
       </div>
       {fail || voice.problem ? <Note>{t(fail || voice.problem)}</Note> : null}
       {announceOpen ? <p className="mt-3 text-sm text-muted">{t("Die Ansage geht als Mitteilung an alle, die dabei sind. Schreib sie unten und tippe auf „Ansage senden“.")}</p> : null}

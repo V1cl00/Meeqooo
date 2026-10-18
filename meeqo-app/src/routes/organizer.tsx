@@ -27,7 +27,7 @@ function Organizer() {
       <div className="mx-auto max-w-lg space-y-4">
         <h1 className="font-display text-4xl leading-none">{t("Veranstalter")}</h1>
         <p className="text-sm text-muted">{t("Cafés, Studios und Vereine können Aktivitäten mit Sofortbuchung oder Anfrage in den normalen Feed stellen. Zahlungen gibt es noch nicht.")}</p>
-        <Link to="/organizer/register" className="inline-flex h-12 items-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill">{t("Profil anlegen")}</Link>
+        <Link to="/organizer/register" className="inline-flex h-12 items-center rounded-control bg-accent px-5 text-sm font-semibold text-onfill">{t("Profil anlegen")}</Link>
       </div>
     );
   }
@@ -41,7 +41,7 @@ function Organizer() {
       </div>
       <p className="text-sm text-muted">{t("Standard: {0}. Jede Aktivität kann das einzeln überschreiben. Ein Badge „Veranstalter“ steht am Profil.", bookingLabel(profile.bookingMode))}</p>
       <div className="flex flex-wrap gap-2">
-        <Link to="/create" search={{ community: "" }} className="inline-flex h-12 items-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill">{t("Aktivität anlegen")}</Link>
+        <Link to="/create" search={{ community: "" }} className="inline-flex h-12 items-center rounded-control bg-accent px-5 text-sm font-semibold text-onfill">{t("Aktivität anlegen")}</Link>
         <Link to="/my-activities"><Button type="button" tone="ghost">{t("Meine Termine")}</Button></Link>
       </div>
       <p className="text-sm text-muted">{t("Tickets und Zahlung folgen später. Bis dahin ist die Buchung nur die Zusage zum Kommen.")}</p>

@@ -36,6 +36,8 @@ describe("Startgebiet", () => {
     assert.match(feed, /Freunde/);
     await user.page.goto(`${base}/create`);
     await user.page.getByPlaceholder("Zum Beispiel: Laufen, acht Kilometer").fill("Spaziergang am Rhein");
+    // Business ist aus: keine Business-Kategorie zur Wahl
+    assert.doesNotMatch(await text(user.page), /^Business$/m);
     await user.page.getByRole("button", { name: "Weiter" }).click();
     await user.page.locator("input[type=file]").setInputFiles({ name: "p.jpg", mimeType: "image/jpeg", buffer: Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=", "base64") });
     await user.page.waitForTimeout(1500);
@@ -45,8 +47,12 @@ describe("Startgebiet", () => {
     await user.page.getByRole("button", { name: "Weiter" }).click();
     await user.page.waitForTimeout(800);
     const step3 = await text(user.page);
-    assert.match(step3, /Nur Freundschaft/);
+    // Dating ist aus: keine Wahl der Absicht, es bleibt bei Freundschaft
     assert.doesNotMatch(step3, /Nur Dates/);
+    assert.doesNotMatch(step3, /Nur Freundschaft/);
+    await user.page.goto(`${base}/profile`);
+    await user.page.waitForTimeout(1500);
+    assert.doesNotMatch(await text(user.page), /Wer sieht das\?/i);
     await user.context.close();
 
     const admin = await adminPage(browser);

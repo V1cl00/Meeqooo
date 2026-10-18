@@ -3,7 +3,7 @@ import { t } from "@/lib/meeqo/i18n";
 import { TRAITS } from "@/lib/meeqo/labels";
 
 function chip(active: boolean) {
-  return `inline-flex h-11 items-center rounded-full border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
+  return `inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${active ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
 }
 
 export function TraitPicker({
@@ -35,7 +35,7 @@ export function TraitPicker({
         <p className="font-semibold">{label}</p>
         <p className="text-sm text-muted">{hint}</p>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {TRAITS.map((trait) => (
           <button key={trait} type="button" className={chip(selected.includes(trait))} onClick={() => toggle(trait)}>
             {t(trait)}

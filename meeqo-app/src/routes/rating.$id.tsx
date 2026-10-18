@@ -46,7 +46,7 @@ function Rate({ id }: { id: string }) {
       {data.people.length > 1 ? (
         <div className="flex flex-wrap gap-2">
           {data.people.map((item) => (
-            <button key={item.user_id} type="button" onClick={() => setPerson(item.user_id)} className={`inline-flex h-11 items-center rounded-full border-2 px-3 text-sm font-semibold ${(person || data.people[0]?.user_id) === item.user_id ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>
+            <button key={item.user_id} type="button" onClick={() => setPerson(item.user_id)} className={`inline-flex h-10 items-center rounded-control border-2 px-3 text-sm font-semibold ${(person || data.people[0]?.user_id) === item.user_id ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`}>
               {item.display_name}
             </button>
           ))}

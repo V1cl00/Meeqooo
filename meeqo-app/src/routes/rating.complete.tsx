@@ -30,8 +30,8 @@ function Page() {
         </p>
         {ideas.map((item) => <ActivityCard key={item.id} item={item} />)}
         <div className="flex flex-wrap gap-2">
-          <Link to="/create" search={{ community: "" }} className="inline-flex h-12 items-center rounded-full bg-accent px-5 text-sm font-semibold text-onfill">{t("Nächste Woche selbst anlegen")}</Link>
-          <Link to="/" className="inline-flex h-12 items-center rounded-full border-2 border-line bg-card px-5 text-sm font-semibold">{t("Zum Feed")}</Link>
+          <Link to="/create" search={{ community: "" }} className="inline-flex h-12 items-center rounded-control bg-accent px-5 text-sm font-semibold text-onfill">{t("Nächste Woche selbst anlegen")}</Link>
+          <Link to="/" className="inline-flex h-12 items-center rounded-control border-2 border-line bg-card px-5 text-sm font-semibold">{t("Zum Feed")}</Link>
         </div>
       </div>
     </Shell>

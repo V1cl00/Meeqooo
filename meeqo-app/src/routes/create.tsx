@@ -234,7 +234,7 @@ function Create({ communityId }: { communityId: string }) {
           title,
           description,
           category,
-          intent,
+          intent: profile?.flags.dating ? intent : "friends",
           placeName,
           city,
           lat: coords?.lat,
@@ -342,8 +342,8 @@ function Create({ communityId }: { communityId: string }) {
           </label>
           {profile?.isOrganizer ? (
             <div className="flex gap-2">
-              <button type="button" className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${bookingMode === "request" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("request")}>{t("Anfrage")}</button>
-              <button type="button" className={`inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${bookingMode === "instant" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("instant")}>{t("Sofortbuchung")}</button>
+              <button type="button" className={`inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${bookingMode === "request" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("request")}>{t("Anfrage")}</button>
+              <button type="button" className={`inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${bookingMode === "instant" ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`} onClick={() => setBookingMode("instant")}>{t("Sofortbuchung")}</button>
             </div>
           ) : <p className="text-sm text-muted">{t("Buchung: Anfrage mit deiner Freigabe.")}</p>}
         </div>
@@ -351,13 +351,13 @@ function Create({ communityId }: { communityId: string }) {
       {step === 3 ? (
         <div className="space-y-4">
           <p className="text-sm text-muted">{t("Wer sie sieht, hängt an der Absicht. Teilnehmen geht nur über Anfrage, außer du bist Veranstalter mit Sofortbuchung.")}</p>
-          <div className="flex flex-wrap gap-2">
-            {(profile?.flags.dating ? (["friends", "date", "both"] as const) : (["friends"] as const)).map((item) => (
-              <button key={item} type="button" onClick={() => setIntent(item)} className={`inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold ${intent === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>
+          {profile?.flags.dating ? <div className="flex flex-wrap gap-1.5">
+            {(["friends", "date", "both"] as const).map((item) => (
+              <button key={item} type="button" onClick={() => setIntent(item)} className={`inline-flex h-10 items-center rounded-control border px-3.5 text-sm font-semibold ${intent === item ? "border-ink bg-ink text-onaccent" : "border-line bg-card text-ink"}`}>
                 {item === "friends" ? t("Nur Freundschaft") : item === "date" ? t("Nur Dates") : t("Alle")}
               </button>
             ))}
-          </div>
+          </div> : null}
           <VisibilityPicker value={visibility} onChange={setVisibility} communityIds={communityIds} onCommunityIds={setCommunityIds} />
           <TraitPicker label={t("Eigenschaften des Treffens")} hint={t("Wer vegan oder queer als Pflicht gesetzt hat, sieht das Treffen nur mit dem passenden Haken.")} selected={traits} onChange={setTraits} />
           {communityId ? <Note>{t("Die Aktivität erscheint in deiner Community und im Feed.")}</Note> : null}
@@ -386,7 +386,7 @@ function durationLabel(minutes: number) {
 /** Guests (stepper, 1 to 40 like the server) and duration (chips, longer via select). Always editable; a template only prefills. */
 function SizeControls({ spots, onSpots, durationMin, onDuration }: { spots: number; onSpots: (next: number) => void; durationMin: number; onDuration: (next: number) => void }) {
   const step = "grid h-12 w-12 place-items-center rounded-full border border-line bg-card text-2xl font-semibold text-ink disabled:opacity-40";
-  const chip = (on: boolean) => `inline-flex h-11 items-center rounded-full border-2 px-4 text-sm font-semibold ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
+  const chip = (on: boolean) => `inline-flex h-10 items-center rounded-control border-2 px-3.5 text-sm font-semibold ${on ? "border-accent bg-accent text-onfill" : "border-line bg-card text-ink"}`;
   return (
     <div className="card space-y-4 p-4">
       <div className="space-y-1.5">
@@ -408,7 +408,7 @@ function SizeControls({ spots, onSpots, durationMin, onDuration }: { spots: numb
       </div>
       <div className="space-y-1.5">
         <span className="text-[13px] font-semibold text-ink">{t("Dauer")}</span>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {DURATIONS.map((minutes) => (
             <button key={minutes} type="button" aria-pressed={durationMin === minutes} className={chip(durationMin === minutes)} onClick={() => onDuration(minutes)}>{durationLabel(minutes)}</button>
           ))}

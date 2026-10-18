@@ -28,7 +28,7 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "MeeQo" },
       { name: "description", content: "Menschen über Aktivitäten kennenlernen. Dating und Freundschaft bleiben getrennt." },
-      { name: "theme-color", content: "#F7F1EA" },
+      { name: "theme-color", content: "#F4E8D8" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },

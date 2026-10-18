@@ -87,11 +87,11 @@ function Person({ id }: { id: string }) {
           type="button"
           tone="ghost"
           onClick={async () => {
-            await setVerified({ data: { userId: data.userId, value: !data.badges.includes(t("Profil bestätigt")) } });
+            await setVerified({ data: { userId: data.userId, value: !data.badges.includes(t("Verifiziert")) } });
             reload();
           }}
         >
-          {data.badges.includes(t("Profil bestätigt")) ? t("Admin: Bestätigung aufheben") : t("Admin: als bestätigt markieren")}
+          {data.badges.includes(t("Verifiziert")) ? t("Admin: Bestätigung aufheben") : t("Admin: als bestätigt markieren")}
         </Button>
       ) : null}
       <SafetyMenu kind="person" targetId={data.userId} personId={data.userId} personName={data.displayName.split(" ")[0]} onBlocked={() => navigate({ to: "/" })} />

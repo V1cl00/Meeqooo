@@ -8,6 +8,8 @@ import { TraitPicker } from "@/components/traits";
 import { VisibilityPicker } from "@/components/visibility";
 import { MinimumWarning } from "@/components/feed-filters";
 import { Shell, useMe } from "@/components/shell";
+import { SelfieCard } from "@/components/trust";
+import { ChipToggle, LANGUAGES } from "@/components/quick-interests";
 import { friendOverview, listCategories, setAvatar, updateProfile } from "@/lib/meeqo/api";
 import { AreaPicker } from "@/components/areas";
 import { areaSummary, errText } from "@/lib/meeqo/labels";
@@ -48,6 +50,8 @@ function ProfilePage() {
   const [traits, setTraits] = useState<string[]>(profile?.traits ?? []);
   const [requireTraits, setRequireTraits] = useState<string[]>(profile?.requireTraits ?? []);
   const [city, setCity] = useState(profile?.city ?? "");
+  const [district, setDistrict] = useState(profile?.district ?? "");
+  const [languages, setLanguages] = useState<string[]>(profile?.languages ?? []);
   const [year, setYear] = useState(profile?.birthYear ? String(profile.birthYear) : "");
   const [see, setSee] = useState<string>(profile?.defaultVisibility ?? "all");
   const [audienceIds, setAudienceIds] = useState<string[]>(profile?.audienceIds ?? []);
@@ -62,7 +66,7 @@ function ProfilePage() {
     event.preventDefault();
     setError("");
     try {
-      await updateProfile({ data: { displayName: name, bio, areas, seeking, traits, requireTraits, city, trustedLabel: trusted, birthYear: year ? Number(year) : 0, defaultVisibility: see, audienceIds } });
+      await updateProfile({ data: { displayName: name, bio, areas, seeking, traits, requireTraits, city, district, languages, trustedLabel: trusted, birthYear: year ? Number(year) : 0, defaultVisibility: see, audienceIds } });
       await reload();
       setInfo("Gespeichert.");
     } catch (err) {
@@ -127,6 +131,12 @@ function ProfilePage() {
           <p className="text-sm font-semibold">{t("Ich suche aktiv neue Leute für")}</p>
           <SeekingPicker selected={seeking} onChange={setSeeking} custom={cats.data ?? []} />
         </div>
+        <div className="card space-y-2 p-4">
+          <p className="text-sm font-semibold">{t("Sprachen")}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {LANGUAGES.map((label) => <ChipToggle key={label} label={label} active={languages.includes(label)} onClick={() => setLanguages(languages.includes(label) ? languages.filter((item) => item !== label) : [...languages, label])} />)}
+          </div>
+        </div>
         <TraitPicker label={t("Das trifft auf mich zu")} hint={t("Andere können danach filtern. Queer und vegan sind Eigenschaften, keine Kategorien.")} selected={traits} onChange={setTraits} personal />
         <TraitPicker label={t("Mindestens vorhanden")} hint={t("Feed, Suche, Communities und Anzeigen ohne diese Eigenschaft siehst du nicht.")} selected={requireTraits} onChange={setRequireTraits} personal />
         <MinimumWarning count={requireTraits.length} />
@@ -136,6 +146,7 @@ function ProfilePage() {
         </div>
         <div className="card space-y-3 p-4">
           <Field label={t("Stadt")}><TextInput value={city} onChange={(event) => setCity(event.target.value)} /></Field>
+          <Field label={t("Stadtteil (optional)")}><TextInput value={district} maxLength={40} onChange={(event) => setDistrict(event.target.value)} /></Field>
           <Field label={t("Geburtsjahr")}>
             <TextInput inputMode="numeric" value={year} onChange={(event) => setYear(event.target.value)} placeholder="1994" />
           </Field>
@@ -150,8 +161,8 @@ function ProfilePage() {
       </form>
       <div className="card space-y-2 p-4">
         <h2 className="font-display text-2xl">{t("Vertrauen")}</h2>
-        <p className="text-sm text-muted">{t("Bewertungen kommen erst nach einem echten Check-in. „Profil bestätigt“ setzt MeeQo selbst nach einer Prüfung, du kannst es nicht anklicken.")}</p>
-        {profile.identityConfirmed ? <p className="text-sm font-semibold">{t("Profil bestätigt")}</p> : null}
+        <p className="text-sm text-muted">{t("Rückmeldungen gibt es nur nach einem echten Treffen, ohne Sterne. „Verifiziert“ vergibt MeeQo nach einer Selfie-Prüfung.")}</p>
+        <SelfieCard hasPhoto={Boolean(profile.avatarUrl)} />
       </div>
       <div className="grid gap-2">
         {LINKS.map(([to, label]) => (

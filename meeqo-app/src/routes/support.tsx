@@ -16,7 +16,7 @@ const FAQ = [
   ["Kann ich etwas posten?", "Ja, auf deinem Profil und in Gruppen, denen du beigetreten bist. Du wählst, ob der Beitrag für Dates, Freundschaft oder beides sichtbar ist. Eigene Beiträge kannst du löschen."],
   ["Kann ich Unterkategorien anlegen?", "Ja, unter Kategorien. Du wählst eine Kategorie und gibst der Unterkategorie einen Namen. Sie erscheint dann beim Anlegen, in der Suche und bei „Ich suche aktiv“."],
   ["Kann ich das Design ändern?", "Ja, unter Einstellungen. Beschreib Farben oder Stimmung, die KI setzt Grund, Akzent, Schrift und Ecken. Zurück zu MeeQo stellt das Original wieder her. Das gilt nur für dich."],
-  ["Ist das Profil geprüft?", "„Profil bestätigt“ ist eine Selbstauskunft. Bewertungen zu pünktlich, respektvoll und wie im Profil kommen nach dem Check-in."],
+  ["Ist das Profil geprüft?", "„Verifiziert“ heißt: Ein Mensch bei MeeQo hat ein Selfie mit dem Profilfoto verglichen. Das Selfie wird danach gelöscht. Bewertungen gibt es nur nach einem echten Check-in, ohne Sterne."],
 ];
 
 function Page() {

@@ -11,10 +11,10 @@ export function Mark({ className = "h-8 w-8" }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
       <rect width="32" height="32" rx="8" fill="#E07A5F" />
-      <circle cx="11.5" cy="11.3" r="3.15" fill="#F7F1EA" />
-      <circle cx="20.5" cy="11.3" r="3.15" fill="#F7F1EA" />
-      <path fill="#F7F1EA" d="M7.7 16.6C6.5 19.2 8.4 23.6 13.2 24.2 15.4 21.6 14.8 17.2 12.4 15.8 10.6 14.8 8.6 15.2 7.7 16.6Z" />
-      <path fill="#F7F1EA" d="M24.3 16.6C25.5 19.2 23.6 23.6 18.8 24.2 16.6 21.6 17.2 17.2 19.6 15.8 21.4 14.8 23.4 15.2 24.3 16.6Z" />
+      <circle cx="11.5" cy="11.3" r="3.15" fill="#F4E8D8" />
+      <circle cx="20.5" cy="11.3" r="3.15" fill="#F4E8D8" />
+      <path fill="#F4E8D8" d="M7.7 16.6C6.5 19.2 8.4 23.6 13.2 24.2 15.4 21.6 14.8 17.2 12.4 15.8 10.6 14.8 8.6 15.2 7.7 16.6Z" />
+      <path fill="#F4E8D8" d="M24.3 16.6C25.5 19.2 23.6 23.6 18.8 24.2 16.6 21.6 17.2 17.2 19.6 15.8 21.4 14.8 23.4 15.2 24.3 16.6Z" />
     </svg>
   );
 }
@@ -199,6 +199,7 @@ export function ActivityCard({ item, onHide, onChanged }: { item: Activity; onHi
             <p className="text-sm font-semibold text-accent-deep">{t("Passt zu deinen Interessen")}</p>
           ) : null}
           {item.fitReason ? <p className="text-xs text-muted">{t("Weit oben: {0}", item.fitReason)}</p> : null}
+          {item.stillNeeded > 0 ? <MinGroupLine missing={item.stillNeeded} /> : null}
           <div className="flex items-center gap-2 pt-1">
             {item.hostAvatar ? (
               <img src={item.hostAvatar} alt="" className="h-8 w-8 rounded-full object-cover" />
@@ -225,6 +226,16 @@ export function ActivityCard({ item, onHide, onChanged }: { item: Activity; onHi
       </div>
       {menu ? <CardSheet item={item} onClose={() => setMenu(false)} onHide={onHide} onChanged={onChanged} /> : null}
     </article>
+  );
+}
+
+/** "Noch N Leute, dann findet es statt" for meetups with a minimum group size. Real counts only. */
+export function MinGroupLine({ missing }: { missing: number }) {
+  return (
+    <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+      <span className="h-2 w-2 shrink-0 rounded-full bg-green" aria-hidden="true" />
+      {missing === 1 ? t("Noch 1 Person, dann findet es statt") : t("Noch {0} Leute, dann findet es statt", missing)}
+    </p>
   );
 }
 

@@ -10,7 +10,7 @@ Deutschsprachige App, in der Menschen sich über gemeinsame Aktivitäten treffen
 - TanStack Start (React 19, Vite, SSR, Dateirouten), Tailwind 4, better-auth, Postgres (im Vorschau-Betrieb PGLite). Alles Weitere in `meeqo-app/`.
 - Serverlogik: `src/lib/meeqo/api.ts` (Server-Funktionen), Typen `types.ts`, Texte/Labels `labels.ts`.
 - Datenbank nur über **neue** Dateien in `meeqo-app/migrations/` (nächste Nummer fortsetzen, nie alte ändern).
-- Oberfläche: `src/routes/*`, `src/components/*`. Farben: Hintergrund `#F7F1EA`, Akzent `#E07A5F`, weiße Karten, schwebende Leiste unten.
+- Oberfläche: `src/routes/*`, `src/components/*`. Farben (Markenpalette): Sand `#F4E8D8` Hintergrund, Terrakotta `#E07A5F` Primär, Grün `#81B29A` Akzent, Anthrazit `#3D405B` Text, helle Karten, schwebende Leiste unten.
 
 ## Regeln
 1. Texte in der Oberfläche auf Deutsch, mit `t("deutscher Text {0}", wert)`; Englisch steht in `tools/en/part*.json` → `node tools/i18n-merge.mjs`. Danach `node tools/i18n-missing.mjs` muss 0 melden.

@@ -1,3 +1,4 @@
+import { stillNeeded } from "@/lib/meeqo/group-size";
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql, type Sql } from "@/lib/db";
@@ -56,7 +57,7 @@ const DEFAULT_FLAGS: Flags = { dating: false, business: false, classifieds: fals
 let flagCache: { at: number; value: Flags } = { at: 0, value: DEFAULT_FLAGS };
 
 /** Which areas are switched on. Read from app_flags, kept for 15 seconds; until it is loaded the launch setting applies. */
-async function loadFlags(sql: Sql): Promise<Flags> {
+export async function loadFlags(sql: Sql): Promise<Flags> {
   if (Date.now() - flagCache.at < 15_000) return flagCache.value;
   try {
     const rows = await sql<{ key: string; enabled: boolean }>`select key, enabled from app_flags`;
@@ -78,6 +79,18 @@ function allowedAreas(areas: string[]) {
 }
 
 const seenToday = new Set<string>();
+const trackedToday = new Set<string>();
+
+/** First-party funnel step: one row per account, step and day. No third party, deleted with the account. */
+export async function track(sql: Sql, userId: string, kind: "feed" | "request" | "accepted" | "attended") {
+  if (!userId || userId.startsWith("seed:")) return;
+  const day = berlinDay();
+  const key = `${userId}:${kind}:${day}`;
+  if (trackedToday.has(key)) return;
+  if (trackedToday.size > 100_000) trackedToday.clear();
+  trackedToday.add(key);
+  await sql`insert into funnel_events (user_id, kind, day) values (${userId}, ${kind}, ${day}) on conflict do nothing`.catch(() => trackedToday.delete(key));
+}
 
 /** One row per account and day, only for return numbers. Kept in memory so most requests write nothing. */
 async function touchDay(sql: Sql, userId: string) {
@@ -89,7 +102,7 @@ async function touchDay(sql: Sql, userId: string) {
   await sql`insert into activity_days (user_id, day) values (${userId}, ${day}) on conflict do nothing`.catch(() => seenToday.delete(key));
 }
 
-const memberMiddleware = createMiddleware({ type: "function" })
+export const memberMiddleware = createMiddleware({ type: "function" })
   .middleware([authMiddleware])
   .server(async ({ next, context }) => {
     const hit = suspendedCache.get(context.userId);
@@ -131,6 +144,11 @@ type ProfileRow = {
   age_confirmed_at?: unknown;
   sensitive_consent_at?: unknown;
   notify_email?: boolean;
+  district?: string;
+  languages?: string;
+  profile_more_seen?: boolean;
+  notify_reminder?: boolean;
+  notify_nearby?: boolean;
   avatar_url: string;
   theme: string;
   traits: string;
@@ -160,6 +178,7 @@ type ActRow = {
   cancelled: boolean;
   area: string;
   duration_min: number | string | null;
+  min_people?: number | string | null;
   traits: string;
   host_traits: string;
   visibility: string;
@@ -179,16 +198,16 @@ type ActRow = {
   my_status: string | null;
 };
 
-function flag(value: unknown) {
+export function flag(value: unknown) {
   return value === true || value === "t" || value === "true" || value === 1;
 }
 
-function num(value: unknown) {
+export function num(value: unknown) {
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : 0;
 }
 
-function iso(value: unknown) {
+export function iso(value: unknown) {
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string" && value) {
     const date = new Date(value);
@@ -197,7 +216,7 @@ function iso(value: unknown) {
   return "";
 }
 
-function parseList(raw: unknown) {
+export function parseList(raw: unknown) {
   if (Array.isArray(raw)) return raw.filter((item): item is string => typeof item === "string");
   return parseSeeking(typeof raw === "string" ? raw : "[]");
 }
@@ -230,7 +249,7 @@ function badgesFrom(
 ) {
   const badges: string[] = [];
   if (count >= 3) badges.push(`${yes} von ${count} wollen wieder`);
-  if (identity) badges.push("Profil bestätigt");
+  if (identity) badges.push("Verifiziert");
   if (organizer) badges.push("Veranstalter");
   if (hosted >= 2) badges.push(`${hosted} Treffen geleitet`);
   if (count >= 1 && punctual >= 4) badges.push("Zuverlässig");
@@ -273,12 +292,12 @@ function passesFilter(filter: string, intent: string) {
   return true;
 }
 
-function assertAdult(profile: { ageConfirmed: boolean }) {
+export function assertAdult(profile: { ageConfirmed: boolean }) {
   if (!profile.ageConfirmed) throw new Error("Bestätige zuerst, dass du mindestens 18 bist.");
 }
 
 /** At most `max` actions of one kind per user in `seconds`. Counts are kept in the database, so they hold across servers. */
-async function throttle(sql: Sql, userId: string, kind: string, max: number, seconds: number) {
+export async function throttle(sql: Sql, userId: string, kind: string, max: number, seconds: number) {
   const rows = await sql<{ n: number }>`
     select count(*)::int as n from rate_events
     where user_id = ${userId} and kind = ${kind} and created_at > now() - (${seconds}::int * interval '1 second')
@@ -302,7 +321,7 @@ function validAttachment(file: { name: string; type: string; data: string }) {
   return head.subarray(0, 4).toString("latin1") === "%PDF";
 }
 
-function validImage(value: string) {
+export function validImage(value: string) {
   const match = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/.exec(value);
   if (!match || value.length > 450_000) return false;
   const head = Buffer.from(match[2].slice(0, 24), "base64");
@@ -323,7 +342,7 @@ async function overbooked(sql: Sql, activityId: string) {
   return num(rows[0]?.taken) > num(rows[0]?.spots);
 }
 
-async function blockedWith(sql: Sql, userId: string) {
+export async function blockedWith(sql: Sql, userId: string) {
   const rows = await sql<{ other: string }>`
     select case when blocker_id = ${userId} then blocked_id else blocker_id end as other
     from blocks where blocker_id = ${userId} or blocked_id = ${userId}
@@ -378,6 +397,11 @@ function mapProfile(row: ProfileRow, stats: { n: number; yes: number; hosted: nu
     sensitiveConsent: Boolean(row.sensitive_consent_at),
     notifyEmail: row.notify_email !== false,
     avatarUrl: row.avatar_url || "",
+    district: row.district ?? "",
+    languages: parseList(row.languages ?? "[]"),
+    profileMoreSeen: flag(row.profile_more_seen),
+    notifyReminder: row.notify_reminder !== false,
+    notifyNearby: row.notify_nearby !== false,
     badges: badgesFrom(
       flag(row.identity_confirmed),
       flag(row.is_organizer),
@@ -392,7 +416,7 @@ function mapProfile(row: ProfileRow, stats: { n: number; yes: number; hosted: nu
   };
 }
 
-async function ensureProfile(userId: string) {
+export async function ensureProfile(userId: string) {
   const sql = await getSql();
   // Fast path: almost every call hits an existing, named profile. One round trip, stats in parallel.
   const [first, firstStats] = await Promise.all([
@@ -424,7 +448,7 @@ async function ensureProfile(userId: string) {
   return { sql, profile: mapProfile(row, stats) };
 }
 
-function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: number } | null): ActivityCard {
+export function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: number } | null): ActivityCard {
   const intent = row.intent === "date" || row.intent === "friends" || row.intent === "both" ? row.intent : "both";
   const status = row.my_status === "pending" || row.my_status === "accepted" || row.my_status === "declined" || row.my_status === "waitlist" ? row.my_status : null;
   const km = origin ? kmBetween(origin.lat, origin.lng, num(row.lat), num(row.lng)) : null;
@@ -447,6 +471,8 @@ function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: nu
     ),
     hostOrganizer: flag(row.is_organizer),
     durationMin: num(row.duration_min) || 120,
+    minPeople: num(row.min_people),
+    stillNeeded: stillNeeded(num(row.min_people), taken),
     area: row.area === "business" ? "business" : row.area === "event" ? "event" : "meetup",
     friendsGoing: [],
     matchesInterest: false,
@@ -478,11 +504,11 @@ function mapActivity(row: ActRow, userId: string, origin: { lat: number; lng: nu
   };
 }
 
-async function loadRows(sql: Sql, userId: string, after: string | null = null, only: string | null = null) {
+export async function loadRows(sql: Sql, userId: string, after: string | null = null, only: string | null = null) {
   return sql<ActRow>`
     select a.id, a.host_id, a.title, a.description, a.category, a.intent,
       a.place_name, a.city, a.lat, a.lng, a.starts_at, a.spots, a.image_url,
-      a.booking_mode, a.community_id, a.public_place, a.cancelled, a.area, a.duration_min, a.traits, a.visibility, a.audience_ids,
+      a.booking_mode, a.community_id, a.public_place, a.cancelled, a.area, a.duration_min, a.traits, a.visibility, a.audience_ids, a.min_people,
       p.display_name, p.avatar_url, p.is_organizer, p.identity_confirmed, p.traits as host_traits, p.birth_year as host_birth_year,
       coalesce(r.n, 0) as rating_n, coalesce(r.yes, 0) as again_yes,
       (select count(*)::int from activities h where h.host_id = a.host_id and h.starts_at < now() and h.cancelled = false) as hosted, r.punctual, r.respectful, r.matches,
@@ -617,7 +643,7 @@ async function friendState(sql: Sql, me: string, them: string): Promise<"none" |
   return row.requester_id === me ? "out" : "in";
 }
 
-async function notify(sql: Sql, userId: string, kind: string, title: string, body: string, href: string, refId: string) {
+export async function notify(sql: Sql, userId: string, kind: string, title: string, body: string, href: string, refId: string) {
   if (!userId || userId.startsWith("seed:")) return;
   if (kind === "message" || kind === "ad") {
     // One open line per chat instead of one per message.
@@ -655,7 +681,7 @@ async function sendEmail(sql: Sql, userId: string, title: string, body: string, 
 }
 
 /** Needs VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT. Without them nothing is sent and nothing breaks. */
-async function sendPush(sql: Sql, userId: string, title: string, body: string, href: string) {
+export async function sendPush(sql: Sql, userId: string, title: string, body: string, href: string) {
   await sendNativePush(sql, userId, title, body, href);
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -719,7 +745,7 @@ function areaOf(category: string, organizer: boolean) {
   return organizer ? "event" : "meetup";
 }
 
-function clean(value: unknown, max: number) {
+export function clean(value: unknown, max: number) {
   return String(value ?? "").trim().slice(0, max);
 }
 
@@ -748,6 +774,8 @@ const profileInput = (input: {
   defaultVisibility?: string;
   audienceIds?: string[];
   both?: boolean;
+  district?: string;
+  languages?: string[];
 }) => input;
 
 export const saveOnboarding = createServerFn({ method: "POST" })
@@ -796,6 +824,8 @@ export const saveOnboarding = createServerFn({ method: "POST" })
         where user_id = ${context.userId}
       `;
     }
+    const district = clean(data.district, 40);
+    if (district) await sql`update profiles set district = ${district} where user_id = ${context.userId}`;
     return { ok: true as const };
   });
 
@@ -857,6 +887,11 @@ export const updateProfile = createServerFn({ method: "POST" })
     `;
     if (coords) {
       await sql`update profiles set lat = ${coords.lat}, lng = ${coords.lng} where user_id = ${context.userId}`;
+    }
+    if (typeof data.district === "string") await sql`update profiles set district = ${clean(data.district, 40)} where user_id = ${context.userId}`;
+    if (Array.isArray(data.languages)) {
+      const languages = data.languages.map((item) => clean(item, 24)).filter(Boolean).slice(0, 8);
+      await sql`update profiles set languages = ${JSON.stringify(languages)} where user_id = ${context.userId}`;
     }
     return { ok: true as const };
   });
@@ -1112,6 +1147,7 @@ export const getFeed = createServerFn({ method: "POST" })
   .validator((input: FeedInput) => input ?? {})
   .handler(async ({ data, context }): Promise<FeedResult> => {
     const { sql, profile } = await ensureProfile(context.userId);
+    if (!data.mineOnly) void track(sql, context.userId, "feed");
     const limit = Math.min(200, Math.max(1, Math.round(Number(data.limit)) || 30));
     const place = searchPlace(data);
     const cutoff = Date.now() - 2 * 60 * 60 * 1000;
@@ -1205,7 +1241,7 @@ export const getFeed = createServerFn({ method: "POST" })
           matchesInterest: item.matchesInterest,
           km: item.km,
           hoursAway: (new Date(item.startsAt).getTime() - Date.now()) / 3_600_000,
-          hostVerified: item.hostBadges.includes("Profil bestätigt"),
+          hostVerified: item.hostBadges.includes("Verifiziert"),
           spotsLeft: item.spotsLeft,
         });
         item.fitReason = fit.reason;
@@ -1393,6 +1429,7 @@ export const createActivity = createServerFn({ method: "POST" })
     visibility?: string;
     communityIds?: string[];
     durationMin?: number;
+    minPeople?: number;
   }) => input)
   .handler(async ({ data, context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
@@ -1448,16 +1485,23 @@ export const createActivity = createServerFn({ method: "POST" })
     await sql`
       insert into activities (
         id, host_id, title, description, category, intent, place_name, city, lat, lng,
-        starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area, duration_min
+        starts_at, spots, image_url, booking_mode, community_id, public_place, traits, visibility, audience_ids, area, duration_min, min_people
       ) values (
         ${id}, ${context.userId}, ${title}, ${description}, ${category}, ${intent}, ${placeName}, ${city},
         ${lat}, ${lng}, ${starts.toISOString()}, ${spots}, ${imageUrl}, ${booking},
         nullif(${communityId}, ''), ${publicPlace}, ${JSON.stringify(activityTraits)}, ${visibility}, ${JSON.stringify(audienceIds)},
-        ${areaOf(category, profile.isOrganizer)}, ${durationMin}
+        ${areaOf(category, profile.isOrganizer)}, ${durationMin}, ${minPeopleOf(data.minPeople, spots)}
       )
     `;
     return { id };
   });
+
+/** Minimum group size including the host: 0 = none, otherwise 2 up to everyone. */
+export function minPeopleOf(raw: unknown, spots: number) {
+  const value = Math.round(Number(raw));
+  if (!Number.isFinite(value) || value < 2) return 0;
+  return Math.min(value, spots + 1);
+}
 
 export const cancelActivity = createServerFn({ method: "POST" })
   .middleware([memberMiddleware])
@@ -1577,6 +1621,94 @@ async function dropRides(sql: Sql, activityId: string, userId: string) {
   await sql`delete from ride_riders where rider_id = ${userId} and ride_id in (select id from rides where activity_id = ${activityId})`;
 }
 
+/** Marks a nudge as sent. Returns false when it already went out, so each one goes at most once. */
+async function once(sql: Sql, userId: string, kind: string, refId: string) {
+  const rows = await sql<{ user_id: string }>`
+    insert into nudges_sent (user_id, kind, ref_id) values (${userId}, ${kind}, ${refId}) on conflict do nothing returning user_id
+  `;
+  return rows.length > 0;
+}
+
+/**
+ * Two useful nudges, never more than once each, both switchable in the settings:
+ * a reminder about 2 hours before (host and accepted guests), and at most one
+ * "tomorrow, 1 spot left near you" per person and day, only for public meetups that match their interests.
+ * Runs with the attendance sweep (when people use the app); a cron job would make it punctual.
+ */
+async function sweepNudges(sql: Sql) {
+  const soon = await sql<{ id: string; title: string; starts_at: unknown; place_name: string; user_id: string }>`
+    select a.id, a.title, a.starts_at, a.place_name, x.user_id
+    from activities a
+    join (
+      select activity_id, requester_id as user_id from join_requests where status = 'accepted'
+      union select id as activity_id, host_id as user_id from activities
+    ) x on x.activity_id = a.id
+    join profiles p on p.user_id = x.user_id
+    where a.cancelled = false and a.starts_at > now() + interval '75 minutes' and a.starts_at < now() + interval '135 minutes'
+      and p.notify_reminder = true and x.user_id not like 'seed:%'
+    limit 300
+  `;
+  for (const row of soon) {
+    if (!(await once(sql, row.user_id, "reminder", row.id))) continue;
+    const time = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }).format(new Date(iso(row.starts_at)));
+    await notify(sql, row.user_id, "reminder", `In 2 Stunden: ${row.title}`, `${time} Uhr · ${row.place_name}`, `/activity/${row.id}`, row.id);
+  }
+
+  // After the meetup: one quiet "Wie war's?" per person and meetup, under the same switch as the reminder.
+  const ended = await sql<{ id: string; title: string; user_id: string }>`
+    select a.id, a.title, x.user_id
+    from activities a
+    join (
+      select activity_id, requester_id as user_id from join_requests where status = 'accepted'
+      union select id as activity_id, host_id as user_id from activities
+    ) x on x.activity_id = a.id
+    join profiles p on p.user_id = x.user_id
+    where a.cancelled = false
+      and a.starts_at + make_interval(mins => coalesce(a.duration_min, 120)) < now() - interval '30 minutes'
+      and a.starts_at > now() - interval '20 hours'
+      and p.notify_reminder = true and x.user_id not like 'seed:%'
+      and not exists (select 1 from meet_feedback f where f.activity_id = a.id and f.user_id = x.user_id)
+    limit 300
+  `;
+  for (const row of ended) {
+    if (!(await once(sql, row.user_id, "after", row.id))) continue;
+    await notify(sql, row.user_id, "after", `Wie war's? ${row.title}`, "Zwei Fragen, und ob ihr euch nochmal trefft.", `/wie-wars/${row.id}`, row.id);
+  }
+
+  const tomorrow = addDaysBerlin(new Date().toISOString(), 1).slice(0, 10);
+  const lastOne = await sql<{ id: string; title: string; starts_at: unknown; place_name: string; category: string; lat: number; lng: number; host_id: string }>`
+    select a.id, a.title, a.starts_at, a.place_name, a.category, a.lat, a.lng, a.host_id
+    from activities a
+    where a.cancelled = false and a.visibility = 'all' and a.intent <> 'date' and a.booking_mode = 'request'
+      and a.starts_at > now() + interval '12 hours' and a.starts_at < now() + interval '48 hours'
+      and a.spots - (select count(*) from join_requests j where j.activity_id = a.id and j.status = 'accepted') = 1
+    limit 40
+  `;
+  const today = berlinDay();
+  for (const act of lastOne) {
+    if (berlinDay(iso(act.starts_at)) !== tomorrow) continue;
+    const people = await sql<{ user_id: string; lat: number; lng: number; seeking: string; radius_km: number }>`
+      select p.user_id, p.lat, p.lng, p.seeking, p.radius_km from profiles p
+      where p.notify_nearby = true and p.onboarding_done and p.lat is not null and p.user_id not like 'seed:%'
+        and p.user_id <> ${act.host_id}
+        and abs(p.lat - ${act.lat}) < 0.15 and abs(p.lng - ${act.lng}) < 0.22
+        and not exists (select 1 from join_requests j where j.activity_id = ${act.id} and j.requester_id = p.user_id)
+        and not exists (select 1 from blocks b where (b.blocker_id = p.user_id and b.blocked_id = ${act.host_id}) or (b.blocker_id = ${act.host_id} and b.blocked_id = p.user_id))
+      limit 200
+    `;
+    const parent = act.category.split(" · ")[0];
+    for (const person of people) {
+      const km = kmBetween(num(person.lat), num(person.lng), num(act.lat), num(act.lng));
+      if (km > Math.min(10, num(person.radius_km) || 10)) continue;
+      const seeking = parseSeeking(person.seeking);
+      if (!seeking.some((item) => item === act.category || item === parent || item.split(" · ")[0] === parent)) continue;
+      if (!(await once(sql, person.user_id, "nearby", today))) continue;
+      const time = new Intl.DateTimeFormat("de-DE", { hour: "numeric", minute: "2-digit", timeZone: "Europe/Berlin" }).format(new Date(iso(act.starts_at)));
+      await notify(sql, person.user_id, "nearby", `Morgen ${time} Uhr: ${act.title}`, `1 Platz frei in deiner Nähe · ${act.place_name}`, `/activity/${act.id}`, act.id);
+    }
+  }
+}
+
 /** Any participant can step out, not only in the last 30 hours. A place on the waitlist can be given up the same way. */
 let lastSweep = 0;
 
@@ -1587,6 +1719,7 @@ let lastSweep = 0;
 async function sweepAttendance(sql: Sql) {
   if (Date.now() - lastSweep < 5 * 60_000) return;
   lastSweep = Date.now();
+  await sweepNudges(sql).catch(() => {});
   const rows = await sql<{ id: string; activity_id: string; requester_id: string; title: string; host_id: string; starts_at: unknown; confirmed_at: unknown; confirm_asked_at: unknown; waiting: number }>`
     select j.id, j.activity_id, j.requester_id, a.title, a.host_id, a.starts_at, j.confirmed_at, j.confirm_asked_at,
       (select count(*)::int from join_requests w where w.activity_id = a.id and w.status = 'waitlist') as waiting
@@ -2338,6 +2471,7 @@ export const listCommunities = createServerFn({ method: "GET" })
         (select count(*)::int from activities a where a.community_id = c.id and a.cancelled = false and a.starts_at > now() - interval '2 hours') as activity_count,
         exists (select 1 from community_members m where m.community_id = c.id and m.user_id = ${context.userId}) as joined
       from communities c
+      where c.private = false or exists (select 1 from community_members m where m.community_id = c.id and m.user_id = ${context.userId})
       order by c.city, c.name
     `;
     return rows
@@ -2366,6 +2500,9 @@ export const getCommunity = createServerFn({ method: "POST" })
     if (!community) throw new Error("Community nicht gefunden.");
     const member = await sql`select 1 as ok from community_members where community_id = ${data.id} and user_id = ${context.userId}`;
     const joined = member.length > 0;
+    // Groups kept from a meetup are private: only their members see them.
+    const priv = await sql<{ private: boolean }>`select private from communities where id = ${data.id}`;
+    if (priv[0]?.private && !joined) throw new Error("Community nicht gefunden.");
     const origin = profile.lat != null && profile.lng != null ? { lat: profile.lat, lng: profile.lng } : null;
     const all = await loadRows(sql, context.userId);
     const hidden = await hiddenSet(sql, context.userId);
@@ -2382,7 +2519,7 @@ export const joinCommunity = createServerFn({ method: "POST" })
   .validator((input: { id: string }) => ({ id: clean(input.id, 80) }))
   .handler(async ({ data, context }) => {
     const sql = await getSql();
-    const found = await sql`select 1 as ok from communities where id = ${data.id}`;
+    const found = await sql`select 1 as ok from communities where id = ${data.id} and private = false`;
     if (!found.length) throw new Error("Community nicht gefunden.");
     await sql`
       insert into community_members (community_id, user_id) values (${data.id}, ${context.userId})
@@ -3232,6 +3369,10 @@ export const deleteAccount = createServerFn({ method: "POST" })
     const me = context.userId;
     await sql`delete from join_requests where requester_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from activity_days where user_id = ${me}`;
+    await sql`delete from selfie_checks where user_id = ${me}`;
+    await sql`delete from meet_feedback where user_id = ${me}`;
+    await sql`delete from nudges_sent where user_id = ${me}`;
+    await sql`delete from funnel_events where user_id = ${me}`;
     await sql`delete from messages where sender_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from checkins where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from ratings where rater_id = ${me} or ratee_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
@@ -3355,7 +3496,7 @@ async function isAdminUser(sql: Sql, userId: string) {
   return allowed.includes((rows[0]?.email || "").toLowerCase());
 }
 
-async function requireAdmin(sql: Sql, userId: string) {
+export async function requireAdmin(sql: Sql, userId: string) {
   if (!(await isAdminUser(sql, userId))) throw new Error("Nicht gefunden.");
 }
 
@@ -3615,8 +3756,20 @@ export const adminFunnel = createServerFn({ method: "GET" })
       one(sql<{ n: number }>`select count(*)::int as n from "user" u where u."createdAt" < now() - interval '7 days' and u."createdAt" > now() - interval '60 days' and u.id not like 'seed:%' and exists (select 1 from activity_days d where d.user_id = u.id and d.day >= (u."createdAt"::date + 7))`),
       one(sql<{ n: number }>`select count(*)::int as n from "user" u where u."createdAt" < now() - interval '7 days' and u."createdAt" > now() - interval '60 days' and u.id not like 'seed:%'`),
     ]);
+    const [feedWeek, requestWeek, acceptedWeek, cameWeek] = await Promise.all([
+      one(sql<{ n: number }>`select count(distinct user_id)::int as n from funnel_events where kind = 'feed' and day > current_date - 7`),
+      one(sql<{ n: number }>`select count(distinct requester_id)::int as n from join_requests where created_at > now() - interval '7 days' and requester_id not like 'seed:%'`),
+      one(sql<{ n: number }>`select count(distinct requester_id)::int as n from join_requests where status = 'accepted' and responded_at > now() - interval '7 days' and requester_id not like 'seed:%'`),
+      one(sql<{ n: number }>`select count(distinct user_id)::int as n from checkins where created_at > now() - interval '7 days' and user_id not like 'seed:%'`),
+    ]);
     const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : null);
     return {
+      week: [
+        { key: "Feed gesehen", count: feedWeek },
+        { key: "Angefragt", count: requestWeek },
+        { key: "Zugesagt", count: acceptedWeek },
+        { key: "Eingecheckt", count: cameWeek },
+      ],
       steps: [
         { key: "Angemeldet", count: signups },
         { key: "Onboarding fertig", count: onboarded },
@@ -3720,7 +3873,9 @@ export const exportMyData = createServerFn({ method: "POST" })
       fahrten: rides,
       abstimmungenDieIchGestartetHabe: polls,
       meineStimmen: votes,
-      hinweis: "Nachrichten anderer Personen und deren Profile sind nicht enthalten.",
+      nachDemTreffen: await sql`select activity_id, was_there, was_nice, again_group, keep_group, host_there, created_at from meet_feedback where user_id = ${me}`,
+      selfiePruefung: await sql`select status, created_at, reviewed_at from selfie_checks where user_id = ${me}`,
+      hinweis: "Nachrichten anderer Personen und deren Profile sind nicht enthalten. Ein Selfie wird nach der Prüfung gelöscht und ist deshalb nicht enthalten.",
     };
     return { filename: `meeqo-daten-${new Date().toISOString().slice(0, 10)}.json`, json: JSON.stringify(data, null, 2) };
   });

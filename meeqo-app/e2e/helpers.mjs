@@ -44,10 +44,18 @@ export async function newUser(browser, name, { email, photo = true, scheme, city
     if (await button.count()) await button.click();
   }
   await page.getByPlaceholder("Postleitzahl, Stadt oder Dorf").fill(city);
-  await page.getByRole("button", { name: "Weiter zum Feed" }).click();
-  await page.waitForURL(`${base}/`, { timeout: 20000 });
+  await finishOnboarding(page, "Fertig", "Überspringen");
   if (photo) await addPhoto(page);
   return { context, page };
+}
+
+/** Quick onboarding: three interests, done, then skip the optional profile step. */
+export async function finishOnboarding(page, done, skip) {
+  const chips = page.locator("[data-chip=interest]");
+  for (let i = 0; i < 3; i += 1) if ((await chips.nth(i).getAttribute("aria-pressed")) !== "true") await chips.nth(i).click();
+  await page.getByRole("button", { name: done, exact: true }).click();
+  await page.getByRole("button", { name: skip, exact: true }).click();
+  await page.waitForURL(`${base}/`, { timeout: 20000 });
 }
 
 export async function addPhoto(page) {
@@ -69,8 +77,7 @@ export async function adminPage(browser) {
     await page.waitForTimeout(3000);
     if (page.url().includes("/onboarding")) {
       await page.getByPlaceholder("Postleitzahl, Stadt oder Dorf").fill("Karlsruhe");
-      await page.getByRole("button", { name: "Weiter zum Feed" }).click();
-      await page.waitForURL(`${base}/`, { timeout: 20000 });
+      await finishOnboarding(page, "Fertig", "Überspringen");
     }
     return { context, page };
   });

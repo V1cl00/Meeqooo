@@ -9,7 +9,7 @@ import { getSql } from "@/lib/db";
  * so a shared link never leaks title, place or photo of a restricted meetup.
  */
 
-const BRAND = { sand: "#f6f1eb", sandDeep: "#efe6db", card: "#fffcf9", ink: "#241c18", muted: "#6f6159", accent: "#e07a5f", accentDeep: "#a8462f", onaccent: "#fff8f4" };
+const BRAND = { sand: "#f4e8d8", sandDeep: "#eadbc6", card: "#fffbf5", ink: "#3d405b", muted: "#5b5d75", accent: "#e07a5f", accentDeep: "#a8462f", onaccent: "#fff8f4" };
 const TAGLINE = "Menschen über Aktivitäten kennenlernen.";
 
 export type SharePreview =

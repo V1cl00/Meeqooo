@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { BadgeRow, Button, IntentPill, Note, Skeleton, SparteStrip, StatusLine } from "@/components/bits";
+import { BadgeRow, Button, IntentPill, MinGroupLine, Note, Skeleton, SparteStrip, StatusLine } from "@/components/bits";
 import { RidesCard } from "@/components/rides";
 import { SafetyMenu } from "@/components/safety";
 import { icsFor, mapUrl } from "@/lib/meeqo/ics";
@@ -13,6 +13,7 @@ import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
 import { WeatherChip } from "@/components/weather-chip";
+import { HostTrust } from "@/components/host-trust";
 import { getShareMeta, shareMetaTags } from "@/lib/meeqo/share";
 
 export const Route = createFileRoute("/activity/$id")({
@@ -271,6 +272,7 @@ function Detail({ id }: { id: string }) {
           <p className="text-sm">{item.description}</p>
           {item.isHost && data.going.length > 0 ? <p className="text-sm text-muted">{t("{0} von {1} haben zugesagt, dass sie kommen.", data.confirmedCount, data.going.length)}</p> : null}
           <p className="text-sm text-muted">{t("{0} von {1} Plätzen frei · {2} · {3} Min.", item.spotsLeft, item.spots, item.category, item.durationMin)}</p>
+          {item.stillNeeded > 0 && !item.cancelled ? <MinGroupLine missing={item.stillNeeded} /> : null}
           {item.cancelled ? <Note>{t("Diese Aktivität ist abgesagt.")}</Note> : null}
         </div>
       </div>
@@ -292,6 +294,7 @@ function Detail({ id }: { id: string }) {
         <div className="mt-3">
           <BadgeRow badges={item.hostBadges} />
         </div>
+        <HostTrust hostId={item.hostId} />
         {!item.isHost && data.hostReplyHours != null ? (
           <p className="mt-3 text-sm text-muted">{t("Antwortet meist innerhalb von {0}.", replyLabel(data.hostReplyHours))}</p>
         ) : null}
@@ -389,6 +392,7 @@ function Detail({ id }: { id: string }) {
         {item.isHost && !item.cancelled ? <Link to="/bearbeiten/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-control border border-line bg-card px-5 text-sm font-semibold">{t("Bearbeiten")}</Link> : null}
         {item.isHost && data.waitlistCount > 0 ? <Note>{t("{0} {1} auf einen Platz.", data.waitlistCount, data.waitlistCount === 1 ? t("Person wartet") : t("Leute warten"))}</Note> : null}
         {(item.myStatus === "accepted" || item.isHost) && !data.checkedIn ? <Button type="button" tone="ghost" disabled={busy} onClick={arrive}>{t("Check-in")}</Button> : null}
+        {(item.myStatus === "accepted" || item.isHost) && !item.cancelled && new Date(item.startsAt).getTime() <= Date.now() ? <Link to="/wie-wars/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-control bg-green px-5 text-sm font-semibold text-ink">{t("Wie war's?")}</Link> : null}
         {(item.myStatus === "accepted" || item.isHost) && data.checkedIn ? <Link to="/rating/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-control border border-line bg-card px-5 text-sm font-semibold">{t("Bewerten")}</Link> : null}
       </div>
       <div className="fixed inset-x-0 bottom-[5.4rem] z-20 px-3 md:bottom-6">

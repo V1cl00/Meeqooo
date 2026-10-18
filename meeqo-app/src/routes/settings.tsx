@@ -8,6 +8,7 @@ import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { isNative, registerNativePush } from "@/lib/meeqo/native";
+import { setNotifyPrefs } from "@/lib/meeqo/round3";
 import { useNavigate } from "@tanstack/react-router";
 import { setLang, t, useLang } from "@/lib/meeqo/i18n";
 
@@ -207,7 +208,7 @@ function Settings() {
       </div>
       <div className="card space-y-3 p-4">
         <h2 className="font-display text-2xl">{t("Mitteilungen")}</h2>
-        <p className="text-sm text-muted">{t("Anfragen, Zusagen und Erinnerungen 36 Stunden vorher. Mitteilungen kommen auch bei geschlossener App, wenn dein Browser und der Server es können. Sonst nur, solange MeeQo offen ist.")}</p>
+        <p className="text-sm text-muted">{t("Anfragen, Zusagen und Erinnerungen. Mitteilungen kommen auch bei geschlossener App, wenn dein Browser und der Server es können. Sonst nur, solange MeeQo offen ist.")}</p>
         <Button type="button" onClick={push}>{profile.notifyPush ? t("Mitteilungen sind an") : t("Mitteilungen erlauben")}</Button>
         <Button
           type="button"
@@ -220,6 +221,20 @@ function Settings() {
         >
           {profile.notifyEmail ? t("Mails zu Anfragen: an") : t("Mails zu Anfragen: aus")}
         </Button>
+        <div className="space-y-2 border-t border-line pt-3">
+          <PrefSwitch
+            label={t("Erinnerung 2 Stunden vorher")}
+            hint={t("Und danach einmal „Wie war's?“.")}
+            on={profile.notifyReminder}
+            onChange={async (next) => { await setNotifyPrefs({ data: { reminder: next } }); await reload(); }}
+          />
+          <PrefSwitch
+            label={t("Letzter Platz in deiner Nähe")}
+            hint={t("Höchstens einmal am Tag, nur passend zu deinen Interessen.")}
+            on={profile.notifyNearby}
+            onChange={async (next) => { await setNotifyPrefs({ data: { nearby: next } }); await reload(); }}
+          />
+        </div>
       </div>
       <div className="card space-y-3 p-4">
         <h2 className="font-display text-2xl">{t("Ausgeblendet")}</h2>
@@ -348,5 +363,31 @@ function Settings() {
       {error ? <Note>{error}</Note> : null}
       {authEnabled ? <Button type="button" tone="ghost" className="mb-6 w-full" disabled={signingOut} onClick={() => { setSigningOut(true); void signOut("/login").catch(() => setSigningOut(false)); }}>{signingOut ? t("Abmelden…") : t("Abmelden")}</Button> : null}
     </div>
+  );
+}
+
+function PrefSwitch({ label, hint, on, onChange }: { label: string; hint: string; on: boolean; onChange: (next: boolean) => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [value, setValue] = useState(on);
+  return (
+    <label className="flex items-center justify-between gap-3">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-ink">{label}</span>
+        <span className="block text-xs text-muted">{hint}</span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        className="h-6 w-6 shrink-0 accent-[var(--color-accent)]"
+        checked={value}
+        disabled={busy}
+        onChange={async (event) => {
+          const next = event.target.checked;
+          setValue(next);
+          setBusy(true);
+          try { await onChange(next); } catch { setValue(!next); } finally { setBusy(false); }
+        }}
+      />
+    </label>
   );
 }

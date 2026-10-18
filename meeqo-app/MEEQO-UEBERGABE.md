@@ -266,3 +266,15 @@ Deutsch, kurz, konkret. Er testet auf dem Handy und vergleicht mit Hinge, Tinder
 ## Apps für Android und iOS
 
 Siehe `NATIVE-APPS.md`. Kurz: Capacitor-Hülle (`capacitor.config.ts`, Ordner `android/` und `ios/`) um die laufende Seite; `src/lib/meeqo/native.ts` ist die Brücke (Statusleiste, Zurück-Taste, App-Links, Vibration, Teilen, Push-Anmeldung). Mitteilungen laufen über Firebase (`src/lib/fcm.server.ts`, Tabelle `native_push`, Umgebungsvariable `FCM_SERVICE_ACCOUNT`); der Aufbau ist mit Mock-Tests geprüft, nicht mit echten Telefonen. Bauen und Einreichen geht nur mit Android Studio, Xcode (Mac) und Developer-Konten.
+
+## Runde 3: Vertrauen, Nachher, Mitteilungen (Migration 0030)
+
+- Farben: Sand `#F4E8D8` (Hintergrund), Terrakotta `#E07A5F` (primär), Grün `#81B29A` (`--color-green`, Akzent), Anthrazit `#3D405B` (Text).
+- Onboarding unter 60 s: Foto (überspringbar, zum Anfragen nötig), 3 Interessen, Stadt + Stadtteil. Danach optional „Profil vervollständigen“ (Bio, mehr Interessen, Sprachen), „Überspringen“ geht direkt in den Feed. Alles auch im Profil.
+- Selfie-Prüfung: Profil → „Selfie aufnehmen“. Ein Admin vergleicht unter `/admin/pruefung` mit eigenen Augen (keine Gesichtserkennung). Entscheidung löscht das Selfie, „Passt“ setzt `identity_confirmed` → Badge „Verifiziert“.
+- Nach dem Treffen `/wie-wars/$id` (Link auf dem Treffen + eine Mitteilung 30 Min nach Ende): war da, war nett, Gastgeber da, nochmal mit denselben Leuten, „Gruppe behalten“. Die private Gruppe (`communities.private`, `from_activity`) entsteht erst, wenn mindestens zwei Personen selbst Ja sagen. Keine Sterne.
+- Gastgeber-Zuverlässigkeit: dezent auf dem Treffen („laut Gästen bei X von Y Treffen da“), erst ab 3 Treffen mit Antworten. Dazu „N× war nett“.
+- Mindestgröße: `/create` → „Findet statt ab“. Feed und Treffen zeigen „Noch N Leute, dann findet es statt“ (Gastgeber zählt mit). Warteliste gab es schon.
+- Mitteilungen (Einstellungen, einzeln abschaltbar): Erinnerung 2 h vorher, „Wie war's?“ danach, „Morgen … 1 Platz frei in deiner Nähe“ höchstens einmal am Tag und nur passend zu Interessen. Zusage gab es schon. Dedupe in `nudges_sent`, Seed-Konten bekommen nichts. Läuft ohne Scheduler beim App-Benutzen (`sweepNudges`).
+- Orte: `venues` aus `partners.csv` (nur öffentliche Infos, keine Kontakte). Nur Vorlagen unter `/admin/orte` → füllt `/create` vor. Niemand wurde kontaktiert, keine Partner-Darstellung. Es gibt keine erfundenen Seed-Treffen.
+- Zahlen: `/admin/zahlen` hat den Trichter der letzten 7 Tage (Feed gesehen aus `funnel_events`, Rest aus echten Tabellen). Keine Tracker von Dritten.

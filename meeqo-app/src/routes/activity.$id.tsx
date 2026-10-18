@@ -5,7 +5,8 @@ import { RidesCard } from "@/components/rides";
 import { SafetyMenu } from "@/components/safety";
 import { icsFor, mapUrl } from "@/lib/meeqo/ics";
 import { ShareSheet } from "@/components/share";
-import { Shell } from "@/components/shell";
+import { Shell, useMe } from "@/components/shell";
+import { isPhotoMissing, PhotoMissing } from "@/components/photo";
 import { checkIn, confirmAttendance, confirmSafe, createInvite, createSafetyLink, getActivity, hideActivity, leaveActivity, removeGuest, repeatActivity, requestJoin, unhideActivity } from "@/lib/meeqo/api";
 import { bookingLabel, countdownLabel, errText, formatWhen, MOODS, replyLabel, sparteOf } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
@@ -35,19 +36,28 @@ function Detail({ id }: { id: string }) {
   const [weeks, setWeeks] = useState(1);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [needPhoto, setNeedPhoto] = useState(false);
+  const { profile } = useMe();
   const item = data?.activity;
 
-  async function join() {
+  /** photoJustAdded: called right after the inline upload, when `profile` in this closure is still the old one. */
+  async function join(photoJustAdded = false) {
     if (!item) return;
+    if (!photoJustAdded && profile && !profile.avatarUrl) {
+      setNeedPhoto(true);
+      return;
+    }
     setBusy(true);
     setFail("");
+    setNeedPhoto(false);
     try {
       const result = await requestJoin({ data: { id: item.id, mood } });
       const reply = data?.hostReplyHours != null ? " " + t("{0} antwortet meist in {1}.", item.hostName.split(" ")[0], replyLabel(data.hostReplyHours)) : "";
       notice(result.status === "waitlist" ? t("Du stehst auf der Warteliste. Wenn ein Platz frei wird, rückst du nach.") : result.status === "accepted" ? t("Du bist dabei. Der Chat ist offen.") : t("Anfrage ist raus.{0} Du bekommst eine Mitteilung, sobald es eine Antwort gibt.", reply));
       reload();
     } catch (err) {
-      setFail(errText(err));
+      if (isPhotoMissing(err)) setNeedPhoto(true);
+      else setFail(errText(err));
     } finally {
       setBusy(false);
     }
@@ -375,9 +385,14 @@ function Detail({ id }: { id: string }) {
         {(item.myStatus === "accepted" || item.isHost) && data.checkedIn ? <Link to="/rating/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-full border border-line bg-card px-5 text-sm font-semibold">{t("Bewerten")}</Link> : null}
       </div>
       <div className="fixed inset-x-0 bottom-[5.4rem] z-20 px-3 md:bottom-6">
+        {needPhoto ? (
+          <div className="mx-auto mb-2 max-w-lg">
+            <PhotoMissing onDone={() => { setNeedPhoto(false); void join(true); }} />
+          </div>
+        ) : null}
         <div className="mx-auto flex max-w-lg gap-2">
           {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" && item.myStatus !== "waitlist" ? (
-            <Button type="button" disabled={busy} className="h-12 flex-1" onClick={join}>
+            <Button type="button" disabled={busy} className="h-12 flex-1" onClick={() => void join()}>
               {item.spotsLeft < 1 ? t("Auf die Warteliste") : item.bookingMode === "instant" ? t("Sofort dabei") : business ? t("Kontakt anfragen") : t("Anfragen")}
             </Button>
           ) : null}

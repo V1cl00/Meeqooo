@@ -5,6 +5,7 @@ import { Shell } from "@/components/shell";
 import { getActivity, updateActivity } from "@/lib/meeqo/api";
 import { notice } from "@/lib/meeqo/feel";
 import { compress } from "@/lib/meeqo/image";
+import { PhotoPicker } from "@/components/photo";
 import { errText } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
@@ -88,13 +89,11 @@ function Edit({ id }: { id: string }) {
         </select>
       </Field>
       <Field label={t("Plätze für Gäste")}><TextInput type="number" min={1} max={40} value={spots} onChange={(event) => setSpots(Number(event.target.value))} /></Field>
-      <Field label={t("Neues Foto, optional")}>
-        <input
-          type="file"
-          accept="image/*"
-          className="text-sm"
-          onChange={async (event) => {
-            const file = event.target.files?.[0];
+      <div className="space-y-1.5">
+        <span className="text-[13px] font-semibold text-ink">{t("Neues Foto, optional")}</span>
+        <PhotoPicker
+          value={imageUrl || item.imageUrl}
+          onFile={async (file) => {
             if (!file) return;
             try {
               setImageUrl(await compress(file));
@@ -103,8 +102,7 @@ function Edit({ id }: { id: string }) {
             }
           }}
         />
-      </Field>
-      <img src={imageUrl || item.imageUrl} alt={t("Vorschau")} className="aspect-[3/2] w-full rounded-card object-cover" />
+      </div>
       {fail ? <Note>{fail}</Note> : null}
       <Button type="submit" disabled={pending} className="w-full">{pending ? t("Speichern…") : t("Speichern")}</Button>
     </form>

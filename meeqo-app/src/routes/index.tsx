@@ -5,6 +5,7 @@ import { PlaceBar } from "@/components/place-bar";
 import { ActivityCard, Button, Empty, face, Note } from "@/components/bits";
 import { ClassifiedBoard } from "@/components/classifieds";
 import { Shell, useMe } from "@/components/shell";
+import { AvatarUpload } from "@/components/photo";
 import { WhenBar } from "@/components/when-bar";
 import { hideActivity, makeWish, setRadius, setRequireTraits, unhideActivity, wishInfo } from "@/lib/meeqo/api";
 import { TRAITS, berlinDay, errText, lensSubs } from "@/lib/meeqo/labels";
@@ -181,10 +182,10 @@ function Feed() {
         </div>
       )}
       {!profile?.avatarUrl ? (
-        <Link to="/profile" className="flex items-center justify-between gap-3 rounded-2xl bg-sand-deep px-4 py-3 text-sm">
-          <span>{t("Mit Foto kannst du anfragen und Treffen anlegen.")}</span>
-          <span className="shrink-0 font-semibold underline">{t("Foto hinzufügen")}</span>
-        </Link>
+        <div className="space-y-2 rounded-2xl bg-sand-deep px-4 py-3 text-sm">
+          <p>{t("Mit Foto kannst du anfragen und Treffen anlegen.")}</p>
+          <AvatarUpload />
+        </div>
       ) : null}
       {loading ? (
         <div className="space-y-4">

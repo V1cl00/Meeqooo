@@ -92,12 +92,13 @@ async function createMeetup(page, title, hoursAhead, { spots } = {}) {
   assert.match(await text(page), /Ohne Foto wird nichts veröffentlicht/);
   await page.locator("input[type=file]").setInputFiles({ name: "p.jpg", mimeType: "image/jpeg", buffer: jpeg });
   await page.waitForTimeout(1500);
+  // Plaetze und Dauer stehen in Schritt 1, direkt unter der Vorlage.
+  if (spots) await page.getByLabel("Plätze für Gäste").fill(String(spots));
   await page.getByRole("button", { name: "Weiter" }).click();
   await page.getByLabel("Ort", { exact: true }).fill("Schlossgarten");
   const when = new Date(Date.now() + hoursAhead * 3600 * 1000);
   const pad = (n) => String(n).padStart(2, "0");
   await page.getByLabel("Beginn").fill(`${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`);
-  if (spots) await page.getByLabel("Plätze für Gäste").fill(String(spots));
   await page.getByRole("button", { name: "Weiter" }).click();
   assert.match(await text(page), /Schritt 3 von 3/, "Schritt 3 darf nicht sofort veroeffentlichen");
   await page.getByRole("button", { name: "Veröffentlichen" }).click();
@@ -258,7 +259,11 @@ describe("Bedienung", () => {
     assert.match(await text(anna.page), /Ausgefüllt: .*Titel/);
     assert.equal(await anna.page.getByPlaceholder("Zum Beispiel: Laufen, acht Kilometer").inputValue(), "Brunch bei Giulia");
     assert.ok(await anna.page.getByRole("button", { name: /Vorlage einsetzen/ }).count(), "Vorlage fuer Brunch fehlt");
+    const tplSpots = (await anna.page.getByRole("button", { name: /Vorlage einsetzen/ }).textContent()).match(/(\d+) Leute/)[1];
     await anna.page.getByRole("button", { name: /Vorlage einsetzen/ }).click();
+    assert.equal(await anna.page.getByLabel("Plätze für Gäste").inputValue(), tplSpots, "Vorlage setzt die Plaetze sichtbar");
+    await anna.page.getByRole("button", { name: "Ein Platz mehr" }).click();
+    assert.equal(await anna.page.getByLabel("Plätze für Gäste").inputValue(), String(Number(tplSpots) + 1), "Plaetze bleiben aenderbar");
     await anna.page.locator("input[type=file]").setInputFiles({ name: "p.jpg", mimeType: "image/jpeg", buffer: jpeg });
     await anna.page.waitForTimeout(1500);
     await anna.page.getByRole("button", { name: "Weiter" }).click();

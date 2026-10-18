@@ -11,6 +11,7 @@ import { listCategories, setAvatar, updateProfile } from "@/lib/meeqo/api";
 import { AreaPicker } from "@/components/areas";
 import { areaSummary, errText } from "@/lib/meeqo/labels";
 import { useLoad } from "@/lib/meeqo/use-load";
+import { compress } from "@/lib/meeqo/image";
 import { t } from "@/lib/meeqo/i18n";
 
 export const Route = createFileRoute("/profile")({ component: Page });
@@ -81,26 +82,7 @@ function ProfilePage() {
               onChange={async (event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
-                const image = new Image();
-                const url = URL.createObjectURL(file);
-                const dataUrl = await new Promise<string>((resolve, reject) => {
-                  image.onload = () => {
-                    const scale = Math.min(1, 640 / Math.max(image.width, image.height));
-                    const canvas = document.createElement("canvas");
-                    canvas.width = Math.round(image.width * scale);
-                    canvas.height = Math.round(image.height * scale);
-                    const ctx = canvas.getContext("2d");
-                    if (!ctx) {
-                      reject(new Error(t("Bild konnte nicht gelesen werden.")));
-                      return;
-                    }
-                    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-                    URL.revokeObjectURL(url);
-                    resolve(canvas.toDataURL("image/jpeg", 0.72));
-                  };
-                  image.onerror = () => reject(new Error(t("Bild konnte nicht gelesen werden.")));
-                  image.src = url;
-                });
+                const dataUrl = await compress(file, 640);
                 await setAvatar({ data: { imageUrl: dataUrl } });
                 await reload();
               }}

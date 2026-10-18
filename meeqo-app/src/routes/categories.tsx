@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState, type FormEvent } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextInput } from "@/components/bits";
 import { Shell } from "@/components/shell";
 import { addCategory, listCategories, removeCategory } from "@/lib/meeqo/api";
-import { CATEGORIES, CATEGORY_TREE, errText } from "@/lib/meeqo/labels";
+import { CATEGORIES, CATEGORY_TREE, errText, joinCategory } from "@/lib/meeqo/labels";
+import { readDraft, returnTarget, setPicked } from "@/lib/meeqo/draft";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
 
@@ -23,12 +24,32 @@ function Categories() {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const own = data ?? [];
+  const navigate = useNavigate();
+  const [fromCreate, setFromCreate] = useState(false);
+
+  // Coming from /create: preselect its main category and go back after adding.
+  useEffect(() => {
+    const target = returnTarget();
+    if (target === null) return;
+    setFromCreate(true);
+    if ((CATEGORIES as readonly string[]).includes(target)) setParent(target);
+  }, []);
+
+  function backToCreate() {
+    return navigate({ to: "/create", search: { community: readDraft()?.communityId ?? "" } });
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
     try {
       await addCategory({ data: { name, parent } });
+      if (fromCreate) {
+        // Same cleanup as the server, so the new subcategory is selected on return.
+        setPicked(joinCategory(parent, name.replace(/·/g, "").trim().slice(0, 30)));
+        await backToCreate();
+        return;
+      }
       setName("");
       reload();
     } catch (err) {
@@ -38,6 +59,9 @@ function Categories() {
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
+      {fromCreate ? (
+        <Link to="/create" search={{ community: readDraft()?.communityId ?? "" }} className="text-sm font-semibold underline">{t("Zurück zum Treffen")}</Link>
+      ) : null}
       <h1 className="font-display text-4xl leading-none">{t("Kategorien")}</h1>
       <p className="text-sm text-muted">{t("Unterkategorien gehören zu einer Kategorie. Deine eigenen siehst du beim Anlegen und in der Suche.")}</p>
       <form onSubmit={submit} className="card space-y-3 p-4">
@@ -50,7 +74,7 @@ function Categories() {
           <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder={t("Zum Beispiel Bouldern")} />
         </Field>
         {error ? <Note>{error}</Note> : null}
-        <Button type="submit">{t("Hinzufügen")}</Button>
+        <Button type="submit">{fromCreate ? t("Hinzufügen und zurück zum Treffen") : t("Hinzufügen")}</Button>
       </form>
       {CATEGORY_TREE.map((group) => {
         const mine = own.filter((item) => item.parent === group.name);

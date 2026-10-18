@@ -143,6 +143,16 @@ export const setFreeSignal = createServerFn({ method: "POST" })
       insert into free_signals (user_id, until) values (${context.userId}, ${until})
       on conflict (user_id) do update set until = ${until}, created_at = now()
     `;
+    // Friends who left "Zeitsignal von Freunden" on get one line; notify() checks their choice and the quiet hours.
+    const me = await sql<{ display_name: string }>`select display_name from profiles where user_id = ${context.userId}`;
+    const friends = await sql<{ id: string }>`
+      select case when f.requester_id = ${context.userId} then f.addressee_id else f.requester_id end as id
+      from friendships f where f.status = 'accepted' and (f.requester_id = ${context.userId} or f.addressee_id = ${context.userId})
+    `;
+    const name = (me[0]?.display_name ?? "").split(" ")[0] || "Jemand";
+    for (const friend of friends.slice(0, 50)) {
+      await notify(sql, friend.id, "free", `${name} hat Zeit`, `Für ${data.hours} Std. Vielleicht trefft ihr euch?`, "/", `free:${context.userId}`);
+    }
     return { until };
   });
 

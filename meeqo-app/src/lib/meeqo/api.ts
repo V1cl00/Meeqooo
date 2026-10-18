@@ -1,4 +1,5 @@
 import { stillNeeded } from "@/lib/meeqo/group-size";
+import { berlinHour as berlinNowHour, channelsFor, channelValue, NOTIFY_TYPES, parsePrefs } from "@/lib/meeqo/notify-prefs";
 import { refreshSeeds } from "@/lib/meeqo/seed-refresh";
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
@@ -151,6 +152,10 @@ type ProfileRow = {
   notify_reminder?: boolean;
   notify_nearby?: boolean;
   page_style?: string;
+  notify_prefs?: string;
+  quiet_on?: boolean;
+  quiet_from?: number;
+  quiet_to?: number;
   avatar_url: string;
   theme: string;
   traits: string;
@@ -405,6 +410,8 @@ function mapProfile(row: ProfileRow, stats: { n: number; yes: number; hosted: nu
     notifyReminder: row.notify_reminder !== false,
     notifyNearby: row.notify_nearby !== false,
     pageStyle: row.page_style ?? "",
+    notifyPrefs: parsePrefs(row.notify_prefs ?? "{}"),
+    quiet: { on: row.quiet_on !== false, from: num(row.quiet_from ?? 22), to: num(row.quiet_to ?? 8) },
     badges: badgesFrom(
       flag(row.identity_confirmed),
       flag(row.is_organizer),
@@ -534,11 +541,23 @@ export async function loadRows(sql: Sql, userId: string, after: string | null = 
   `;
 }
 
+/** What this person hid: single meetups, everything by a host, or a whole category. Own and joined meetups are never hidden by a rule. */
 async function hiddenSet(sql: Sql, userId: string) {
-  const rows = await sql<{ activity_id: string }>`
-    select activity_id from hidden_activities where user_id = ${userId}
-  `;
-  return new Set(rows.map((row) => row.activity_id));
+  const [rows, rules] = await Promise.all([
+    sql<{ activity_id: string }>`select activity_id from hidden_activities where user_id = ${userId}`,
+    sql<{ kind: string; value: string }>`select kind, value from hidden_rules where user_id = ${userId}`,
+  ]);
+  const ids = new Set(rows.map((row) => row.activity_id));
+  const users = new Set(rules.filter((rule) => rule.kind === "user").map((rule) => rule.value));
+  const cats = rules.filter((rule) => rule.kind === "category").map((rule) => rule.value);
+  return {
+    has: (id: string) => ids.has(id),
+    hides: (item: { id: string; hostId: string; category: string; isHost?: boolean; myStatus?: string | null }) => {
+      if (ids.has(item.id)) return true;
+      if (item.isHost || item.myStatus) return false;
+      return users.has(item.hostId) || cats.some((cat) => item.category === cat || item.category.startsWith(`${cat} · `));
+    },
+  };
 }
 
 function yearOf(value: unknown) {
@@ -661,11 +680,70 @@ export async function notify(sql: Sql, userId: string, kind: string, title: stri
     insert into notifications (id, user_id, kind, title, body, href, ref_id)
     values (${crypto.randomUUID()}, ${userId}, ${kind}, ${title}, ${body}, ${href}, ${refId})
   `;
-  await sendPush(sql, userId, title, body, href);
-  if (EMAIL_KINDS.has(kind)) await sendEmail(sql, userId, title, body, href);
+  const pref = await sql<{ notify_prefs: string; notify_email: boolean; quiet_on: boolean; quiet_from: number; quiet_to: number }>`
+    select notify_prefs, notify_email, quiet_on, quiet_from, quiet_to from profiles where user_id = ${userId}
+  `;
+  const row = pref[0];
+  const channels = channelsFor(kind, parsePrefs(row?.notify_prefs ?? "{}"), {
+    emailOn: row?.notify_email !== false,
+    quiet: { on: row?.quiet_on !== false, from: num(row?.quiet_from ?? 22), to: num(row?.quiet_to ?? 8) },
+    hour: berlinNowHour(new Date()),
+  });
+  if (channels.push) await sendPush(sql, userId, title, body, href);
+  if (channels.email) await sendEmail(sql, userId, title, body, href);
 }
 
-const EMAIL_KINDS = new Set(["request", "accepted", "withdrawn", "wish", "ad", "announce", "changed", "removed"]);
+/** Tells the host once, when the accepted guests plus the host reach the minimum size. */
+async function minSizeCheck(sql: Sql, activityId: string) {
+  const rows = await sql<{ host_id: string; title: string; min_people: number; n: number }>`
+    select a.host_id, a.title, a.min_people,
+      (select count(*)::int from join_requests j where j.activity_id = a.id and j.status = 'accepted') as n
+    from activities a where a.id = ${activityId}
+  `;
+  const row = rows[0];
+  if (!row || num(row.min_people) < 2 || num(row.n) + 1 !== num(row.min_people)) return;
+  const fresh = await sql`insert into nudges_sent (user_id, kind, ref_id) values (${row.host_id}, 'minsize', ${activityId}) on conflict do nothing returning user_id`;
+  if (!fresh.length) return;
+  await notify(sql, row.host_id, "minsize", "Es findet statt", `„${row.title}“ hat genug Leute.`, `/activity/${activityId}`, activityId);
+}
+
+/** One row of the notification list: push and/or e-mail for one type. */
+export const setNotifyChannel = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { key: string; channel: string; on: boolean }) => ({ key: String(input.key), channel: input.channel === "email" ? ("email" as const) : ("push" as const), on: Boolean(input.on) }))
+  .handler(async ({ data, context }) => {
+    const type = NOTIFY_TYPES.find((item) => item.key === data.key);
+    if (!type) throw new Error("Unbekannte Mitteilung.");
+    if (data.channel === "email" && type.email === null) throw new Error("Dafür gibt es keine E-Mail.");
+    const sql = await getSql();
+    const rows = await sql<{ notify_prefs: string }>`select notify_prefs from profiles where user_id = ${context.userId}`;
+    const prefs = parsePrefs(rows[0]?.notify_prefs ?? "{}");
+    prefs[type.key] = { ...prefs[type.key], [data.channel]: data.on };
+    await sql`update profiles set notify_prefs = ${JSON.stringify(prefs)} where user_id = ${context.userId}`;
+    // The sweeps for reminders and nearby places read these columns: keep them in step.
+    const any = channelValue(type, prefs, "push") || channelValue(type, prefs, "email");
+    if (type.key === "reminder") await sql`update profiles set notify_reminder = ${any} where user_id = ${context.userId}`;
+    if (type.key === "nearby") await sql`update profiles set notify_nearby = ${any} where user_id = ${context.userId}`;
+    return { ok: true as const };
+  });
+
+/** The address mails go to, for the e-mail card in the settings. */
+export const myEmail = createServerFn({ method: "GET" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const rows = await sql<{ email: string }>`select email from "user" where id = ${context.userId}`.catch(() => [] as { email: string }[]);
+    return { email: rows[0]?.email ?? "" };
+  });
+
+export const setQuietHours = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { on: boolean; from: number; to: number }) => ({ on: Boolean(input.on), from: Math.max(0, Math.min(23, Math.round(Number(input.from)) || 0)), to: Math.max(0, Math.min(23, Math.round(Number(input.to)) || 0)) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    await sql`update profiles set quiet_on = ${data.on}, quiet_from = ${data.from}, quiet_to = ${data.to} where user_id = ${context.userId}`;
+    return { ok: true as const };
+  });
 
 /** Only with a mail service set up and only if the person left mails on. */
 async function sendEmail(sql: Sql, userId: string, title: string, body: string, href: string) {
@@ -1091,6 +1169,56 @@ export const listHidden = createServerFn({ method: "GET" })
     return rows.map((row) => mapActivity(row, context.userId, origin)).filter((item) => hidden.has(item.id));
   });
 
+export type HiddenEntry = { kind: "activity" | "user" | "category"; value: string; label: string };
+
+/** Hide with a scope: everything by a host, or every meetup of a category. */
+export const hideRule = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { kind: string; value: string }) => ({ kind: input.kind === "user" ? "user" : "category", value: clean(input.value, 80) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    if (!data.value) throw new Error("Nichts zum Ausblenden.");
+    let label = data.value;
+    if (data.kind === "user") {
+      if (data.value === context.userId) throw new Error("Dich selbst kannst du nicht ausblenden.");
+      const rows = await sql<{ display_name: string }>`select display_name from profiles where user_id = ${data.value}`;
+      if (!rows.length) throw new Error("Profil nicht gefunden.");
+      label = rows[0].display_name;
+    }
+    await sql`
+      insert into hidden_rules (user_id, kind, value, label) values (${context.userId}, ${data.kind}, ${data.value}, ${label})
+      on conflict (user_id, kind, value) do nothing
+    `;
+    return { ok: true as const, label };
+  });
+
+export const unhideRule = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .validator((input: { kind: string; value: string }) => ({ kind: String(input.kind), value: clean(input.value, 80) }))
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    await sql`delete from hidden_rules where user_id = ${context.userId} and kind = ${data.kind} and value = ${data.value}`;
+    return { ok: true as const };
+  });
+
+/** Everything this person hid, for the list in the settings. */
+export const listHiddenAll = createServerFn({ method: "GET" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }): Promise<HiddenEntry[]> => {
+    const sql = await getSql();
+    const [acts, rules] = await Promise.all([
+      sql<{ id: string; title: string }>`
+        select a.id, a.title from hidden_activities h join activities a on a.id = h.activity_id
+        where h.user_id = ${context.userId} order by a.starts_at desc limit 100
+      `,
+      sql<{ kind: string; value: string; label: string }>`select kind, value, label from hidden_rules where user_id = ${context.userId} order by created_at desc`,
+    ]);
+    return [
+      ...rules.map((rule) => ({ kind: (rule.kind === "user" ? "user" : "category") as HiddenEntry["kind"], value: rule.value, label: rule.label || rule.value })),
+      ...acts.map((act) => ({ kind: "activity" as const, value: act.id, label: act.title })),
+    ];
+  });
+
 export const registerOrganizer = createServerFn({ method: "POST" })
   .middleware([memberMiddleware])
   .validator((input: { name: string; city: string; bookingMode: string; bio: string }) => input)
@@ -1213,7 +1341,7 @@ export const getFeed = createServerFn({ method: "POST" })
       if (!item.isHost && blocked.has(item.hostId)) return false;
       if (!data.includePast && new Date(item.startsAt).getTime() < now) return false;
       if (item.isHost) return data.mineOnly ? true : canSeeActivity(profile.areas, profile.openTo, item.intent, item.category) || item.isHost;
-      if (!data.mineOnly && hidden.has(item.id)) return false;
+      if (!data.mineOnly && hidden.hides(item)) return false;
       if (item.myStatus) return true;
       if (!canSeeActivity(profile.areas, profile.openTo, item.intent, item.category)) return false;
       return true;
@@ -1386,7 +1514,9 @@ export const getActivity = createServerFn({ method: "POST" })
       waitlistCount: activity.isHost ? queue.length : 0,
       confirmedCount: activity.isHost ? num((await sql<{ n: number }>`select count(*)::int as n from join_requests where activity_id = ${activity.id} and status = 'accepted' and confirmed_at is not null`)[0]?.n) : 0,
       needsConfirm: activity.myStatus === "accepted" && mineRow.length > 0 && !mineRow[0].confirmed_at && hoursAway > 0 && hoursAway <= 30,
-      checkedIn: checks.length > 0, safe: Boolean(checks[0]?.safe_at), rated: ratedHost, mutual, iWantAgain, hidden: hidden.has(activity.id),
+      checkedIn: checks.length > 0, safe: Boolean(checks[0]?.safe_at), rated: ratedHost, mutual, iWantAgain, hidden: hidden.hides(activity),
+      pendingCount: activity.isHost ? num((await sql<{ n: number }>`select count(*)::int as n from join_requests where activity_id = ${activity.id} and status = 'pending'`)[0]?.n) : 0,
+      calendarSynced: (activity.isHost || activity.myStatus === "accepted") && (await sql`select 1 as ok from calendar_tokens where user_id = ${context.userId}`).length > 0,
     };
   });
 
@@ -1579,6 +1709,7 @@ export const requestJoin = createServerFn({ method: "POST" })
         values (${crypto.randomUUID()}, ${activity.id}, ${activity.hostId}, ${"Schön, dass du dabei bist. Schreib kurz, ob du pünktlich kommst."})
       `;
       await notify(sql, context.userId, "accepted", "Du bist dabei", activity.title, `/chat/${activity.id}`, activity.id);
+      await minSizeCheck(sql, activity.id);
     } else {
       await notify(sql, activity.hostId, "request", "Neue Anfrage", `${profile.displayName} möchte zu „${activity.title}“`, "/requests", activity.id);
       await notify(sql, context.userId, "pending", "Anfrage raus", activity.title, `/activity/${activity.id}`, activity.id);
@@ -1848,6 +1979,7 @@ export const respondRequest = createServerFn({ method: "POST" })
         values (${crypto.randomUUID()}, ${row.activity_id}, ${context.userId}, ${"Ich hab zugesagt. Schreib hier, wenn du unterwegs bist."})
       `;
       await notify(sql, row.requester_id, "accepted", "Zusage", row.title, `/chat/${row.activity_id}`, row.activity_id);
+      await minSizeCheck(sql, row.activity_id);
     } else {
       await notify(sql, row.requester_id, "declined", "Diesmal nicht", row.title, `/activity/${row.activity_id}`, row.activity_id);
     }
@@ -1858,8 +1990,8 @@ export const listRequests = createServerFn({ method: "GET" })
   .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<RequestItem[]> => {
     const sql = await getSql();
-    const incoming = await sql<{ id: string; activity_id: string; title: string; display_name: string; status: string; created_at: unknown; mood: string; past: number; came: number; with_me: number }>`
-      select j.id, j.activity_id, a.title, p.display_name, j.status, j.created_at, j.mood,
+    const incoming = await sql<{ id: string; activity_id: string; title: string; display_name: string; avatar_url: string; status: string; created_at: unknown; mood: string; past: number; came: number; with_me: number }>`
+      select j.id, j.activity_id, a.title, p.display_name, p.avatar_url, j.status, j.created_at, j.mood,
         (select count(*)::int from join_requests j2 join activities a2 on a2.id = j2.activity_id
            where j2.requester_id = j.requester_id and j2.status = 'accepted' and a2.starts_at < now() and a2.cancelled = false) as past,
         (select count(*)::int from join_requests j2 join activities a2 on a2.id = j2.activity_id
@@ -1873,8 +2005,8 @@ export const listRequests = createServerFn({ method: "GET" })
       where a.host_id = ${context.userId}
       order by j.created_at desc
     `;
-    const outgoing = await sql<{ id: string; activity_id: string; title: string; display_name: string; status: string; created_at: unknown; mood: string }>`
-      select j.id, j.activity_id, a.title, p.display_name, j.status, j.created_at, j.mood
+    const outgoing = await sql<{ id: string; activity_id: string; title: string; display_name: string; avatar_url: string; status: string; created_at: unknown; mood: string }>`
+      select j.id, j.activity_id, a.title, p.display_name, p.avatar_url, j.status, j.created_at, j.mood
       from join_requests j
       join activities a on a.id = j.activity_id
       join profiles p on p.user_id = a.host_id
@@ -1887,6 +2019,7 @@ export const listRequests = createServerFn({ method: "GET" })
         activityId: row.activity_id,
         activityTitle: row.title,
         personName: row.display_name,
+        personAvatar: row.avatar_url || "",
         status: row.status,
         createdAt: iso(row.created_at),
         mood: row.mood,
@@ -1900,6 +2033,7 @@ export const listRequests = createServerFn({ method: "GET" })
         activityId: row.activity_id,
         activityTitle: row.title,
         personName: row.display_name,
+        personAvatar: row.avatar_url || "",
         status: row.status,
         createdAt: iso(row.created_at),
         mood: row.mood,
@@ -2315,6 +2449,9 @@ export const getPublicProfile = createServerFn({ method: "POST" })
         stats.hosted,
       ),
       avatarUrl: row.avatar_url || "",
+      district: String((row as unknown as { district?: string }).district ?? ""),
+      interests: parseSeeking(row.seeking).slice(0, 8),
+      verified: flag(row.identity_confirmed),
       friend: await friendState(sql, context.userId, row.user_id),
       favorite: (await sql`select 1 as ok from favorites where user_id = ${context.userId} and target_id = ${row.user_id}`).length > 0,
     };
@@ -2350,13 +2487,13 @@ export const listFavorites = createServerFn({ method: "GET" })
   .middleware([memberMiddleware])
   .handler(async ({ context }): Promise<FriendPerson[]> => {
     const sql = await getSql();
-    const rows = await sql<{ user_id: string; display_name: string; city: string }>`
-      select p.user_id, p.display_name, p.city
+    const rows = await sql<{ user_id: string; display_name: string; city: string; avatar_url: string }>`
+      select p.user_id, p.display_name, p.city, p.avatar_url
       from favorites f join profiles p on p.user_id = f.target_id
       where f.user_id = ${context.userId}
       order by f.created_at desc
     `;
-    return rows.map((row) => ({ userId: row.user_id, displayName: row.display_name, city: row.city }));
+    return rows.map((row) => ({ userId: row.user_id, displayName: row.display_name, city: row.city, avatarUrl: row.avatar_url || "" }));
   });
 
 export const organizerStats = createServerFn({ method: "GET" })
@@ -2519,7 +2656,7 @@ export const getCommunity = createServerFn({ method: "POST" })
     const activities = joined
       ? all
           .map((row) => mapActivity(row, context.userId, origin))
-          .filter((item) => item.communityId === data.id && !item.cancelled && !hidden.has(item.id) && (item.isHost || item.myStatus || canSeeActivity(profile.areas, profile.openTo, item.intent, item.category)))
+          .filter((item) => item.communityId === data.id && !item.cancelled && !hidden.hides(item) && (item.isHost || item.myStatus || canSeeActivity(profile.areas, profile.openTo, item.intent, item.category)))
       : [];
     return { ...community, joined, activities };
   });
@@ -2674,7 +2811,7 @@ export const suggestActivities = createServerFn({ method: "POST" })
     const now = Date.now() - 2 * 60 * 60 * 1000;
     let items = rows
       .map((row) => mapActivity(row, context.userId, origin))
-      .filter((item) => !item.cancelled && !item.isHost && !hidden.has(item.id) && new Date(item.startsAt).getTime() >= now && canSeeActivity(profile.areas, profile.openTo, item.intent, item.category));
+      .filter((item) => !item.cancelled && !item.isHost && !hidden.hides(item) && new Date(item.startsAt).getTime() >= now && canSeeActivity(profile.areas, profile.openTo, item.intent, item.category));
     if (data.city && !looked) items = items.filter((item) => item.city.trim().toLowerCase() === data.city.toLowerCase());
     else if (origin) {
       const near = items.filter((item) => item.km != null && item.km <= Math.max(profile.radiusKm, 60));
@@ -2955,18 +3092,19 @@ export const friendOverview = createServerFn({ method: "GET" })
   .middleware([memberMiddleware])
   .handler(async ({ context }) => {
     const { sql, profile } = await ensureProfile(context.userId);
-    const links = await sql<{ other: string; status: string; requester_id: string; display_name: string; city: string }>`
+    const links = await sql<{ other: string; status: string; requester_id: string; display_name: string; city: string; avatar_url: string }>`
       select case when f.requester_id = ${context.userId} then f.addressee_id else f.requester_id end as other,
-        f.status, f.requester_id, p.display_name, p.city
+        f.status, f.requester_id, p.display_name, p.city, p.avatar_url
       from friendships f
       join profiles p on p.user_id = case when f.requester_id = ${context.userId} then f.addressee_id else f.requester_id end
       where f.requester_id = ${context.userId} or f.addressee_id = ${context.userId}
       order by p.display_name
     `;
-    const person = (row: { other: string; display_name: string; city: string }): FriendPerson => ({
+    const person = (row: { other: string; display_name: string; city: string; avatar_url?: string }): FriendPerson => ({
       userId: row.other,
       displayName: row.display_name,
       city: row.city,
+      avatarUrl: row.avatar_url || "",
     });
     const friends = links.filter((row) => row.status === "accepted").map(person);
     const incoming = links.filter((row) => row.status === "pending" && row.requester_id !== context.userId).map(person);
@@ -3392,6 +3530,7 @@ export const deleteAccount = createServerFn({ method: "POST" })
     await sql`delete from checkins where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from ratings where rater_id = ${me} or ratee_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from hidden_activities where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
+    await sql`delete from hidden_rules where user_id = ${me} or (kind = 'user' and value = ${me})`;
     await sql`delete from safety_shares where user_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from invites where inviter_id = ${me} or activity_id in (select id from activities where host_id = ${me})`;
     await sql`delete from poll_votes where user_id = ${me} or poll_id in (select id from polls where creator_id = ${me} or activity_id in (select id from activities where host_id = ${me}))`;
@@ -3891,6 +4030,7 @@ export const exportMyData = createServerFn({ method: "POST" })
       nachDemTreffen: await sql`select activity_id, was_there, was_nice, again_group, keep_group, host_there, created_at from meet_feedback where user_id = ${me}`,
       selfiePruefung: await sql`select status, created_at, reviewed_at from selfie_checks where user_id = ${me}`,
       ideen: await sql`select text, city, created_at from ideas where user_id = ${me}`,
+      ausgeblendet: await sql`select kind, label, created_at from hidden_rules where user_id = ${me}`,
       freundesNachrichtenDieIchGeschriebenHabe: await sql`select body, created_at from friend_messages where sender_id = ${me}`,
       dankeGesagt: await sql`select activity_id, created_at from thanks where from_id = ${me}`,
       hinweis: "Nachrichten anderer Personen und deren Profile sind nicht enthalten. Ein Selfie wird nach der Prüfung gelöscht und ist deshalb nicht enthalten.",
@@ -4302,7 +4442,25 @@ async function calendarToken(sql: Sql, userId: string, rotate: boolean) {
 export const getCalendarLink = createServerFn({ method: "POST" })
   .middleware([memberMiddleware])
   .validator((input: { rotate?: boolean }) => ({ rotate: Boolean(input?.rotate) }))
-  .handler(async ({ data, context }) => ({ path: `/kalender/${await calendarToken(await getSql(), context.userId, data.rotate)}` }));
+  .handler(async ({ data, context }) => ({ path: `/cal/${await calendarToken(await getSql(), context.userId, data.rotate)}.ics` }));
+
+/** Is a subscription link active? Does not create one. */
+export const calendarStatus = createServerFn({ method: "GET" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const rows = await sql<{ token: string }>`select token from calendar_tokens where user_id = ${context.userId}`;
+    return { path: rows[0] ? `/cal/${rows[0].token}.ics` : "" };
+  });
+
+/** "Abo beenden": the old link stops working at once. */
+export const endCalendar = createServerFn({ method: "POST" })
+  .middleware([memberMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await sql`delete from calendar_tokens where user_id = ${context.userId}`;
+    return { ok: true as const };
+  });
 
 // ---------------------------------------------------------------------------
 // Treffen bearbeiten

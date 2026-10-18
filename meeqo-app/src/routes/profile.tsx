@@ -9,7 +9,7 @@ import { VisibilityPicker } from "@/components/visibility";
 import { MinimumWarning } from "@/components/feed-filters";
 import { Shell, useMe } from "@/components/shell";
 import { SelfieCard } from "@/components/trust";
-import { PageStylePicker } from "@/components/page-style";
+import { PageStylePicker, STYLE_COLORS } from "@/components/page-style";
 import { ChipToggle, LANGUAGES } from "@/components/quick-interests";
 import { friendOverview, listCategories, setAvatar, updateProfile } from "@/lib/meeqo/api";
 import { AreaPicker } from "@/components/areas";
@@ -77,7 +77,7 @@ function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
-      <div className="card space-y-4 p-5">
+      <div className="card space-y-4 p-5 transition-colors motion-reduce:transition-none" data-testid="own-header" data-style={profile.pageStyle || "standard"} style={{ background: (STYLE_COLORS[profile.pageStyle] ?? STYLE_COLORS[""]).bg, color: (STYLE_COLORS[profile.pageStyle] ?? STYLE_COLORS[""]).fg }}>
         <div className="flex items-center gap-4">
           <label className="relative shrink-0 cursor-pointer">
             {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-24 w-24 rounded-2xl object-cover" /> : <span className="grid h-24 w-24 place-items-center rounded-2xl bg-sand-deep font-display text-4xl">{profile.displayName.slice(0, 1)}</span>}
@@ -100,15 +100,15 @@ function ProfilePage() {
           </label>
           <div className="min-w-0 flex-1">
             <h1 className="break-words font-display text-3xl leading-tight">{profile.displayName}</h1>
-            {profile.city ? <p className="mt-1 text-sm text-muted">{profile.city}</p> : null}
-            {profile.areas.length ? <p className="text-sm text-muted">{areaSummary(profile.areas)}</p> : null}
+            {profile.city ? <p className="mt-1 text-sm opacity-80">{profile.city}</p> : null}
+            {profile.areas.length ? <p className="text-sm opacity-80">{areaSummary(profile.areas)}</p> : null}
           </div>
         </div>
-        <p className="text-xs text-muted">{t("Foto antippen zum Wechseln")}</p>
+        <p className="text-xs opacity-75">{t("Foto antippen zum Wechseln")}</p>
         <Link to="/friends" className="flex items-center gap-3 rounded-control border border-line bg-sand px-3 py-2.5">
           <span className="flex -space-x-2">
             {(friends.data?.friends ?? []).slice(0, 4).map((person) => (
-              <span key={person.userId} className="grid h-8 w-8 place-items-center rounded-full border-2 border-card bg-sand-deep text-xs font-semibold text-ink">{person.displayName.slice(0, 1)}</span>
+              person.avatarUrl ? <img key={person.userId} src={person.avatarUrl} alt="" className="h-8 w-8 rounded-full border-2 border-card object-cover" /> : <span key={person.userId} className="grid h-8 w-8 place-items-center rounded-full border-2 border-card bg-sand-deep text-xs font-semibold text-ink">{person.displayName.slice(0, 1)}</span>
             ))}
             {(friends.data?.friends.length ?? 0) === 0 ? <span className="grid h-8 w-8 place-items-center rounded-full border-2 border-card bg-sand-deep text-ink"><Users className="h-4 w-4" aria-hidden="true" /></span> : null}
           </span>

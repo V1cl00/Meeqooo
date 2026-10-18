@@ -5,7 +5,7 @@ import { Button } from "@/components/bits";
 import { checkIn, confirmAttendance, confirmSafe, nextUp } from "@/lib/meeqo/api";
 import { notice } from "@/lib/meeqo/feel";
 import { countdownLabel, errText, formatWhen } from "@/lib/meeqo/labels";
-import { routeUrl } from "@/lib/meeqo/ics";
+import { RouteLink } from "@/components/route-link";
 import { useLoad, usePolling } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
 
@@ -73,8 +73,8 @@ export function NextUpCard() {
           </div>
         ) : null}
         <div className="flex flex-wrap gap-2">
-          <a href={routeUrl(data.lat, data.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center gap-2 rounded-control border border-line bg-card px-3.5 text-sm font-semibold">
-            <Navigation className="h-4 w-4" />{t("Weg")}</a>
+          <RouteLink target={{ lat: data.lat, lng: data.lng, label: data.placeName }} className="inline-flex h-10 items-center gap-2 rounded-control border border-line bg-card px-3.5 text-sm font-semibold">
+            <Navigation className="h-4 w-4" />{t("Route")}</RouteLink>
           {data.canCheckIn && !data.checkedIn ? <Button type="button" className="h-11" onClick={arrive}>{t("Einchecken")}</Button> : null}
           {data.chatOpen ? (
             <Link to="/chat/$id" params={{ id: data.id }} className="inline-flex h-10 items-center rounded-control border border-line bg-card px-3.5 text-sm font-semibold">{data.group ? t("Gruppenchat") : t("Chat")}</Link>

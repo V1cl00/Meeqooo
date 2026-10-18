@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { requestJoin } from "@/lib/meeqo/api";
 import { notice } from "@/lib/meeqo/feel";
-import { routeUrl } from "@/lib/meeqo/ics";
+import { RouteLink } from "@/components/route-link";
 import { errText, formatWhen, MOODS } from "@/lib/meeqo/labels";
 import type { ActivityCard as Activity } from "@/lib/meeqo/types";
 import { activityLink, openShare, ShareSheet } from "@/components/share";
@@ -84,7 +84,7 @@ export function CardSheet({ item, onClose, onHide, onChanged }: { item: Activity
         {fail ? <p className="text-sm text-accent-deep">{fail}</p> : null}
         <div className="grid grid-cols-2 gap-2">
           <button type="button" className={pill} onClick={() => void openShare(payload, () => setShare(true))}>{t("Teilen")}</button>
-          <a className={pill} href={routeUrl(item.lat, item.lng)} target="_blank" rel="noopener noreferrer">{t("Weg")}</a>
+          <RouteLink className={pill} target={{ lat: item.lat, lng: item.lng, label: item.placeName, address: `${item.placeName}, ${item.city}` }}>{t("Route")}</RouteLink>
         </div>
         {onHide && !item.isHost ? (
           <button type="button" className={pill} onClick={() => { onHide(); onClose(); }}>{t("Ausblenden")}</button>

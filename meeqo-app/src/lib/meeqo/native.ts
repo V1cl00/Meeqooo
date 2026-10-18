@@ -78,6 +78,21 @@ export async function registerNativePush(go: (path: string) => void): Promise<"g
   return "granted";
 }
 
+/** In the app: write the picture to the cache and share it with the text (picture plus link in the chat). */
+/** Only the link, in the app's or the browser's share sheet. Chats build the preview from the OG tags. */
+export async function shareLink(url: string) {
+  if (isNative()) {
+    const { Share } = await import("@capacitor/share");
+    await Share.share({ url });
+    return true;
+  }
+  if (navigator.share) {
+    await navigator.share({ url });
+    return true;
+  }
+  return false;
+}
+
 /** The system share sheet in the app; the browser's own where it has one. Returns false when nothing could be shown. */
 export async function shareText(title: string, text: string, url?: string) {
   if (isNative()) {

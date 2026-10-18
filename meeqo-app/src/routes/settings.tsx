@@ -2,13 +2,14 @@ import { useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, face, Field, Note, TextArea } from "@/components/bits";
 import { Shell, useMe } from "@/components/shell";
-import { adminStatus, deleteAccount, withdrawSensitiveConsent, exportMyData, getCalendarLink, setNotifyEmail, designTheme, listBlocked, listHidden, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity } from "@/lib/meeqo/api";
+import { adminStatus, deleteAccount, withdrawSensitiveConsent, exportMyData, designTheme, listBlocked, listHiddenAll, pushKey, resetTheme, savePush, setLocation, setNotify, setRadius, unblockUser, unhideActivity, unhideRule } from "@/lib/meeqo/api";
+import { EmailCard, NotifyList, PermissionCard, QuietCard } from "@/components/notify-settings";
+import { CalendarSettings } from "@/components/cal-subscribe";
 import { authEnabled, signOut } from "@/lib/auth/client";
 import { errText, formatWhen, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import { notice } from "@/lib/meeqo/feel";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { isNative, registerNativePush } from "@/lib/meeqo/native";
-import { setNotifyPrefs } from "@/lib/meeqo/round3";
 import { chime, setSound, soundOn } from "@/lib/meeqo/sound";
 import { useNavigate } from "@tanstack/react-router";
 import { setLang, t, useLang } from "@/lib/meeqo/i18n";
@@ -28,14 +29,13 @@ function Settings() {
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
-  const hidden = useLoad(() => listHidden(), []);
+  const hidden = useLoad(() => listHiddenAll(), []);
   const blocked = useLoad(() => listBlocked(), []);
   const admin = useLoad(() => adminStatus(), []);
   const [confirm, setConfirm] = useState("");
   const [signingOut, setSigningOut] = useState(false);
   const lang = useLang();
   const navigate = useNavigate();
-  const [calendar, setCalendar] = useState("");
   if (!profile) return null;
 
   async function withdraw() {
@@ -145,18 +145,6 @@ function Settings() {
           ))}
         </div>
       </section>
-      <section className="card space-y-3 p-4">
-        <h2 className="font-display text-2xl">{t("Sensible Angaben")}</h2>
-        <p className="text-sm text-muted">{t("Angaben wie „Queer“ oder „Queerfreundlich“ am eigenen Profil speichern wir nur mit deiner ausdrücklichen Einwilligung.")}</p>
-        {profile.sensitiveConsent ? (
-          <>
-            <p className="text-sm font-semibold">{t("Du hast eingewilligt.")}</p>
-            <Button type="button" tone="ghost" disabled={pending} onClick={withdraw}>{t("Einwilligung widerrufen und Angaben löschen")}</Button>
-          </>
-        ) : (
-          <p className="text-sm font-semibold">{t("Keine Einwilligung gegeben. Es sind keine solchen Angaben gespeichert.")}</p>
-        )}
-      </section>
       <form onSubmit={design} className="card space-y-3 p-4">
         <h2 className="font-display text-2xl">{t("Dein Design")}</h2>
         <p className="text-sm text-muted">{t("Beschreib in einem Satz, wie MeeQo aussehen soll. Die KI setzt Farben, Schrift und Ecken. Der Text bleibt lesbar, nur für dich.")}</p>
@@ -207,61 +195,43 @@ function Settings() {
         </div>
         <Button type="button" tone="ghost" onClick={locate}>{t("Standort vom Handy")}</Button>
       </div>
-      <div className="card space-y-3 p-4">
-        <h2 className="font-display text-2xl">{t("Mitteilungen")}</h2>
-        <p className="text-sm text-muted">{t("Anfragen, Zusagen und Erinnerungen. Mitteilungen kommen auch bei geschlossener App, wenn dein Browser und der Server es können. Sonst nur, solange MeeQo offen ist.")}</p>
-        <Button type="button" onClick={push}>{profile.notifyPush ? t("Mitteilungen sind an") : t("Mitteilungen erlauben")}</Button>
-        <Button
-          type="button"
-          tone="ghost"
-          onClick={async () => {
-            await setNotifyEmail({ data: { enabled: !profile.notifyEmail } });
-            await reload();
-            notice(profile.notifyEmail ? t("Keine Mails mehr zu Anfragen und Zusagen.") : t("Mails zu Anfragen und Zusagen sind an."));
-          }}
-        >
-          {profile.notifyEmail ? t("Mails zu Anfragen: an") : t("Mails zu Anfragen: aus")}
-        </Button>
-        <div className="space-y-2 border-t border-line pt-3">
-          <PrefSwitch
-            label={t("Erinnerung 2 Stunden vorher")}
-            hint={t("Und danach einmal „Wie war's?“.")}
-            on={profile.notifyReminder}
-            onChange={async (next) => { await setNotifyPrefs({ data: { reminder: next } }); await reload(); }}
-          />
-          <PrefSwitch
-            label={t("Letzter Platz in deiner Nähe")}
-            hint={t("Höchstens einmal am Tag, nur passend zu deinen Interessen.")}
-            on={profile.notifyNearby}
-            onChange={async (next) => { await setNotifyPrefs({ data: { nearby: next } }); await reload(); }}
-          />
-          <PrefSwitch
-            label={t("MeeQo-Klang")}
-            hint={t("Ein kurzer Ton, wenn du anfragst oder zusagst. Nur auf diesem Gerät.")}
-            on={soundOn()}
-            onChange={async (next) => { setSound(next); if (next) chime(true); }}
-          />
-        </div>
+      <h2 className="px-1 pt-2 font-display text-3xl leading-none">{t("Mitteilungen")}</h2>
+      <PermissionCard profile={profile} onAllow={push} />
+      <EmailCard profile={profile} reload={reload} />
+      <NotifyList profile={profile} />
+      <QuietCard profile={profile} />
+      <div className="card space-y-2 p-4">
+        <PrefSwitch
+          label={t("MeeQo-Klang")}
+          hint={t("Ein kurzer Ton, wenn du anfragst oder zusagst. Nur auf diesem Gerät.")}
+          on={soundOn()}
+          onChange={async (next) => { setSound(next); if (next) chime(true); }}
+        />
       </div>
-      <div className="card space-y-3 p-4">
+      <div className="card space-y-3 p-4" data-testid="hidden-list">
         <h2 className="font-display text-2xl">{t("Ausgeblendet")}</h2>
-        <p className="text-sm text-muted">{t("Diese Aktivitäten siehst du nicht im Feed, in der Suche, in Communities und bei Vorschlägen. Zusagen und eigene Termine bleiben trotzdem unter Meine Aktivitäten.")}</p>
+        <p className="text-sm text-muted">{t("Das siehst du nicht im Feed, in der Suche und bei Jetzt & hier. Zusagen und eigene Termine bleiben trotzdem unter Meine Termine.")}</p>
         {hidden.loading ? <p className="text-sm text-muted">{t("Wird geladen…")}</p> : null}
         {hidden.error ? <Note>{hidden.error}</Note> : null}
         {(hidden.data ?? []).map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-3 border-t border-line pt-3">
-            <div>
-              <Link to="/activity/$id" params={{ id: item.id }} className="font-semibold">{item.title}</Link>
-              <p className="text-sm text-muted">{formatWhen(item.startsAt)} · {item.city}</p>
+          <div key={`${item.kind}:${item.value}`} className="flex items-center justify-between gap-3 border-t border-line pt-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">{item.kind === "user" ? t("Person") : item.kind === "category" ? t("Art") : t("Treffen")}</p>
+              {item.kind === "activity" ? (
+                <Link to="/activity/$id" params={{ id: item.value }} className="block truncate font-semibold">{item.label}</Link>
+              ) : (
+                <p className="truncate font-semibold">{item.kind === "category" ? t(item.label) : item.label}</p>
+              )}
             </div>
             <button
               type="button"
               className={face}
               onClick={async () => {
                 try {
-                  await unhideActivity({ data: { id: item.id } });
+                  if (item.kind === "activity") await unhideActivity({ data: { id: item.value } });
+                  else await unhideRule({ data: { kind: item.kind, value: item.value } });
                   hidden.reload();
-                  notice("Wieder sichtbar.");
+                  notice(t("Wieder sichtbar."));
                   setError("");
                 } catch (err) {
                   setError(errText(err));
@@ -295,40 +265,7 @@ function Settings() {
         ))}
         {!blocked.loading && (blocked.data ?? []).length === 0 ? <p className="text-sm text-muted">{t("Niemand blockiert.")}</p> : null}
       </div>
-      <div className="card space-y-3 p-4">
-        <h2 className="font-display text-2xl">{t("Kalender abonnieren")}</h2>
-        <p className="text-sm text-muted">{t("Deine zugesagten und eigenen Treffen erscheinen von selbst im Kalender deines Handys. Wer den Link kennt, sieht die Titel und Orte. Du kannst ihn jederzeit ersetzen.")}</p>
-        {calendar ? (
-          <div className="space-y-2">
-            <input readOnly value={`${window.location.origin}${calendar}`} aria-label={t("Kalender-Adresse")} onFocus={(event) => event.currentTarget.select()} className="h-12 w-full rounded-2xl border border-line bg-sand px-4 text-sm" />
-            <div className="flex flex-wrap gap-2">
-              <a className={face} href={`webcal://${window.location.host}${calendar}`}>{t("Im Kalender öffnen")}</a>
-              <button
-                type="button"
-                className={face}
-                onClick={async () => {
-                  const next = await getCalendarLink({ data: { rotate: true } });
-                  setCalendar(next.path);
-                  notice(t("Neuer Link. Der alte funktioniert nicht mehr."));
-                }}
-              >{t("Neuen Link erzeugen")}</button>
-            </div>
-          </div>
-        ) : (
-          <Button
-            type="button"
-            tone="ghost"
-            onClick={async () => {
-              try {
-                const link = await getCalendarLink({ data: {} });
-                setCalendar(link.path);
-              } catch (err) {
-                setError(errText(err));
-              }
-            }}
-          >{t("Link anzeigen")}</Button>
-        )}
-      </div>
+      <CalendarSettings />
       <div className="card space-y-3 p-4">
         <h2 className="font-display text-2xl">{t("Meine Daten")}</h2>
         <p className="text-sm text-muted">{t("Lade alles herunter, was MeeQo über dich gespeichert hat, als Datei. Nachrichten anderer Personen sind nicht dabei.")}</p>
@@ -368,7 +305,31 @@ function Settings() {
         {admin.data?.admin ? <Link to="/admin/zahlen" className="font-semibold text-ink underline">{t("Zahlen")}</Link> : null}
       </p>
       {error ? <Note>{error}</Note> : null}
-      {authEnabled ? <Button type="button" tone="ghost" className="mb-6 w-full" disabled={signingOut} onClick={() => { setSigningOut(true); void signOut("/login").catch(() => setSigningOut(false)); }}>{signingOut ? t("Abmelden…") : t("Abmelden")}</Button> : null}
+      {authEnabled ? <Button type="button" tone="ghost" className="w-full" disabled={signingOut} onClick={() => { setSigningOut(true); void signOut("/login").catch(() => setSigningOut(false)); }}>{signingOut ? t("Abmelden…") : t("Abmelden")}</Button> : null}
+      <section className="card mb-6 space-y-1 p-4" data-testid="privacy-section">
+        <h2 className="font-display text-2xl">{t("Datenschutz")}</h2>
+        <details className="group border-t border-line pt-2" data-testid="sensitive-row">
+          <summary className="flex cursor-pointer list-none items-center justify-between py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+            <span>{t("Sensible Angaben")}</span>
+            <span aria-hidden="true" className="text-muted transition-transform group-open:rotate-90 motion-reduce:transition-none">›</span>
+          </summary>
+          <div className="space-y-3 pb-1">
+          <p className="text-sm text-muted">{t("Angaben wie „Queer“ oder „Queerfreundlich“ am eigenen Profil speichern wir nur mit deiner ausdrücklichen Einwilligung.")}</p>
+          {profile.sensitiveConsent ? (
+            <>
+              <p className="text-sm font-semibold">{t("Du hast eingewilligt.")}</p>
+              <Button type="button" tone="ghost" disabled={pending} onClick={withdraw}>{t("Einwilligung widerrufen und Angaben löschen")}</Button>
+            </>
+          ) : (
+            <p className="text-sm font-semibold">{t("Keine Einwilligung gegeben. Es sind keine solchen Angaben gespeichert.")}</p>
+          )}
+          </div>
+        </details>
+        <Link to="/datenschutz" className="flex items-center justify-between border-t border-line py-2 text-sm font-semibold">
+          <span>{t("Datenschutzerklärung")}</span>
+          <span aria-hidden="true" className="text-muted">›</span>
+        </Link>
+      </section>
     </div>
   );
 }

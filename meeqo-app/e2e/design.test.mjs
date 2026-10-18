@@ -12,6 +12,23 @@ after(async () => {
 });
 
 describe("Design", () => {
+  test("Profilfarbe: Wahl färbt die eigene Kopfkarte und bleibt nach dem Neuladen", async () => {
+    const user = await newUser(browser, "Farbe");
+    await user.page.goto(`${base}/profile`);
+    const head = user.page.getByTestId("own-header");
+    await head.waitFor({ timeout: 15000 });
+    assert.equal(await head.getAttribute("data-style"), "standard");
+    await user.page.getByRole("button", { name: "Anthrazit" }).click();
+    await user.page.waitForFunction(() => document.querySelector('[data-testid="own-header"]')?.getAttribute("data-style") === "anthrazit", null, { timeout: 10000 });
+    await user.page.reload();
+    await head.waitFor({ timeout: 15000 });
+    assert.equal(await head.getAttribute("data-style"), "anthrazit");
+    assert.equal(await user.page.getByRole("button", { name: "Anthrazit" }).getAttribute("aria-pressed"), "true");
+    const bg = await head.evaluate((el) => getComputedStyle(el).backgroundColor);
+    assert.equal(bg, "rgb(61, 64, 91)");
+    await user.context.close();
+  });
+
   test("Ideenwand: posten, Ich auch, daraus ein Treffen machen füllt das Formular", async () => {
     const idea = `Flohmarkt und Kaffee ${Date.now() % 10000}`;
     const a = await newUser(browser, "Ida");

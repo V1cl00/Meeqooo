@@ -11,14 +11,27 @@ export function SafetyMenu({
   personId,
   personName,
   onBlocked,
+  open: openProp,
+  onOpenChange,
+  hideTrigger,
 }: {
   kind: "person" | "activity" | "ad" | "message";
   targetId: string;
   personId?: string;
   personName?: string;
   onBlocked?: () => void;
+  /** Controlled from a menu (profile "⋯"): then the own button can be hidden. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (next: boolean | ((value: boolean) => boolean)) => {
+    const value = typeof next === "function" ? next(open) : next;
+    setOpenState(value);
+    onOpenChange?.(value);
+  };
   const [reason, setReason] = useState<string>(REPORT_REASONS[0]);
   const [note, setNote] = useState("");
   const [info, setInfo] = useState("");
@@ -50,8 +63,8 @@ export function SafetyMenu({
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex h-10 items-center rounded-control border border-line bg-card px-3.5 text-sm font-semibold text-ink">{t("Melden{0}", personId ? t(" oder blockieren") : "")}
-      </button>
+      {hideTrigger ? null : <button type="button" onClick={() => setOpen((value) => !value)} className="inline-flex h-10 items-center rounded-control border border-line bg-card px-3.5 text-sm font-semibold text-ink">{t("Melden{0}", personId ? t(" oder blockieren") : "")}
+      </button>}
       {open ? (
         <div className="card space-y-3 p-4">
           <p className="text-sm font-semibold">{t("Was stimmt nicht?")}</p>

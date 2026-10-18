@@ -358,13 +358,29 @@ describe("Bedienung", () => {
     assert.match(await text(anna.page), /mit Ben/);
 
     // Kalender-Abo
+    await ben.page.goto(`${base}/calendar`);
+    await ben.page.getByRole("button", { name: "Kalender abonnieren" }).click();
+    await ben.page.getByRole("button", { name: "Link kopieren" }).waitFor({ timeout: 15000 });
     await ben.page.goto(`${base}/settings`);
-    await ben.page.waitForTimeout(1500);
-    await ben.page.getByRole("button", { name: "Link anzeigen" }).click();
-    const feed = await ben.page.getByLabel("Kalender-Adresse").inputValue();
-    const calendar = await (await ben.page.request.get(feed)).text();
+    const address = ben.page.getByLabel("Kalender-Adresse");
+    await address.waitFor({ timeout: 15000 });
+    const feed = await address.inputValue();
+    assert.match(feed, /\/cal\/[a-f0-9]{40}\.ics$/);
+    const response = await ben.page.request.get(feed);
+    assert.match(response.headers()["content-type"], /text\/calendar/);
+    const calendar = await response.text();
     assert.match(calendar, /BEGIN:VCALENDAR/);
+    assert.match(calendar, /X-PUBLISHED-TTL:PT1H/);
     assert.ok(calendar.includes(`Eiltreff ${tag}`));
+    // already synced: the event button is the disabled "Im Kalender ✓"
+    await ben.page.goto(soon);
+    await ben.page.getByTestId("cal-synced").waitFor({ timeout: 15000 });
+    assert.equal(await ben.page.getByTestId("cal-synced").isDisabled(), true);
+    // "Abo beenden" kills the link
+    await ben.page.goto(`${base}/settings`);
+    await ben.page.getByRole("button", { name: "Abo beenden" }).click();
+    await ben.page.waitForTimeout(1200);
+    assert.equal((await ben.page.request.get(feed)).status(), 404);
 
     // Terminabstimmung: Ben fragt, Anna stimmt ab und legt fest
     await ben.page.goto(`${base}/chat/${id}`);
@@ -411,8 +427,8 @@ describe("Grundlagen", () => {
     // voll: Cleo kommt auf die Warteliste
     await cleo.page.goto(url);
     await cleo.page.waitForTimeout(1500);
-    assert.ok(await cleo.page.getByRole("button", { name: "Auf die Warteliste" }).count(), "bei vollem Treffen steht Warteliste");
-    await cleo.page.getByRole("button", { name: "Auf die Warteliste" }).click();
+    assert.ok(await cleo.page.getByRole("button", { name: /Voll · Warteliste/ }).count(), "bei vollem Treffen steht Warteliste");
+    await cleo.page.getByRole("button", { name: /Voll · Warteliste/ }).click();
     await cleo.page.waitForTimeout(1500);
     assert.match(await text(cleo.page), /Warteliste, Platz 1/);
     await anna.page.goto(url);

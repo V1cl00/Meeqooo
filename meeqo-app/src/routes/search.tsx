@@ -3,12 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ActivityCard, face, Button, Field, Note, TextInput } from "@/components/bits";
 import { CategorySelect } from "@/components/categories";
 import { Shell, useMe } from "@/components/shell";
-import { getFeed, hideActivity, listCategories, suggestActivities, unhideActivity } from "@/lib/meeqo/api";
+import { getFeed, listCategories, suggestActivities } from "@/lib/meeqo/api";
 import { PlaceSuggest } from "@/components/place-bar";
 import { errText, RADIUS_OPTIONS } from "@/lib/meeqo/labels";
 import type { ActivityCard as Card } from "@/lib/meeqo/types";
 import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
+import { useHide } from "@/components/hide-sheet";
 
 export const Route = createFileRoute("/search")({ component: Page });
 
@@ -30,12 +31,12 @@ function Search() {
   const [ideas, setIdeas] = useState<{ source: string; reason: string; items: Card[] } | null>(null);
   const [aiError, setAiError] = useState("");
   const [aiPending, setAiPending] = useState(false);
-  const [gone, setGone] = useState<{ id: string; title: string } | null>(null);
   const cats = useLoad(() => listCategories(), []);
   const { data, loading, error, reload } = useLoad(
     () => getFeed({ data: { q: submitted.q, city: submitted.place, category: submitted.category, radiusKm: submitted.radius } }),
     [submitted.q, submitted.place, submitted.category, submitted.radius],
   );
+  const hider = useHide(() => reload());
 
   async function suggest() {
     setAiPending(true);
@@ -49,31 +50,10 @@ function Search() {
     }
   }
 
-  async function hide(item: Card) {
-    setAiError("");
-    try {
-      await hideActivity({ data: { id: item.id } });
-      setGone({ id: item.id, title: item.title });
-      setIdeas((current) => (current ? { ...current, items: current.items.filter((entry) => entry.id !== item.id) } : current));
-      reload();
-    } catch (err) {
-      setAiError(errText(err));
-    }
-  }
-
-  async function undoHide() {
-    if (!gone) return;
-    try {
-      await unhideActivity({ data: { id: gone.id } });
-      setGone(null);
-      reload();
-    } catch (err) {
-      setAiError(errText(err));
-    }
-  }
 
   return (
     <div className="space-y-4">
+      {hider.ui}
       <h1 className="font-display text-4xl leading-none">{t("Suche")}</h1>
       <p className="text-sm text-muted">{t("Bei dir oder in einer anderen Stadt. Es zählen nur Aktivitäten, die deine Absicht sehen darf.")}</p>
       <form
@@ -107,22 +87,16 @@ function Search() {
       </form>
       {error ? <Note>{error}</Note> : null}
       {aiError ? <Note>{aiError}</Note> : null}
-      {gone ? (
-        <div className="card flex items-center justify-between gap-3 p-4">
-          <p className="text-sm">{t("„{0}“ bleibt ausgeblendet.", gone.title)}</p>
-          <button type="button" className={face} onClick={undoHide}>{t("Rückgängig")}</button>
-        </div>
-      ) : null}
       {ideas ? (
         <div className="space-y-3">
           <p className="text-sm">{ideas.reason}</p>
           <p className="text-xs text-muted">{ideas.source === "ai" ? t("Vorschlag") : t("Aus deinem Profil, ohne KI")}</p>
-          <div className="grid gap-4 md:grid-cols-2">{ideas.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} />)}</div>
+          <div className="grid gap-4 md:grid-cols-2">{ideas.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hider.ask(item)} />)}</div>
         </div>
       ) : null}
       {data?.around ? <p className="text-sm text-muted">{t("Umkreis um {0}, nicht nur um deinen Standort.", data.around)}</p> : null}
       {loading ? <p className="text-sm text-muted">{t("Suche…")}</p> : null}
-      <div className="grid gap-4 md:grid-cols-2">{data?.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hide(item)} />)}</div>
+      <div className="grid gap-4 md:grid-cols-2">{data?.items.map((item) => <ActivityCard key={item.id} item={item} onHide={() => hider.ask(item)} />)}</div>
     </div>
   );
 }

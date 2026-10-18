@@ -1,9 +1,13 @@
 import { useState } from "react";
+import { ActionBar, ACTION_BAR_PAD, ChatButton, ChatIconLink, ManageButton, RequestButton, WithdrawButton } from "@/components/action-bar";
+import { Check, MapPin } from "lucide-react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BadgeRow, Button, IntentPill, MinGroupLine, Note, Skeleton, SparteStrip, StatusLine } from "@/components/bits";
 import { RidesCard } from "@/components/rides";
 import { SafetyMenu } from "@/components/safety";
-import { icsFor, mapUrl } from "@/lib/meeqo/ics";
+import { googleTemplateUrl, icsFor } from "@/lib/meeqo/ics";
+import { RouteLink } from "@/components/route-link";
+import { platform } from "@/lib/meeqo/native";
 import { activityLink, openShare, ShareSheet } from "@/components/share";
 import { Shell, useMe } from "@/components/shell";
 import { isPhotoMissing, PhotoMissing } from "@/components/photo";
@@ -14,7 +18,6 @@ import { useLoad } from "@/lib/meeqo/use-load";
 import { t } from "@/lib/meeqo/i18n";
 import { WeatherChip } from "@/components/weather-chip";
 import { HostTrust } from "@/components/host-trust";
-import { HoldButton } from "@/components/hold-button";
 import { Anticipation, CANCEL_TEMPLATES, Chemistry, GroupSign, IcebreakerCards } from "@/components/meet-extras";
 import { getShareMeta, shareMetaTags } from "@/lib/meeqo/share";
 
@@ -104,7 +107,12 @@ function Detail({ id }: { id: string }) {
 
   function addToCalendar() {
     if (!item) return;
-    const blob = new Blob([icsFor(item)], { type: "text/calendar;charset=utf-8" });
+    const entry = { ...item, url: `${window.location.origin}/activity/${item.id}` };
+    if (platform() === "android" || (platform() === "web" && /Android/i.test(navigator.userAgent))) {
+      window.open(googleTemplateUrl(entry), "_blank", "noopener");
+      return;
+    }
+    const blob = new Blob([icsFor(entry)], { type: "text/calendar;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = "meeqo-treffen.ics";
@@ -241,7 +249,7 @@ function Detail({ id }: { id: string }) {
   const sharePayload = { title: item.title, text: t("{0} · {1} · {2}", item.title, formatWhen(item.startsAt), item.placeName), url: activityLink(item.id), activityId: item.id };
 
   return (
-    <article className="space-y-4">
+    <article className={`space-y-4 ${ACTION_BAR_PAD}`}>
       {data.needsConfirm ? (
         <div className="card space-y-3 border-2 !border-accent p-4">
           <h2 className="font-display text-2xl leading-tight">{countdownLabel(item.startsAt) === "morgen" ? t("Bist du morgen dabei?") : t("Bist du dabei?")}</h2>
@@ -261,7 +269,7 @@ function Detail({ id }: { id: string }) {
       <div className="-mx-4 -mt-2 md:mx-0 md:mt-0">
         {item.imageUrl ? <img src={item.imageUrl} alt="" style={{ viewTransitionName: `act-${item.id}` }} className="aspect-[4/3] w-full object-cover md:rounded-card" /> : <div className="aspect-[4/3] bg-sand-deep md:rounded-card" />}
       </div>
-      <div className={`card -mt-10 overflow-hidden ${business ? "!border-2 !border-ink" : sparte.kind === "event" ? "!border-2 !border-accent-deep" : ""}`}>
+      <div className={`card relative z-10 -mt-8 overflow-hidden bg-card shadow-[0_-6px_18px_rgba(0,0,0,0.10)] ${business ? "!border-2 !border-ink" : sparte.kind === "event" ? "!border-2 !border-accent-deep" : ""}`}>
         <SparteStrip kind={sparte.kind} sub={sparte.sub} />
         <div className="space-y-3 p-4">
           <div className="flex flex-wrap gap-1.5">
@@ -270,7 +278,13 @@ function Detail({ id }: { id: string }) {
             {item.publicPlace ? <span className="rounded-full bg-sand-deep px-2.5 py-1 text-xs font-semibold">{t("Öffentlicher Ort")}</span> : null}
           </div>
           <h1 className="font-display text-4xl leading-none">{item.title}</h1>
-          <p className="text-sm text-muted">{formatWhen(item.startsAt)} · {item.placeName}, {item.city}</p>
+          <p className="text-sm text-muted">
+            {formatWhen(item.startsAt)} ·{" "}
+            <RouteLink target={{ lat: item.lat, lng: item.lng, label: item.placeName, address: `${item.placeName}, ${item.city}` }} className="inline-flex items-center gap-0.5 font-semibold text-ink underline decoration-line underline-offset-2" label={t("Route zu {0}", item.placeName)}>
+              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+              {item.placeName}, {item.city}
+            </RouteLink>
+          </p>
           {(item.isHost || item.myStatus === "accepted") && !item.cancelled ? <Anticipation startsAt={item.startsAt} isHost={item.isHost} hostName={item.hostName} going={data.going} /> : null}
           {(item.isHost || item.myStatus === "accepted") && countdownLabel(item.startsAt) ? (
             <p className="inline-flex rounded-full bg-accent px-3 py-1 text-sm font-semibold text-onfill">{countdownLabel(item.startsAt)}</p>
@@ -355,9 +369,13 @@ function Detail({ id }: { id: string }) {
         </p>
         <Button type="button" tone="ghost" className="w-full" onClick={() => { setTrust(null); void openShare(sharePayload, () => setShareOpen(true)); }}>{t("Teilen")}</Button>
         <div className="flex gap-2">
-          <a href={mapUrl(item.lat, item.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 flex-1 items-center justify-center rounded-control border border-line bg-card px-4 text-sm font-semibold">{t("Karte öffnen")}</a>
+          <RouteLink target={{ lat: item.lat, lng: item.lng, label: item.placeName, address: `${item.placeName}, ${item.city}` }} className="inline-flex h-12 flex-1 items-center justify-center rounded-control border border-line bg-card px-4 text-sm font-semibold">{t("Route")}</RouteLink>
           {item.myStatus === "accepted" || item.isHost ? (
-            <button type="button" onClick={addToCalendar} className="inline-flex h-12 flex-1 items-center justify-center rounded-control border border-line bg-card px-4 text-sm font-semibold">{t("Zum Kalender")}</button>
+            data.calendarSynced ? (
+              <button type="button" disabled aria-disabled="true" data-testid="cal-synced" title={t("Ist über dein Kalender-Abo schon drin.")} className="inline-flex h-12 flex-1 cursor-default items-center justify-center gap-1 rounded-control border border-line bg-sand px-4 text-sm font-semibold text-muted">{t("Im Kalender ✓")}</button>
+            ) : (
+              <button type="button" onClick={addToCalendar} className="inline-flex h-12 flex-1 items-center justify-center rounded-control border border-line bg-card px-4 text-sm font-semibold">{t("Zum Kalender hinzufügen")}</button>
+            )
           ) : null}
         </div>
         {item.myStatus === "accepted" || item.isHost ? (
@@ -383,7 +401,7 @@ function Detail({ id }: { id: string }) {
       <StatusLine error={fail} />
       {data.hidden ? <Note>{t("Diese Aktivität ist für dich ausgeblendet. Feed, Suche und Vorschläge überspringen sie.")}</Note> : null}
       {data.mutual ? <Note>{t("Ihr möchtet euch beide wiedersehen.")}</Note> : null}
-      <div className="flex flex-wrap gap-1.5 pb-16">
+      <div className="flex flex-wrap gap-1.5">
         {!item.isHost && !data.hidden ? (
           <Button type="button" tone="ghost" disabled={busy} onClick={conceal}>{t("Ausblenden")}</Button>
         ) : null}
@@ -418,29 +436,50 @@ function Detail({ id }: { id: string }) {
         {(item.myStatus === "accepted" || item.isHost) && !item.cancelled && new Date(item.startsAt).getTime() <= Date.now() ? <Link to="/wie-wars/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-control bg-green px-5 text-sm font-semibold text-ink">{t("Wie war's?")}</Link> : null}
         {(item.myStatus === "accepted" || item.isHost) && data.checkedIn ? <Link to="/rating/$id" params={{ id: item.id }} className="inline-flex h-12 items-center rounded-control border border-line bg-card px-5 text-sm font-semibold">{t("Bewerten")}</Link> : null}
       </div>
-      <div className="fixed inset-x-0 bottom-[5.4rem] z-20 px-3 md:bottom-6">
-        {needPhoto ? (
-          <div className="mx-auto mb-2 max-w-lg">
+      {needPhoto ? (
+        <div className="fixed inset-x-0 bottom-[calc(10rem+env(safe-area-inset-bottom))] z-20 px-3 md:bottom-28">
+          <div className="mx-auto max-w-lg">
             <PhotoMissing onDone={() => { setNeedPhoto(false); void join(true); }} />
           </div>
-        ) : null}
-        <div className="mx-auto flex max-w-lg gap-2">
-          {!item.isHost && !item.cancelled && item.myStatus !== "accepted" && item.myStatus !== "pending" && item.myStatus !== "waitlist" ? (
-            <HoldButton disabled={busy} className="h-12 flex-1" onCommit={() => void join()}>
-              <span className="flex flex-col items-start leading-tight">
-                <span>{item.spotsLeft < 1 ? t("Auf die Warteliste") : item.bookingMode === "instant" ? t("Sofort dabei") : business ? t("Kontakt anfragen") : t("Anfragen")}</span>
-                <span className="hidden text-[11px] font-normal opacity-80 pointer-coarse:inline">{t("Gedrückt halten")}</span>
-              </span>
-            </HoldButton>
-          ) : null}
-          {item.myStatus === "accepted" || item.isHost ? (
-            <Link to="/chat/$id" params={{ id: item.id }} className="inline-flex h-12 flex-1 items-center justify-center rounded-control bg-ink px-5 text-sm font-semibold text-onaccent">{item.spots > 2 ? t("Gruppenchat") : t("Chat")}</Link>
-          ) : null}
-          {oneToOne ? (
-            <a className="inline-flex h-12 shrink-0 items-center justify-center rounded-control border-2 border-ink bg-card px-4 text-sm font-semibold" href="tel:112">112</a>
-          ) : null}
         </div>
-      </div>
+      ) : null}
+      {item.cancelled ? null : item.isHost ? (
+        <ActionBar info={formatWhen(item.startsAt)} sub={t("{0} von {1} Plätzen frei", item.spotsLeft, item.spots)} testId="action-bar-host">
+          {data.pendingCount > 0 ? (
+            <>
+              <ChatIconLink id={item.id} />
+              <ManageButton count={data.pendingCount} />
+            </>
+          ) : (
+            <ChatButton id={item.id} group={item.spots > 2} />
+          )}
+        </ActionBar>
+      ) : item.myStatus === "accepted" ? (
+        <ActionBar info={t("Du bist dabei")} sub={formatWhen(item.startsAt)}>
+          {oneToOne ? <a className="inline-flex h-11 shrink-0 items-center justify-center rounded-[12px] border-2 border-ink bg-card px-3 text-sm font-semibold" href="tel:112">112</a> : null}
+          <ChatButton id={item.id} group={item.spots > 2} />
+        </ActionBar>
+      ) : item.myStatus === "pending" ? (
+        <ActionBar info={<span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-accent" aria-hidden="true" />{t("Anfrage gesendet")}</span>} sub={t("Warte auf Zusage · {0}", formatWhen(item.startsAt))} testId="action-bar-sent">
+          <WithdrawButton label={t("Zurückziehen")} disabled={busy} onConfirm={() => void leave()} />
+        </ActionBar>
+      ) : item.myStatus === "waitlist" ? (
+        <ActionBar info={t("Auf der Warteliste{0}", data.waitlistPosition ? t(", Platz {0}", data.waitlistPosition) : "")} sub={t("Sagt jemand ab, rückst du nach.")}>
+          <WithdrawButton label={t("Verlassen")} disabled={busy} onConfirm={() => void leave()} />
+        </ActionBar>
+      ) : (
+        <ActionBar
+          info={item.spotsLeft < 1 ? t("Voll") : item.spotsLeft === 1 ? t("1 Platz frei") : t("{0} Plätze frei", item.spotsLeft)}
+          sub={formatWhen(item.startsAt)}
+        >
+          <RequestButton
+            key={item.myStatus ?? "none"}
+            kind={item.spotsLeft < 1 ? "waitlist" : item.bookingMode === "instant" ? "instant" : business ? "contact" : "request"}
+            disabled={busy}
+            onCommit={() => void join()}
+          />
+        </ActionBar>
+      )}
     </article>
   );
 }

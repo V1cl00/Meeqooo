@@ -41,6 +41,9 @@ export type Profile = {
   notifyReminder: boolean;
   notifyNearby: boolean;
   pageStyle: string;
+  /** Saved push / e-mail choices per notification type (see notify-prefs.ts). */
+  notifyPrefs: Record<string, { push?: boolean; email?: boolean }>;
+  quiet: { on: boolean; from: number; to: number };
 };
 
 export type ActivityCard = {
@@ -105,6 +108,7 @@ export type RequestItem = {
   activityId: string;
   activityTitle: string;
   personName: string;
+  personAvatar: string;
   status: string;
   createdAt: string;
   mood: string;
@@ -222,6 +226,10 @@ export type ActivityDetail = {
   mutual: boolean;
   iWantAgain: boolean;
   hidden: boolean;
+  /** For the host: open requests. */
+  pendingCount: number;
+  /** The viewer has a calendar subscription, so this meetup is already in their calendar. */
+  calendarSynced: boolean;
 };
 
 export type PublicProfile = {
@@ -236,6 +244,9 @@ export type PublicProfile = {
   city: string;
   badges: string[];
   avatarUrl: string;
+  district: string;
+  interests: string[];
+  verified: boolean;
   friend: "none" | "out" | "in" | "friends";
   favorite: boolean;
 };
@@ -244,6 +255,7 @@ export type FriendPerson = {
   userId: string;
   displayName: string;
   city: string;
+  avatarUrl?: string;
 };
 
 export type Classified = {

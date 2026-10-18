@@ -57,7 +57,10 @@ function Requests() {
             <Link to="/activity/$id" params={{ id: item.activityId }} className="font-semibold">{item.activityTitle}</Link>
             {tab === "in" ? <p className="text-sm text-muted">{reliability(item)}</p> : null}
             {item.mood ? <span className="inline-flex rounded-full bg-sand-deep px-2.5 py-1 text-xs font-semibold">{t("Erwartet: {0}", item.mood)}</span> : null}
-            <p className="text-sm text-muted">{tab === "in" ? item.personName : t("Bei {0}", item.personName)} · {({ pending: "offen", accepted: "zugesagt", declined: "abgelehnt", waitlist: "Warteliste", removed: "entfernt", withdrawn: "abgesagt" } as Record<string, string>)[item.status] ?? item.status}</p>
+            <p className="flex items-center gap-2 text-sm text-muted">
+              {item.personAvatar ? <img src={item.personAvatar} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" /> : <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sand-deep text-xs font-semibold text-ink">{item.personName.slice(0, 1)}</span>}
+              <span>{tab === "in" ? item.personName : t("Bei {0}", item.personName)} · {({ pending: "offen", accepted: "zugesagt", declined: "abgelehnt", waitlist: "Warteliste", removed: "entfernt", withdrawn: "abgesagt" } as Record<string, string>)[item.status] ?? item.status}</span>
+            </p>
             {tab === "in" && item.status === "pending" ? (
               <div className="flex gap-2">
                 <Button type="button" className="h-11" onClick={() => answer(item.id, true)}>{t("Annehmen")}</Button>

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { myEmail, setNotifyChannel, setNotifyEmail, setQuietHours } from "@/lib/meeqo/api";
+import { setNotifyChannel, setQuietHours } from "@/lib/meeqo/api";
 import { channelValue, NOTIFY_GROUPS, NOTIFY_TYPES } from "@/lib/meeqo/notify-prefs";
 import { isNative } from "@/lib/meeqo/native";
-import { useLoad } from "@/lib/meeqo/use-load";
 import { notice } from "@/lib/meeqo/feel";
 import { errText } from "@/lib/meeqo/labels";
 import { t } from "@/lib/meeqo/i18n";
@@ -67,45 +66,16 @@ export function PermissionCard({ profile, onAllow }: { profile: Profile; onAllow
   );
 }
 
-export function EmailCard({ profile, reload }: { profile: Profile; reload: () => Promise<unknown> | void }) {
-  const mail = useLoad(() => myEmail(), []);
-  const [on, setOn] = useState(profile.notifyEmail);
-  return (
-    <div className="card space-y-3 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="break-words font-display text-2xl">{mail.data?.email ? t("E-Mails an {0}", mail.data.email) : t("E-Mails")}</h2>
-          <p className="mt-1 text-sm text-muted">{t("E-Mail bei Anfragen: Du bekommst eine Mail, wenn jemand dein Treffen anfragt oder ein Host deine Anfrage annimmt oder ablehnt. Dazu Absagen und Änderungen. Eine Mail pro Ereignis, keine Werbung.")}</p>
-        </div>
-        <Switch
-          on={on}
-          label={t("E-Mails senden")}
-          onChange={async (next) => {
-            setOn(next);
-            try {
-              await setNotifyEmail({ data: { enabled: next } });
-              await reload();
-            } catch {
-              setOn(!next);
-            }
-          }}
-        />
-      </div>
-      <p className="text-xs text-muted">{on ? t("Welche Arten per Mail kommen, stellst du unten pro Zeile ein.") : t("Aus: keine Mails von MeeQo, außer zum Konto (z. B. Passwort).")}</p>
-    </div>
-  );
-}
-
-/** One row per type: when it fires, and its own Push and E-Mail switch. */
+/** One row per type: when it fires, and its own push switch. */
 export function NotifyList({ profile }: { profile: Profile }) {
   const [prefs, setPrefs] = useState(profile.notifyPrefs ?? {});
   const [fail, setFail] = useState("");
-  async function flip(key: string, channel: "push" | "email", next: boolean) {
+  async function flip(key: string, next: boolean) {
     const before = prefs;
-    setPrefs({ ...prefs, [key]: { ...prefs[key], [channel]: next } });
+    setPrefs({ ...prefs, [key]: { push: next } });
     setFail("");
     try {
-      await setNotifyChannel({ data: { key, channel, on: next } });
+      await setNotifyChannel({ data: { key, on: next } });
     } catch (err) {
       setPrefs(before);
       setFail(errText(err));
@@ -115,7 +85,7 @@ export function NotifyList({ profile }: { profile: Profile }) {
     <div className="card space-y-4 p-4">
       <div>
         <h2 className="font-display text-2xl">{t("Wann wir dir Bescheid geben")}</h2>
-        <p className="text-sm text-muted">{t("Jede Zeile hat ihren eigenen Schalter für Push und E-Mail. Alles erscheint auch in der Glocke in der App.")}</p>
+        <p className="text-sm text-muted">{t("Jede Zeile hat ihren eigenen Schalter. Alles erscheint auch in der Glocke in der App.")}</p>
       </div>
       {NOTIFY_GROUPS.map((group) => (
         <section key={group} className="space-y-2">
@@ -126,20 +96,7 @@ export function NotifyList({ profile }: { profile: Profile }) {
                 <p className="text-sm font-semibold text-ink">{t(type.title)}</p>
                 <p className="text-xs text-muted">{t(type.when)}</p>
               </div>
-              <div className="flex shrink-0 gap-3 text-center text-[11px] font-semibold text-muted">
-                <span className="flex flex-col items-center gap-1">
-                  <Switch on={channelValue(type, prefs, "push")} label={`${t(type.title)} · ${t("Push")}`} onChange={(next) => void flip(type.key, "push", next)} />
-                  {t("Push")}
-                </span>
-                <span className="flex flex-col items-center gap-1">
-                  {type.email === null ? (
-                    <span className="grid h-7 w-12 place-items-center text-xs" aria-label={t("Keine E-Mail für diese Art")}>–</span>
-                  ) : (
-                    <Switch on={channelValue(type, prefs, "email")} disabled={!profile.notifyEmail} label={`${t(type.title)} · ${t("E-Mail")}`} onChange={(next) => void flip(type.key, "email", next)} />
-                  )}
-                  {t("E-Mail")}
-                </span>
-              </div>
+              <Switch on={channelValue(type, prefs)} label={t(type.title)} onChange={(next) => void flip(type.key, next)} />
             </div>
           ))}
         </section>
@@ -169,7 +126,7 @@ export function QuietCard({ profile }: { profile: Profile }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-2xl">{t("Ruhezeiten")}</h2>
-          <p className="text-sm text-muted">{t("In dieser Zeit kommt kein Push. Dringende Änderungen und Absagen kommen trotzdem. E-Mails und die Glocke in der App sind nicht betroffen.")}</p>
+          <p className="text-sm text-muted">{t("In dieser Zeit kommt keine Benachrichtigung aufs Handy. Dringende Änderungen und Absagen kommen trotzdem. Die Glocke in der App sammelt alles.")}</p>
         </div>
         <Switch on={quiet.on} label={t("Ruhezeiten")} onChange={(on) => void save({ ...quiet, on })} />
       </div>

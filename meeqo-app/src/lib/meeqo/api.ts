@@ -1,5 +1,5 @@
 import { stillNeeded } from "@/lib/meeqo/group-size";
-import { berlinHour as berlinNowHour, channelsFor, channelValue, NOTIFY_TYPES, parsePrefs } from "@/lib/meeqo/notify-prefs";
+import { berlinHour as berlinNowHour, channelsFor, NOTIFY_TYPES, parsePrefs } from "@/lib/meeqo/notify-prefs";
 import { refreshSeeds } from "@/lib/meeqo/seed-refresh";
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
@@ -680,17 +680,16 @@ export async function notify(sql: Sql, userId: string, kind: string, title: stri
     insert into notifications (id, user_id, kind, title, body, href, ref_id)
     values (${crypto.randomUUID()}, ${userId}, ${kind}, ${title}, ${body}, ${href}, ${refId})
   `;
-  const pref = await sql<{ notify_prefs: string; notify_email: boolean; quiet_on: boolean; quiet_from: number; quiet_to: number }>`
-    select notify_prefs, notify_email, quiet_on, quiet_from, quiet_to from profiles where user_id = ${userId}
+  const pref = await sql<{ notify_prefs: string; quiet_on: boolean; quiet_from: number; quiet_to: number }>`
+    select notify_prefs, quiet_on, quiet_from, quiet_to from profiles where user_id = ${userId}
   `;
   const row = pref[0];
   const channels = channelsFor(kind, parsePrefs(row?.notify_prefs ?? "{}"), {
-    emailOn: row?.notify_email !== false,
     quiet: { on: row?.quiet_on !== false, from: num(row?.quiet_from ?? 22), to: num(row?.quiet_to ?? 8) },
     hour: berlinNowHour(new Date()),
   });
+  // Push only: no notification e-mails (decided by Kevin). Login and password mails come from auth, not from here.
   if (channels.push) await sendPush(sql, userId, title, body, href);
-  if (channels.email) await sendEmail(sql, userId, title, body, href);
 }
 
 /** Tells the host once, when the accepted guests plus the host reach the minimum size. */
@@ -707,33 +706,22 @@ async function minSizeCheck(sql: Sql, activityId: string) {
   await notify(sql, row.host_id, "minsize", "Es findet statt", `„${row.title}“ hat genug Leute.`, `/activity/${activityId}`, activityId);
 }
 
-/** One row of the notification list: push and/or e-mail for one type. */
+/** One row of the notification list: its push switch. */
 export const setNotifyChannel = createServerFn({ method: "POST" })
   .middleware([memberMiddleware])
-  .validator((input: { key: string; channel: string; on: boolean }) => ({ key: String(input.key), channel: input.channel === "email" ? ("email" as const) : ("push" as const), on: Boolean(input.on) }))
+  .validator((input: { key: string; on: boolean }) => ({ key: String(input.key), on: Boolean(input.on) }))
   .handler(async ({ data, context }) => {
     const type = NOTIFY_TYPES.find((item) => item.key === data.key);
     if (!type) throw new Error("Unbekannte Mitteilung.");
-    if (data.channel === "email" && type.email === null) throw new Error("Dafür gibt es keine E-Mail.");
     const sql = await getSql();
     const rows = await sql<{ notify_prefs: string }>`select notify_prefs from profiles where user_id = ${context.userId}`;
     const prefs = parsePrefs(rows[0]?.notify_prefs ?? "{}");
-    prefs[type.key] = { ...prefs[type.key], [data.channel]: data.on };
+    prefs[type.key] = { push: data.on };
     await sql`update profiles set notify_prefs = ${JSON.stringify(prefs)} where user_id = ${context.userId}`;
     // The sweeps for reminders and nearby places read these columns: keep them in step.
-    const any = channelValue(type, prefs, "push") || channelValue(type, prefs, "email");
-    if (type.key === "reminder") await sql`update profiles set notify_reminder = ${any} where user_id = ${context.userId}`;
-    if (type.key === "nearby") await sql`update profiles set notify_nearby = ${any} where user_id = ${context.userId}`;
+    if (type.key === "reminder") await sql`update profiles set notify_reminder = ${data.on} where user_id = ${context.userId}`;
+    if (type.key === "nearby") await sql`update profiles set notify_nearby = ${data.on} where user_id = ${context.userId}`;
     return { ok: true as const };
-  });
-
-/** The address mails go to, for the e-mail card in the settings. */
-export const myEmail = createServerFn({ method: "GET" })
-  .middleware([memberMiddleware])
-  .handler(async ({ context }) => {
-    const sql = await getSql();
-    const rows = await sql<{ email: string }>`select email from "user" where id = ${context.userId}`.catch(() => [] as { email: string }[]);
-    return { email: rows[0]?.email ?? "" };
   });
 
 export const setQuietHours = createServerFn({ method: "POST" })
@@ -744,22 +732,6 @@ export const setQuietHours = createServerFn({ method: "POST" })
     await sql`update profiles set quiet_on = ${data.on}, quiet_from = ${data.from}, quiet_to = ${data.to} where user_id = ${context.userId}`;
     return { ok: true as const };
   });
-
-/** Only with a mail service set up and only if the person left mails on. */
-async function sendEmail(sql: Sql, userId: string, title: string, body: string, href: string) {
-  try {
-    const { mailConfigured, sendMail, appUrl } = await import("@/lib/mail.server");
-    if (!mailConfigured) return;
-    const rows = await sql<{ email: string; notify_email: boolean }>`
-      select u.email, p.notify_email from "user" u join profiles p on p.user_id = u.id where u.id = ${userId}
-    `;
-    if (!rows[0] || rows[0].notify_email === false) return;
-    const link = appUrl() ? `\n\n${appUrl()}${href}` : "";
-    await sendMail(rows[0].email, `MeeQo: ${title}`, `${title}\n${body}${link}\n\nMails zu Anfragen und Zusagen kannst du in den Einstellungen ausschalten.`);
-  } catch {
-    /* a mail is a bonus; the notification row is already saved */
-  }
-}
 
 /** Needs VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT. Without them nothing is sent and nothing breaks. */
 export async function sendPush(sql: Sql, userId: string, title: string, body: string, href: string) {
@@ -3800,14 +3772,7 @@ export const setVerified = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-export const setNotifyEmail = createServerFn({ method: "POST" })
-  .middleware([memberMiddleware])
-  .validator((input: { enabled: boolean }) => ({ enabled: Boolean(input.enabled) }))
-  .handler(async ({ data, context }) => {
-    const sql = await getSql();
-    await sql`update profiles set notify_email = ${data.enabled} where user_id = ${context.userId}`;
-    return { ok: true as const };
-  });
+
 
 // ---------------------------------------------------------------------------
 // Passwort vergessen. Oeffentlich, antwortet immer gleich, damit niemand Adressen erraten kann.

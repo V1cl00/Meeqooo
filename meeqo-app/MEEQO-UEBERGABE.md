@@ -289,3 +289,29 @@ Siehe `NATIVE-APPS.md`. Kurz: Capacitor-Hülle (`capacitor.config.ts`, Ordner `a
 - Sonntags „Deine Woche mit MeeQo“ als Story-Bild (Canvas, nur echte Zahlen), Tickets nur in „Meine bisherigen Treffen“ im Kalender (Canvas-PNG, „Erinnerung, kein Eintritt“). Einsprechen in `/create` per Web Speech API, sonst Hinweis auf Tastatur-Diktat.
 - Klang: Einstellungen → „MeeQo-Klang“, standardmäßig aus, nur auf dem Gerät.
 - Bewusst nicht gebaut: 5-s-Video-Intro (Speicher und Moderation von Video fehlen), Orte als eigene Gastgeber-Konten (nur Ortsseiten), Stadtteil-Kapitel (Treffen haben noch keinen Stadtteil). Ausgeschlossen laut Briefing: Sperrbildschirm-Widget, Wallet, Wetter-UI, Navigation, Live-Karte, Erinnerungskarte, „Ihr seid komplett“, Saison-Momente, Ruhemodus.
+
+## Seed-Profilfotos (Migration 0032, nur Testdaten)
+
+- Die Seed-Profile (`user_id` beginnt mit `seed:`) haben KI-generierte Fotos statt Buchstaben-Kacheln: Mira, Jonas, Nora, Amir, Leonie als Personen; Rheinrad, Tischlein und Therme Mannheim mit einem Ortsfoto statt Gesicht.
+- Dateien: `public/seed/avatars/*.webp` (512 px, je unter 60 KB). Es sind keine echten Personen.
+- `0032_seed_avatars.sql` setzt nur `avatar_url`, wenn noch keins gesetzt ist. Das `seed:`-Präfix bleibt die Kennzeichnung für Testdaten (keine Mitteilungen, nicht in den Zahlen).
+- **Vor dem Launch entfernen:** Seed-Profile löschen (neue Migration, `user_id like 'seed:%'`) und den Ordner `public/seed/` löschen.
+
+## Belebter Feed mit Testdaten (Migration 0033, nur Testdaten)
+
+- 18 zusätzliche Seed-Personen (Tim, Selin, Marco, Hanna, Felix, Aylin, David, Johanna, Lukas, Mei, Sabine, Noah, Lea, Elias, Paula, Kemal, Sofía, Jan) mit KI-Foto, kurzer Bio und 3 Interessen. Jede richtet ein Freundschafts-Treffen aus, für jede eingeschaltete Kategorie 1–2 (Sport, Essen, Outdoor, Kultur, Spiele, Wellness, Musik, Kreativ, Lernen, Tiere; Dating und Business nicht).
+- Treffen (`act-s-*`) an echten Karlsruher Orten. Vier starten immer in den nächsten 3 Stunden im Zentrum („Jetzt & hier“), die übrigen verteilen sich über die nächsten 7 Tage. Teilnehmende sind andere Seed-Personen (`jr-s-*`), dazu ein paar offene Anfragen. Ideenwand: 5 Ideen (`idea-s-*`) mit Stimmen von Seed-Personen.
+- **Frisch halten:** Tabelle `seed_schedule` und `src/lib/meeqo/seed-refresh.ts`. `getFeed` ruft das höchstens alle 10 Minuten auf: „bald“-Treffen springen 30 Minuten nach Beginn wieder auf jetzt + Versatz, Wochentreffen rücken 2 Stunden nach Ende um 7 Tage weiter.
+- Die Stadtzahl (`cityPulse`) zählt weiterhin keine `seed:`-Gastgeber. Seed-Konten bekommen keine Mitteilungen.
+- Offene Anfragen an Kevins Testkonto sind nicht eingebaut: In den Migrationen ist kein Konto von Kevin bekannt.
+- **Alles auf einmal entfernen** (neue Migration, z. B. `00xx_seeds_weg.sql`):
+  ```sql
+  delete from idea_votes where user_id like 'seed:%' or idea_id like 'idea-s-%';
+  delete from ideas where user_id like 'seed:%';
+  delete from join_requests where requester_id like 'seed:%' or activity_id in (select id from activities where host_id like 'seed:%');
+  delete from messages where activity_id in (select id from activities where host_id like 'seed:%');
+  delete from activities where host_id like 'seed:%';
+  drop table if exists seed_schedule;
+  delete from profiles where user_id like 'seed:%';
+  ```
+  Bei Bedarf zusätzlich Bewertungen, Communities und Mitgliedschaften mit `seed:` löschen. Danach `public/seed/` und den Aufruf `refreshSeeds` in `getFeed` samt `seed-refresh.ts` entfernen.

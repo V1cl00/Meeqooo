@@ -1,4 +1,5 @@
 import { stillNeeded } from "@/lib/meeqo/group-size";
+import { refreshSeeds } from "@/lib/meeqo/seed-refresh";
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql, type Sql } from "@/lib/db";
@@ -1149,6 +1150,7 @@ export const getFeed = createServerFn({ method: "POST" })
   .validator((input: FeedInput) => input ?? {})
   .handler(async ({ data, context }): Promise<FeedResult> => {
     const { sql, profile } = await ensureProfile(context.userId);
+    await refreshSeeds(sql);
     if (!data.mineOnly) void track(sql, context.userId, "feed");
     const limit = Math.min(200, Math.max(1, Math.round(Number(data.limit)) || 30));
     const place = searchPlace(data);

@@ -1,0 +1,318 @@
+# MeeQo — Übergabe an eine andere KI
+
+Stand: 17. Oktober 2026, Projekt in `/workspace`. Deutschsprachige App. Der Nutzer spricht Deutsch und will kurze, direkte Antworten. Nicht belehren. Nicht nach jeder Änderung fragen, ob es so gemeint war. Vorhandenes Design und die Produktregeln nicht umbauen, außer er verlangt es.
+
+## Was MeeQo ist
+
+MeeQo ist keine Swipe-Dating-App. Leute treffen sich über eine konkrete Aktivität (Laufen, Essen, Spiele, Business, Kleinanzeige, Veranstaltung). Dating und Freundschaft sind getrennt. Absicht ist von Anfang an sichtbar.
+
+Kernregeln, die nicht aufgeweicht werden:
+
+- Kein Profil-Swipen, kein Token, keine Krypto.
+- Date-Aktivitäten sehen nur Leute, die Dating wollen. Freunde-Aktivitäten nur Leute, die Freundschaft wollen. „Beides“ sehen alle.
+- Niemand nimmt einfach teil. Normale Nutzer: Anfrage, der Ersteller sagt ja oder nein, dann Chat. Veranstalter dürfen pro Aktivität „Anfrage“ oder „Sofortbuchung“ wählen.
+- Erstes 1:1-Date nur an einem öffentlichen Ort. Check-in und Notfall-Button (Anruf 112) gehören dazu.
+- Vertrauen kommt aus Bewertungen nach echten Treffen, nicht aus Selbstbeschreibung.
+- Der Nutzer kann Aktivitäten dauerhaft ausblenden, mit Rückgängig.
+- Beiträge haben eine Zielgruppe. „Wer darf das sehen?“ ist: Egal, Nur Freunde, Communities, Veranstaltungen, Mein Alter (±5 Jahre, Geburtsjahr bleibt privat).
+- Bei Communities muss man die Gruppen auswählen können, mehrere gleichzeitig. Gespeichert in `audience_ids` (JSON-Text). Sehen kann es nur, wer in mindestens einer gewählten Gruppe Mitglied ist. Ohne Auswahl und Sichtbarkeit „community“ kommt die Fehlermeldung „Wähl mindestens eine Community.“ Alte Zeilen ohne `audience_ids` fallen auf das bisherige Verhalten zurück.
+- Eigenschaften wie vegan oder queerfreundlich sind Filter, keine Kategorien. „Mindestens“ blendet alles aus, was die Eigenschaft nicht hat. Gilt für Feed, Suche, Communities, Anzeigen.
+- Wer postet, stellt ein, wer den Beitrag sieht. Auch nur Freunde, nur Communities, nur Leute vom gemeinsamen Treffen, nur ungefähres Alter.
+
+## Stack
+
+- TanStack Start (React 19, Vite, SSR, file routes). Serverfunktionen in `src/lib/meeqo/api.ts`.
+- Auth: better-auth, E-Mail und Passwort. Routen unter `src/routes/api/auth/`.
+- Datenbank: PGLite, eine In-Memory-Instanz pro Dev-Server-Prozess. Schema nur über `migrations/*.sql`. Neue Datei `0014_....sql`, nicht an alten Dateien herumschreiben. Angewendet wird sie, wenn `src/lib/db.ts` neu lädt. Die DB ist beim Neustart des Dev-Servers leer und wird aus den Migrationen inklusive Seed neu aufgebaut.
+- Kein Supabase, kein Firebase. Das war ein offener Wunsch, ist nicht gebaut. Nicht heimlich einführen.
+- Design: Tailwind v4, Tokens in `src/styles.css`. Hintergrund `#F7F1EA` (`bg-sand`), Akzent `#E07A5F` (`bg-accent`), Karten weiß (`bg-card`), Text `text-ink`, Hinweise `text-muted`. Mobile-first, max-w-lg, unten eine schwebende Tab-Leiste.
+- Schrift: Fraunces für Titel (`font-display`), Source Sans 3 für UI.
+- Buttons sind echte Flächen, nie nackte Wörter. Primitive: `Button`, `face`, `Field`, `TextInput`, `Note`, `Empty`, `ActivityCard`, `WelcomeHero` in `src/components/bits.tsx`.
+- Preview: Dev-Server auf Port 8080, Proxy 8081. Nicht neu starten, außer der Server ist tot oder die Config ändert sich. Neustart löscht die In-Memory-Datenbank.
+- Veröffentlichen kann nur der Nutzer über den Button in der Grok-Oberfläche. Die Handy-Version unter der veröffentlichten URL ist oft älter als dieser Workspace. Nicht behaupten, das Handy sei aktuell, solange er nicht neu veröffentlicht hat.
+
+## Wichtige Dateien
+
+- `src/lib/meeqo/api.ts` — fast die ganze Logik: Feed, Aktivitäten, Chat, Posts, Communities, Kleinanzeigen, Ortssuche, Sichtbarkeit.
+- `src/lib/meeqo/types.ts` — Typen.
+- `src/lib/meeqo/labels.ts` — Kategorien, Wochentage, Radius, Texte.
+- `src/lib/meeqo/geo.ts` — kleine Stadtliste plus `matchCities`, `cityCoords`, `kmBetween`. Nur Fallback, nicht die einzige Ortssuche.
+- `src/components/shell.tsx` — Login-Gate, Onboarding-Zwang, Tab-Leiste.
+- `src/components/place-bar.tsx` — Standort und Radius im Feed, plus `PlaceSuggest`.
+- `src/components/visibility.tsx` — „Wer darf das sehen?“ inklusive Community-Mehrfachauswahl.
+- `src/components/when-bar.tsx` — Wochentage plus Kalender für zwei Monate.
+- `src/routes/index.tsx` — Feed.
+- `migrations/0002_meeqo.sql` bis `0013_audience.sql`.
+
+## Navigation
+
+Unten: Entdecken `/`, Kalender `/calendar`, Neu `/create` (erhöhter Akzent-Button), Chats `/chat`, Profil `/profile`.
+
+Weitere Seiten: Login, Onboarding, Aktivität, Suche, Communities, Community-Detail, Freunde, Anfragen, Bewertung, Meine Aktivitäten, Benachrichtigungen, Einstellungen, Support, Kategorien, Veranstalter (`/organizer`, Register, Create), fremdes Profil `/profile/$id`.
+
+## Feed
+
+Linsen: Alles, Dating, Freunde, Essen, Business, Kleinanzeigen, Veranstaltungen. Darunter Unterkategorien, wenn die Linse welche hat.
+
+Reihenfolge auf der Seite (Okt. 2026 geändert: Suche und Filter stehen jetzt oben, auf Kevins Wunsch):
+
+1. Stadtname und Titel „Treffen in der Nähe“, Ortszeile (`PlaceBar`)
+2. Linsen und Unterkategorien
+3. Kompakte Leiste (`FilterBar` in `components/feed-filters.tsx`): Suchfeld (führt zu `/search`) und Filter-Knopf mit Zähler; bei aktiven Filtern zusätzlich der Chip „Filter aktiv · N“. N = Anzahl „Mindestens“-Eigenschaften, plus 1 bei Umkreis unter 25 km.
+4. „Jetzt & hier“, Wochentagsleiste (`WhenBar`), Sortierung
+5. Hinweis, wenn kein Profilfoto da ist
+6. Die Treffen-Karten
+7. Bei leerem oder fast leerem Feed (unter 3 Karten), wenn „Mindestens“ etwas ausblendet: „Deine Filter blenden X Treffen aus“ mit „Filter lockern“ und Rückgängig (`LoosenCard`). X kommt vom Server (`FeedResult.hiddenByTraits`, gleicher Tag und Umkreis).
+8. Danach: „Wer einlädt“ als schmale Reihe kleiner runder Avatare
+
+Filter öffnen sich als Bottom-Sheet (`FilterSheet`): „Mindestens vorhanden“-Chips, Umkreis, gelber Warnhinweis („Damit siehst du X statt Y Treffen“, sonst allgemein), „Zurücksetzen“ und „Anwenden“. Nichts klappt mehr inline am Feed-Ende auf. Derselbe Warnhinweis steht im Profil unter „Mindestens vorhanden“.
+
+Heute ist vorausgewählt. Ist an dem Tag nichts, sagt die leere Karte, an welchem nächsten Tag etwas liegt, mit Button „Diesen Tag zeigen“.
+
+Karten: Foto, Titel über dem Bild, Absicht-Pille, bei Business/Kleinanzeigen/Veranstaltungen zusätzlich die Sparte, darunter Zeit, Ort, Gastgeber mit Foto oder Anfangsbuchstabe, erstes Vertrauens-Badge, freie Plätze. Ausblenden sitzt klein unter der Karte.
+
+## Onboarding
+
+Eine Frage: Wofür bist du hier? Mehrfachauswahl: Dating, Freunde, Business, Kleinanzeigen. Nicht mehr die drei alten Dating-Stufen als Pflicht. „Ich suche aktiv neue Leute für“ ist optional (Kategorien). Stadt über `PlaceSuggest`. Button „Standort nutzen“ ist ein echter Button. Der Name wird nur beim Konto angelegt, nicht noch einmal im Onboarding.
+
+## Ort
+
+Photon (`photon.komoot.io`) ist von diesem Server aus nicht erreichbar. Nicht wieder einbauen.
+
+Aktuelle Suche in `suggestPlaces`:
+
+- Lokale Städte aus `geo.ts` sofort.
+- Deutsche Postleitzahlen und Orte über `https://openplzapi.org/de/Localities`.
+- Koordinaten über `https://api.zippopotam.us/de/{plz}`, sonst Nominatim.
+- Eine fünfstellige PLZ wie `76131` listet diese PLZ und die anderen PLZ derselben Stadt, jede als eigene Zeile unter dem Feld: `76131 Karlsruhe`, `76133 Karlsruhe`, …
+- Unter vier Ziffern kommt der Hinweis, dass eine PLZ fünf Stellen hat.
+- „Übernehmen“ speichert auch ohne angetippten Vorschlag. Eine nackte PLZ wird zu `76131 Karlsruhe`.
+- Radius: 5, 10, 25, 40, 60, 100 km. Steht neben dem Ort auf jeder Feed-Linse.
+
+## Chat
+
+Liste und einzelne Nachrichten zeigen das Profilfoto, sonst den Anfangsbuchstaben. Gruppenchat ab 3 Personen oder mehr als 2 Plätzen, Badge „GRUPPE“. Der Chat öffnet sich erst nach Zusage. Offen und noch nicht gebaut: eine Reihe oben im Gruppenchat mit allen Teilnehmenden.
+
+## Sicherheit und Teilnahme
+
+- Aktivität veröffentlichen nur mit Foto.
+- Anfragen nur mit Profilfoto. Sonst: „Ohne Foto kannst du nicht anfragen.“
+- Auf der Treffenseite klebt „Anfragen“ bzw. „Chat“ über der Tab-Leiste. Bei 1:1-Dates zusätzlich der Button „112“.
+- Check-in, danach Bewertung. Bewertung ist ein einfaches „Will ich wieder?“ plus die bestehenden Felder, nicht ein Formular-Monster.
+
+## Design, das der Nutzer schon abgelehnt hat
+
+- Nackte Text-Buttons.
+- Große Stadt-Chips statt Suchfeld.
+- Ein Kalender-Raster als eigene Hauptansicht. Gewünscht ist die Wochentagsleiste: heutiger Tag markiert, jeder Wochentag, Kalender-Icon für die nächsten zwei Monate, mehrere Tage per Wischen wählbar.
+- Die Startseite als reine Schrift auf Sand. Es gibt `WelcomeHero`: Rahmen, Farbfläche, überlappende Beispielkarte mit dem Wort „Beispiel“. Das Beispiel-Treffen „Laufen, acht Kilometer“ ist erfunden und muss als Beispiel gekennzeichnet bleiben.
+- Zweites Namensfeld im Onboarding.
+- Drei Dating-Absichten im Onboarding statt Dating / Freunde / Business / Kleinanzeigen.
+
+## Dichte-Runde (Migration 0014)
+
+- `activities.area` (`meetup`, `business`, `event`) statt Textmuster. Setzt `createActivity` über `areaOf`. Linsen Business und Veranstaltungen filtern darauf.
+- Kleinanzeigen: „Interesse melden“ legt einen Thread an (`classified_threads`, `classified_messages`), Route `/chat/anzeige/$id`, in der Chat-Liste mit Badge ANZEIGE. Ohne Profilfoto keine Anfrage. Übergabe-Vorschläge nur öffentliche Orte.
+- „Nächste Woche nochmal“ für Gastgeber (`repeatActivity`).
+- Leerer Feed: „Ich hätte Lust“ (`wishes`). Ab drei Leuten pro Kategorie und Stadt bekommt die erste Person einen Hinweis.
+- Tempo: Anfrage trägt `join_requests.mood` (Locker, Gespräch, Sport, Nur Essen), der Ersteller sieht es unter Anfragen.
+- Vertrauensperson: `safety_shares`, öffentliche Seite `/sicher/$token` ohne Login. Schlägt an, wenn 30 Minuten nach Beginn der Check-in fehlt. Kein Push, die Seite lädt sich selbst neu.
+- Wieder getroffen: `listCircle`, nur gegenseitiges Ja, steht auf `/friends`.
+- Ortslogik liegt in `src/lib/meeqo/places.ts` mit Tests (`places.test.ts`, gemocktes fetch).
+
+## Schutz-Runde (Migration 0015)
+
+- Melden und Blockieren: `reports`, `blocks`, Komponente `src/components/safety.tsx` (Treffen, Profil, Anzeige, Anzeigen-Chat). Blockieren gilt beidseitig: Feed, Anzeigen, Treffen-Detail, Anfragen, Freundschaft, Profil, Anzeigen-Chat. Es gibt noch keine Oberfläche, die Meldungen liest, nur die Tabelle.
+- Konto löschen in den Einstellungen (`deleteAccount`), Tippen von LÖSCHEN. Neue Tabelle? Dann dort die Löschung ergänzen.
+- `/datenschutz` und `/impressum` sind Entwürfe. Impressum hat Platzhalter in eckigen Klammern. Datenschutz beschreibt, was der Code speichert. Ändert sich das, die Seite mitziehen.
+- Einladung: `/einladung/$token` ist öffentlich, zeigt nur Titel, Zeit, Ort, Vorname des Gastgebers. `login?next=` leitet danach weiter.
+- Serie: `repeatActivity` mit `weeks` (1 bis 12). Beim Wiederholen werden Fotos mitkopiert.
+- Karte: erster Chip ist „X von Y wollen wieder“ ab drei Bewertungen.
+- Web-Push: `public/sw.js`, `push_subscriptions`, Versand in `notify`. Braucht `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (Schlüssel mit `npx web-push generate-vapid-keys`). Ohne Schlüssel passiert nichts und nichts bricht. Zustellung ist nicht live getestet.
+- Fotos der Treffen kommen als `/media/activity/$id` (cachebar) statt als Text im Feed. Die Adresse ist ohne Anmeldung abrufbar, wer die UUID kennt, sieht das Foto.
+
+## Start schneller
+
+- `src/lib/meeqo/warm.ts` startet Profil und Standard-Feed beim Laden des Skripts, parallel zur Sitzungsprüfung. Ergebnisse gelten 15 Sekunden und einmal.
+- `ensureProfile` hat einen schnellen Pfad. `getFeed` und `getActivity` fragen parallel. `loadRows` kann nach Zeit und Id eingrenzen.
+- Schriften kommen von `@fontsource-variable/*`, nicht mehr von Google. Familiennamen heißen „Outfit Variable“ usw.
+- Chat-Liste in einer Abfrage statt einer pro Chat.
+
+## Design und Psychologie (Migration 0016)
+
+- Text auf Terrakotta-Flächen ist dunkel (`text-onfill`, 5,7:1), die Markenfarbe `#E07A5F` bleibt. Weiß auf Terrakotta hatte 2,8:1. `muted` ist `#6f6159` (5,3:1), `accent-deep` ist `#a8462f`. Eigene Designs setzen `--color-onfill` aus ihrer Akzent-Lesbarkeit.
+- Chips und Knöpfe mindestens 44 px hoch. Linsen sind gefüllt (aktiv schwarz), Unterkategorien terrakotta.
+- Leerer Feed: erst das Positive (nächster Tag mit Treffen), sonst „Ich hätte Lust“ als Hauptknopf.
+- Antwortzeit des Gastgebers (`join_requests.responded_at`), erst ab drei beantworteten Anfragen sichtbar.
+- Bestätigung am Vortag (`confirmed_at`): Karte „Bist du morgen dabei?“ in den letzten 30 Stunden. „Doch nicht“ setzt den Status auf `withdrawn` und gibt den Platz frei. Es gibt keinen Hintergrunddienst, der unbeantwortete Plätze automatisch freigibt.
+- Countdown und „Wer noch dabei ist“ nur für Gastgeber und Zugesagte.
+- Karten-Chip „N Treffen geleitet“ ab zwei vergangenen Treffen.
+- Anlegen in drei Schritten. Wichtig: die Knöpfe haben `key`, sonst wird „Weiter“ zum Absenden-Knopf und veröffentlicht sofort.
+
+## Moderation (Migration 0017)
+
+- Admin ist, wessen E-Mail in `ADMIN_EMAILS` steht (kommagetrennt, nur Umgebungsvariable, nicht in der Datenbank). Seite `/admin/meldungen`, Link in den Einstellungen nur für Admins.
+- Aktionen: Abweisen, Inhalt entfernen (Treffen wird abgesagt, Anzeige gelöscht), Konto sperren und Entsperren. Wer meldet, bekommt danach eine Mitteilung.
+- Gesperrte Konten werfen in `ensureProfile` den Fehler „Dein Konto ist gesperrt“ und kommen nicht mehr in die App.
+- Erledigte Meldungen stehen nur im Reiter „Alle“.
+
+## Startreife-Runde (Migrationen 0018, 0019)
+
+- 18+: Seite `/alter` (Geburtsjahr, Haken, Zustimmung) sperrt die App, bis `profiles.age_confirmed_at` gesetzt ist. Server prüft in `requestJoin`, `createActivity`, `expressInterest`, `createClassified` über `assertAdult`. Das Geburtsjahr ist eine Selbstauskunft, keine Prüfung.
+- „Profil bestätigt“ ist nicht mehr anklickbar. Nur ein Admin setzt es (`setVerified`, Knopf auf dem Profil). Beispiel-Profile tragen es nicht mehr.
+- Begrenzung: `throttle()` über `rate_events` (Anfragen 20/Std., Nachrichten 40/Min., Treffen 10/Tag, Anzeigen 10/Tag, Meldungen 10/Std., Wünsche 20/Std.).
+- Bilder: `validImage` prüft Typ, Magic Bytes und Größe. Es gibt keine automatische Inhaltsprüfung (nackt, Gewalt).
+- `memberMiddleware` statt `authMiddleware` in `api.ts`: sperrt gesperrte Konten bei jedem Aufruf (30 Sekunden Zwischenspeicher je Server).
+- Chat lädt alle 4 Sekunden nach (`usePolling`, `refresh` ohne Flackern). Nachrichten: die letzten 200.
+- Feed blättert (`limit`, „Mehr zeigen“).
+- E-Mail über Resend, nur mit `RESEND_API_KEY` und `MAIL_FROM` (und `APP_URL` für Links). Passwort vergessen läuft über eigene Funktionen (`requestPasswordReset`, `resetPassword`, Seite `/passwort`), weil `server.ts` eingefroren ist. Mails zu Anfragen und Zusagen sind in den Einstellungen abschaltbar.
+- Admin: `/admin/zahlen` (Konten, Anfragen, unbeantwortet über 24 Std., Fehler) und `/admin/meldungen`. Fehler aus dem Browser landen in `error_log`.
+- Termin: „Zum Kalender“ (.ics) und „Karte öffnen“ am Treffen.
+- Seiten: Nutzungsbedingungen, Community-Regeln (beide Entwürfe).
+- Tests: `npm run test:unit` (Orte, Kalender), `npm run test:e2e` (vier Browser-Durchläufe, siehe `e2e/README.md`). CI in `.github/workflows/ci.yml`, auf GitHub noch nicht gelaufen. `npm test` bleibt rot wegen Grok-Umgebungstests.
+- Barrierefreiheit mit axe geprüft: keine Befunde auf den geprüften Seiten. Das ersetzt keine Prüfung mit Screenreader.
+- Sicherheit: Review der Serverfunktionen. Behoben: Bewertungsabfrage nur für Beteiligte, Weiterleitung nach Login lässt `/\` nicht mehr durch, gesperrte Konten überall draußen.
+
+## Qualitätsrunde (Migration 0020)
+
+- Behoben: Check-in nur von 2 Stunden vor bis 12 Stunden nach Beginn. Zusagen können das Treffen nicht überbuchen (Gegenprüfung nach dem Eintragen, `overbooked`). Serien bleiben über die Sommerzeit auf derselben Uhrzeit (`addDaysBerlin` in `time.ts`, getestet). Chat-Benachrichtigungen werden je Chat zusammengefasst.
+- Ungelesen: `chat_reads`, Punkt in Chat-Liste, Zahl an „Chats“ in der Navigation (`chatUnread`, alle 30 Sekunden). Öffnen eines Chats markiert gelesen.
+- Karte: „Mira und 2 weitere sind dabei“ (nur Freunde, die zugesagt haben) oder „Passt zu deinen Interessen“. Nicht personalisiert sortiert, weiterhin nach Zeit.
+- Einstellungen: „Daten herunterladen“ (`exportMyData`, JSON).
+- Einladungsseite liefert beim Laden auf dem Server `og:`-Tags, damit WhatsApp eine Vorschau zeigt. Private Seiten sind `noindex`, `public/robots.txt` sperrt sie zusätzlich. Sicherheits-Header über `routeRules` in `vite.config.ts` (bewusst ohne X-Frame-Options, die Grok-Vorschau läuft in einem Rahmen).
+- Design: folgt dem Dunkelmodus des Handys (ein eigenes Design aus den Einstellungen gewinnt), Illustrationen in leeren Zuständen (`Illustration`, `Empty art=`), ruhige Bestätigungen oben (`notice` aus `feel.ts`, sonner), eigene Nachrichten erscheinen sofort, weiche Seitenwechsel (View Transitions), Skelette beim Laden, Ort und Radius stehen oben im Feed, Offline-Leiste. Overlays über Fotos bleiben schwarz (`bg-black/…`), nicht `ink`, sonst kippen sie im Dunkelmodus.
+- Barrierefreiheit hell und dunkel mit axe geprüft: keine Befunde.
+
+## Bedienung (Migration 0021)
+
+- **Als Nächstes** (`NextUpCard`, `nextUp`): das nächste zugesagte oder eigene Treffen der kommenden 7 Tage steht über dem Feed, mit Countdown, Weg, Einchecken (ab 2 Stunden vorher), Chat (erst wenn jemand zugesagt hat) und „Gut angekommen“.
+- **Gut angekommen** (`checkins.safe_at`, `confirmSafe`): die öffentliche Vertrauensseite zeigt dann „Alles gut“.
+- **Ein Satz statt Formular** (`parse.ts`, getestet): Regeln, kein Netz, keine KI. Tag, Uhrzeit, Plätze, Dauer, Ort nach „am/im/bei“, Kategorie. Unklares bleibt leer. Der Parser rät nicht.
+- **Vorlagen** (`MEETUP_TEMPLATES`, `templateFor`): Plätze, Dauer und ein erster Satz je Kategorie. **Dauer** ist jetzt eine Spalte (`activities.duration_min`) und gilt für Kalender und „Als Nächstes“.
+- **Öffentliche Orte** (`venuesNear`, Overpass/OpenStreetMap, `suggestVenues`): Cafés, Parks, Bibliotheken in der Nähe als Chips beim Ort. Fällt still aus, wenn der Dienst nicht antwortet. Ist hier nicht live getestet, nur mit gemocktem Netz.
+- **Schnell-Antworten** im Chat am Tag des Treffens (3 Stunden vorher bis 3 Stunden nach dem Ende): `ARRIVAL_REPLIES`.
+- **Terminabstimmung** im Chat (`polls`, `poll_votes`): nur Zeitpunkte. Der Gastgeber kann das Ergebnis als neuen Start festlegen, dann verlieren die Bestätigungen „Ich komme“ ihre Gültigkeit und alle bekommen Bescheid.
+- **Mitfahren** (`rides`, `ride_riders`): nur für Gastgeber und Zugesagte. Voll heißt voll, geprüft nach dem Eintragen.
+- **Zuverlässigkeit** in den Anfragen: „Kam zu 4 von 5 Treffen · 2× bei dir“, nur aus echten Check-ins.
+- **Jetzt & hier** (`soon` im Feed, Logik in `lib/meeqo/now-here.ts`, Unit-Test `now-here.test.ts`): beginnt in den nächsten 3 Stunden oder läuft schon und hat noch Platz, und liegt höchstens 2 km weg (ohne Standort nur die Zeit). Nächstgelegenes zuerst. Unterzeile zeigt die echten Werte („Nächste 3 Std · bis 2 km“). Leer: „Auf 5 km erweitern“ (`soonKm: 5`) oder „Alles von heute zeigen“.
+- **Kalender abonnieren** (`calendar_tokens`, Route `/kalender/$token`): Link in den Einstellungen, ersetzbar. Wer ihn kennt, sieht Titel und Orte.
+- **Karten-Menü**: gedrückt halten oder „Mehr“ an der Karte. Anfragen mit Tempo, Teilen, Weg, Ausblenden. Es geht um Treffen, nicht um Leute.
+- Neue Tabellen mit Personenbezug stehen in `deleteAccount`. `exportMyData` enthält auch Fahrten und Abstimmungen.
+
+## Noch schwach, nicht anfassen ohne Auftrag
+
+- Menschen ohne Foto bleiben Buchstaben. Foto ist Pflicht zum Anfragen und zum Veröffentlichen, nicht zum Reinschauen.
+- Business und Kleinanzeigen sind nur durch eine Pille von Dates unterschieden.
+- Vertrauenszeile auf der Karte ist nur das erste Badge, oft leer.
+- Push weckt das Handy nicht zuverlässig.
+- Kalender-Route existiert noch neben der Wochentagsleiste.
+- Leere Städte wirken tot, weil der Seed in Karlsruhe liegt.
+- Dichte in einer Stadt fehlt. Nicht mit neuen Sparten kaschieren.
+
+## Arbeitsregeln in diesem Workspace
+
+- Bestehende Dateien ändern, keine parallele App daneben.
+- Keine neuen Dependencies ohne Grund.
+- Nach inhaltlichen Änderungen nicht behaupten, das Handy sei aktualisiert.
+- Serverfunktionen validieren Eingaben selbst. Keine rohen SQL-Strings aus Nutzereingaben.
+- Seed-Nutzer haben IDs wie `seed:mira`. Die nicht benachrichtigen.
+- Kategorien: feste Eltern plus eigene Unterkategorien. Eigene tauchen erst in der Suche auf, bis genug Leute sie wählen, dann unter „Andere“.
+- Teilen-Dialog: WhatsApp, Instagram, E-Mail, Facebook, TikTok, Nebenan.de. Nicht nur die System-Share-API.
+- Logo liegt unter `public/logo-mark.png` und `public/favicon.svg`. Marke: zwei Figuren auf Terrakotta, Wortmarke MeeQo mit terrakottafarbenem Q.
+
+## Ton zum Nutzer
+
+Deutsch, kurz, konkret. Er testet auf dem Handy und vergleicht mit Hinge, Tinder, Meet5 und Spontacts. Ihn interessiert, ob ein Treffen sofort als Karte sichtbar ist, ob Knöpfe aussehen wie Knöpfe, und ob Ort und Sichtbarkeit tun, was er gesagt hat. Keine Strategie-Aufsätze, außer er fragt danach.
+
+## Englisch (i18n)
+
+- `t()` in `src/lib/meeqo/i18n.ts`, deutscher Text als Schlüssel, Wörterbuch `en.ts` (erzeugt aus `tools/en/part*.json`, `node tools/i18n-merge.mjs`).
+- Prüfen: `node tools/i18n-missing.mjs`, `node tools/i18n-leftovers.mjs`, `node --test e2e/english.test.mjs` (läuft die Hauptseiten auf Englisch durch und schlägt bei deutschen oder fehlenden Texten an).
+- Grenzen: Rechtsseiten, Mitteilungen, Mails und Link-Vorschauen bleiben deutsch. Nutzereigene Kategorien und Titel werden nicht übersetzt. Datenbank-Werte (Kategorien, Eigenschaften) bleiben deutsch gespeichert und werden nur angezeigt übersetzt.
+
+## Wetter, Eisbrecher, Sprache und Dateien im Chat
+
+- **Wetter:** `getWeather` (api.ts) holt die Stunde des Treffens bei Open-Meteo (kein Schlüssel, 30 Minuten im Speicher, nur bis 14 Tage voraus). Auswertung in `weather.ts` (getestet). Bei Ausfall zeigt die Seite einfach nichts.
+- **Eisbrecher:** `icebreakers.ts`, Fragen nach Kategorie. Im Chat tippbar, füllen nur das Feld, solange man noch nichts geschrieben hat.
+- **Sprache:** `voice.ts` nutzt die Spracherkennung des Browsers (Chrome, Edge, Safari). Ohne Unterstützung fehlt der Knopf. Der Ton läuft über den Dienst des Browsers, nicht über MeeQo; das gehört in die Datenschutzerklärung.
+- **Dateien:** Migration 0023. JPEG/PNG (vorher verkleinert) oder PDF bis etwa 2 MB, Typ und Dateianfang werden serverseitig geprüft, 12 Dateien je 10 Minuten. Der Inhalt liegt in der Datenbank und wird nur über `getAttachment` an Chat-Mitglieder ausgeliefert. Für viel Verkehr gehört das in einen Objektspeicher. Noch nicht in Kleinanzeigen-Chats.
+
+## Deine Woche und Dateien in Anzeigen-Chats
+
+- **Deine Woche** (`week-card.tsx`, `weekSummary` in api.ts): Karte oben im Feed mit Treffen der nächsten 7 Tage, Stammtreffen (gleicher Gastgeber und Titel wie ein früheres Treffen), Treffen und kennengelernte Menschen seit 1. Januar (aus Check-ins). Ohne Inhalt erscheint sie nicht; es gibt bewusst keine Serien oder Zähler, die eine Pause bestrafen.
+- Noch offen: eine Wochenmail oder Push dazu. Dafür fehlen Mail-/VAPID-Schlüssel und ein Zeitplan (Cron) beim Hoster.
+- Dateien gehen jetzt auch in Anzeigen-Chats (Migration 0024, `getAdAttachment`), gleiche Regeln wie im Treffen-Chat.
+
+## Sensible Angaben und Bestätigung am Vortag
+
+- **Art. 9 DSGVO:** „Queer“ und „Queerfreundlich“ am eigenen Profil (und als „Mindestens vorhanden“) gehen nur mit ausdrücklicher Einwilligung (`giveSensitiveConsent`, Spalte `profiles.sensitive_consent_at`). Der Server lehnt sonst ab. Widerruf in den Einstellungen löscht die Angaben (`withdrawSensitiveConsent`). Migration 0026 hat vorhandene Angaben ohne Einwilligung entfernt. Treffen- und Anzeigen-Eigenschaften (Beschreibung des Angebots) sind davon nicht betroffen. Entwurf der Folgenabschätzung: `DATENSCHUTZ-FOLGENABSCHAETZUNG.md`, rechtlich prüfen lassen.
+- **Bestätigung am Vortag:** `attendance.ts` (getestet) entscheidet: innerhalb von 24 Stunden vor Beginn einmal fragen („Bist du noch dabei?“, Mitteilung plus Karte „Als Nächstes“), und nur wenn jemand auf der Warteliste steht und die Frage mindestens 90 Minuten alt ist, geht der Platz 2,5 Stunden vor Beginn an die Warteliste. Ohne Warteliste wird niemand entfernt. Es gibt keinen Zeitplaner: `sweepAttendance` läuft, wenn Leute die App nutzen (höchstens alle 5 Minuten). Ein Cron-Aufruf beim Hoster würde das genau machen.
+
+## Startgebiet Karlsruhe + 100 km
+
+- `region.ts`: `LAUNCH` (Karlsruhe, 100 km) und `inLaunchRegion`. Wer außerhalb wohnt, kann trotzdem mitmachen, sieht aber auf dem Feed den Hinweis „MeeQo startet im Raum Karlsruhe“ mit dem Weg „Treffen anlegen“. Ohne gesetzten Ort kommt kein Hinweis.
+- Orte: `geo.ts` kennt jetzt rund 20 weitere Städte im Gebiet (Speyer, Heilbronn, Offenburg, Kaiserslautern, …); die Schnellauswahl zeigt nur noch Städte des Startgebiets. Suchtreffer, die mit dem Eingegebenen anfangen, stehen vorn.
+- Neue Profile starten mit 60 km Umkreis statt 25 (Migration 0027), weil die Dichte anfangs gering ist.
+- Gebiet ändern: nur `LAUNCH` und die Chips in `geo.ts`.
+- E2E laufen jetzt nacheinander (`--test-concurrency=1`), parallel waren sie unter Last unzuverlässig.
+
+## Start-Schalter, Zahlen und kurzes Onboarding
+
+- **Schalter:** Tabelle `app_flags` (Migration 0028), umstellbar unter `/admin/zahlen` → „Bereiche“. Beim Start: Dating, Business und Kleinanzeigen aus, Communities an. Freunde und Aktivitäten sind immer an. Was aus ist, fehlt in Feed-Filtern und Bereichswahl, und der Server lehnt das Anlegen ab (`createActivity`, `createClassified`). Wirkt nach etwa 15 Sekunden auf allen Instanzen (sofort auf der, die den Schalter setzt). Ist Business aus, fehlt die Kategorie auch in allen Auswahllisten (`useOpenCategories` in `components/categories.tsx`). Ist Dating aus, entfällt „Wer sieht das?“ bei Beiträgen und Treffen; der Server lehnt date/both ab (`createActivity`, `createPost`).
+- **Zahlen:** `/admin/zahlen` zeigt den Weg der Konten der letzten 30 Tage (Angemeldet → Onboarding → erste Anfrage → Zusage → Eingecheckt → zweites Treffen) sowie aktive Konten heute, in 7 und 30 Tagen und die Rückkehr am nächsten Tag und nach 7 Tagen. Grundlage ist `activity_days`: eine Zeile pro Konto und Tag, ohne Dritt-Dienst, wird mit dem Konto gelöscht.
+- **Onboarding:** Ist nur „Freunde“ an, entfällt die Bereichswahl; es fragt nur nach dem Ort. Interessen sind aufklappbar und optional.
+- **E2E:** `setAreas` in `e2e/helpers.mjs` schaltet Bereiche über die Admin-Seite; die Hauptläufe schalten alles an, `region.test.mjs` prüft den Startzustand.
+
+## Apps für Android und iOS
+
+Siehe `NATIVE-APPS.md`. Kurz: Capacitor-Hülle (`capacitor.config.ts`, Ordner `android/` und `ios/`) um die laufende Seite; `src/lib/meeqo/native.ts` ist die Brücke (Statusleiste, Zurück-Taste, App-Links, Vibration, Teilen, Push-Anmeldung). Mitteilungen laufen über Firebase (`src/lib/fcm.server.ts`, Tabelle `native_push`, Umgebungsvariable `FCM_SERVICE_ACCOUNT`); der Aufbau ist mit Mock-Tests geprüft, nicht mit echten Telefonen. Bauen und Einreichen geht nur mit Android Studio, Xcode (Mac) und Developer-Konten.
+
+## Runde 3: Vertrauen, Nachher, Mitteilungen (Migration 0030)
+
+- Farben: Sand `#F4E8D8` (Hintergrund), Terrakotta `#E07A5F` (primär), Grün `#81B29A` (`--color-green`, Akzent), Anthrazit `#3D405B` (Text).
+- Onboarding unter 60 s: Foto (überspringbar, zum Anfragen nötig), 3 Interessen, Stadt + Stadtteil. Danach optional „Profil vervollständigen“ (Bio, mehr Interessen, Sprachen), „Überspringen“ geht direkt in den Feed. Alles auch im Profil.
+- Selfie-Prüfung: Profil → „Selfie aufnehmen“. Ein Admin vergleicht unter `/admin/pruefung` mit eigenen Augen (keine Gesichtserkennung). Entscheidung löscht das Selfie, „Passt“ setzt `identity_confirmed` → Badge „Verifiziert“.
+- Nach dem Treffen `/wie-wars/$id` (Link auf dem Treffen + eine Mitteilung 30 Min nach Ende): war da, war nett, Gastgeber da, nochmal mit denselben Leuten, „Gruppe behalten“. Die private Gruppe (`communities.private`, `from_activity`) entsteht erst, wenn mindestens zwei Personen selbst Ja sagen. Keine Sterne.
+- Gastgeber-Zuverlässigkeit: dezent auf dem Treffen („laut Gästen bei X von Y Treffen da“), erst ab 3 Treffen mit Antworten. Dazu „N× war nett“.
+- Mindestgröße: `/create` → „Findet statt ab“. Feed und Treffen zeigen „Noch N Leute, dann findet es statt“ (Gastgeber zählt mit). Warteliste gab es schon.
+- Mitteilungen (Einstellungen, einzeln abschaltbar): Erinnerung 2 h vorher, „Wie war's?“ danach, „Morgen … 1 Platz frei in deiner Nähe“ höchstens einmal am Tag und nur passend zu Interessen. Zusage gab es schon. Dedupe in `nudges_sent`, Seed-Konten bekommen nichts. Läuft ohne Scheduler beim App-Benutzen (`sweepNudges`).
+- Orte: `venues` aus `partners.csv` (nur öffentliche Infos, keine Kontakte). Nur Vorlagen unter `/admin/orte` → füllt `/create` vor. Niemand wurde kontaktiert, keine Partner-Darstellung. Es gibt keine erfundenen Seed-Treffen.
+- Zahlen: `/admin/zahlen` hat den Trichter der letzten 7 Tage (Feed gesehen aus `funnel_events`, Rest aus echten Tabellen). Keine Tracker von Dritten.
+
+## Design-Runde (Migration 0031)
+
+- Look: Fraunces (selbst gehostet) als Display-Schrift, Papierkorn über `body::before` (Inline-SVG, kein Request), Vollbild-Foto auf der Treffen-Seite, View Transition `act-<id>` von Karte zu Detail (bei reduzierter Bewegung aus).
+- Feed: „Gerade N Treffen in Karlsruhe“ (`cityPulse`, nur echte, öffentliche Treffen, ohne Seed-Konten, bei 0 unsichtbar), „Ich hab jetzt 2 Std Zeit“ (`free_signals`, sehen nur bestätigte Freunde, endet von selbst, max. 3×/Tag), „Deine 3 für diese Woche“ und Stimmung Ruhig/Aktiv/Neu (`companion.ts`, Regeln auf dem Gerät, keine Keys), Zeitschieber „jetzt … heute Abend“ nur in der Heute-Ansicht, Link zur Ideenwand.
+- Treffen: Halten zum Anfragen auf Touch (Ring + Vibration + optionaler Klang), Maus/Tastatur klicken normal. „Morgen siehst du Mira“, Erkennungszeichen (Farbe + Form aus der id, 2 h vorher bis Ende), Eisbrecher-Karten ab 30 Min vorher, Gruppenchemie (nur gezählte gemeinsame Interessen, ab 3 Personen), sanftes Absagen mit Vorlagen in den Gruppenchat.
+- Danach `/wie-wars/$id`: Abend-Rückblick mit Album (Bilder aus dem Gruppenchat + Upload, Diashow), privatem Danke (`thanks`, einmal pro Person) und „Nochmal treffen“ (`/create?from=`).
+- Sozial: `/freunde/$id` private Threads (nur Text, nur bestätigte Freunde), `/ideen` Ideenwand („Ich auch“; wird daraus ein Treffen, bekommen alle Ich-auchs eine Mitteilung), `/orte/$id` Ortsseiten aus öffentlichen Angaben (ausdrücklich kein Partner), eigene Profilfarbe aus der Palette.
+- Sonntags „Deine Woche mit MeeQo“ als Story-Bild (Canvas, nur echte Zahlen), Tickets nur in „Meine bisherigen Treffen“ im Kalender (Canvas-PNG, „Erinnerung, kein Eintritt“). Einsprechen in `/create` per Web Speech API, sonst Hinweis auf Tastatur-Diktat.
+- Klang: Einstellungen → „MeeQo-Klang“, standardmäßig aus, nur auf dem Gerät.
+- Bewusst nicht gebaut: 5-s-Video-Intro (Speicher und Moderation von Video fehlen), Orte als eigene Gastgeber-Konten (nur Ortsseiten), Stadtteil-Kapitel (Treffen haben noch keinen Stadtteil). Ausgeschlossen laut Briefing: Sperrbildschirm-Widget, Wallet, Wetter-UI, Navigation, Live-Karte, Erinnerungskarte, „Ihr seid komplett“, Saison-Momente, Ruhemodus.
+
+## Seed-Profilfotos (Migration 0032, nur Testdaten)
+
+- Die Seed-Profile (`user_id` beginnt mit `seed:`) haben KI-generierte Fotos statt Buchstaben-Kacheln: Mira, Jonas, Nora, Amir, Leonie als Personen; Rheinrad, Tischlein und Therme Mannheim mit einem Ortsfoto statt Gesicht.
+- Dateien: `public/seed/avatars/*.webp` (512 px, je unter 60 KB). Es sind keine echten Personen.
+- `0032_seed_avatars.sql` setzt nur `avatar_url`, wenn noch keins gesetzt ist. Das `seed:`-Präfix bleibt die Kennzeichnung für Testdaten (keine Mitteilungen, nicht in den Zahlen).
+- **Vor dem Launch entfernen:** Seed-Profile löschen (neue Migration, `user_id like 'seed:%'`) und den Ordner `public/seed/` löschen.
+
+## Belebter Feed mit Testdaten (Migration 0033, nur Testdaten)
+
+- 18 zusätzliche Seed-Personen (Tim, Selin, Marco, Hanna, Felix, Aylin, David, Johanna, Lukas, Mei, Sabine, Noah, Lea, Elias, Paula, Kemal, Sofía, Jan) mit KI-Foto, kurzer Bio und 3 Interessen. Jede richtet ein Freundschafts-Treffen aus, für jede eingeschaltete Kategorie 1–2 (Sport, Essen, Outdoor, Kultur, Spiele, Wellness, Musik, Kreativ, Lernen, Tiere; Dating und Business nicht).
+- Treffen (`act-s-*`) an echten Karlsruher Orten. Vier starten immer in den nächsten 3 Stunden im Zentrum („Jetzt & hier“), die übrigen verteilen sich über die nächsten 7 Tage. Teilnehmende sind andere Seed-Personen (`jr-s-*`), dazu ein paar offene Anfragen. Ideenwand: 5 Ideen (`idea-s-*`) mit Stimmen von Seed-Personen.
+- **Frisch halten:** Tabelle `seed_schedule` und `src/lib/meeqo/seed-refresh.ts`. `getFeed` ruft das höchstens alle 10 Minuten auf: „bald“-Treffen springen 30 Minuten nach Beginn wieder auf jetzt + Versatz, Wochentreffen rücken 2 Stunden nach Ende um 7 Tage weiter.
+- Migration 0034 nimmt auch die alten Seed-Treffen (0002/0007, außer `act-past`) in `seed_schedule` auf, Wochentakt.
+- Die Stadtzahl (`cityPulse`) zählt weiterhin keine `seed:`-Gastgeber. Seed-Konten bekommen keine Mitteilungen.
+- Offene Anfragen an Kevins Testkonto sind nicht eingebaut: In den Migrationen ist kein Konto von Kevin bekannt.
+- **Alles auf einmal entfernen** (neue Migration, z. B. `00xx_seeds_weg.sql`):
+  ```sql
+  delete from idea_votes where user_id like 'seed:%' or idea_id like 'idea-s-%';
+  delete from ideas where user_id like 'seed:%';
+  delete from join_requests where requester_id like 'seed:%' or activity_id in (select id from activities where host_id like 'seed:%');
+  delete from messages where activity_id in (select id from activities where host_id like 'seed:%');
+  delete from activities where host_id like 'seed:%';
+  drop table if exists seed_schedule;
+  delete from profiles where user_id like 'seed:%';
+  ```
+  Bei Bedarf zusätzlich Bewertungen, Communities und Mitgliedschaften mit `seed:` löschen. Danach `public/seed/` und den Aufruf `refreshSeeds` in `getFeed` samt `seed-refresh.ts` entfernen.

@@ -1,0 +1,318 @@
+import { locale, t } from "@/lib/meeqo/i18n";
+
+export const CATEGORY_TREE = [
+  { name: "Sport", subs: ["Laufen", "Calisthenics", "Klettern", "Radfahren", "Krafttraining", "Yoga", "Schwimmen", "Ballsport", "Kampfsport", "Tanzen"] },
+  { name: "Essen", subs: ["Brunch", "Kochen", "Restaurant", "Kaffee", "Picknick", "Backen", "Streetfood"] },
+  { name: "Outdoor", subs: ["Spaziergang", "Wandern", "Radtour", "Stadtbummel", "Baden", "Picknick"] },
+  { name: "Kultur", subs: ["Museum", "Kino", "Theater", "Ausstellung", "Lesen", "Konzert"] },
+  { name: "Spiele", subs: ["Brettspiele", "Kartenspiele", "Videospiele", "Quiz", "Schach"] },
+  { name: "Wellness", subs: ["Sauna", "Therme", "Yoga", "Meditation", "Spa"] },
+  { name: "Musik", subs: ["Konzert", "Jamsession", "Karaoke", "Offenes Singen"] },
+  { name: "Kreativ", subs: ["Malen", "Fotografie", "Töpfern", "Schreiben", "Handwerk"] },
+  { name: "Lernen", subs: ["Sprache", "Workshop", "Studium"] },
+  { name: "Tiere", subs: ["Hunde", "Gassi", "Reiten"] },
+  { name: "Business", subs: ["Netzwerken", "Coworking", "Afterwork", "Gründung", "Mentoring", "Frühstück", "Vortrag"] },
+] as const;
+
+export const CATEGORIES: string[] = CATEGORY_TREE.map((item) => item.name);
+
+export type CustomCategory = { id: string; name: string; parent: string };
+
+export function splitCategory(value: string) {
+  const mark = value.indexOf(" · ");
+  if (mark === -1) return { parent: value, sub: "" };
+  return { parent: value.slice(0, mark), sub: value.slice(mark + 3) };
+}
+
+export function joinCategory(parent: string, sub: string) {
+  return sub ? `${parent} · ${sub}` : parent;
+}
+
+export type Sparte = "business" | "event" | "meetup";
+
+/** Business and Veranstaltungen are not ordinary meetups; the UI frames them differently. */
+export function sparteOf(area: Sparte, category: string): { kind: Sparte; sub: string } {
+  const { parent, sub } = splitCategory(category);
+  if (area === "event") return { kind: "event", sub: parent === "Veranstaltungen" ? sub : parent };
+  return { kind: area, sub };
+}
+
+export function categoryMatches(stored: string, selected: string) {
+  if (!selected) return true;
+  const item = stored.trim().toLowerCase();
+  const want = selected.trim().toLowerCase();
+  return item === want || item.startsWith(`${want} · `) || item.endsWith(` · ${want}`);
+}
+
+export function categoryShort(value: string) {
+  const { sub, parent } = splitCategory(value);
+  return t(sub || parent);
+}
+
+export function subsFor(parent: string, custom: CustomCategory[] = []) {
+  const built: string[] = [...(CATEGORY_TREE.find((item) => item.name === parent)?.subs ?? [])];
+  const own = custom.filter((item) => item.parent === parent).map((item) => item.name);
+  return [...built, ...own.filter((name) => !built.includes(name))];
+}
+
+export const MORE_SUGGESTIONS = [
+  { parent: "Sport", name: "Bouldern" },
+  { parent: "Sport", name: "Tennis" },
+  { parent: "Essen", name: "Wein" },
+  { parent: "Essen", name: "Fine Dining" },
+  { parent: "Outdoor", name: "Kajak" },
+  { parent: "Kultur", name: "Lesung" },
+  { parent: "Business", name: "Pitch" },
+  { parent: "Business", name: "Messe" },
+  { parent: "Kreativ", name: "Nähen" },
+  { parent: "Musik", name: "Open Mic" },
+] as const;
+
+export const TRAITS = [
+  "Vegan",
+  "Vegetarisch",
+  "Queer",
+  "Queerfreundlich",
+  "Alkoholfrei",
+  "Barrierearm",
+  "Anfänger",
+  "Hunde willkommen",
+  "Rauchen nein",
+  "Familienfreundlich",
+  "Draußen",
+] as const;
+
+/** Traits that can reveal sexual orientation. On a person's own profile they need explicit consent (Art. 9 GDPR). */
+export const SENSITIVE_TRAITS: readonly string[] = ["Queer", "Queerfreundlich"];
+
+export function hasSensitive(traits: readonly string[]) {
+  return traits.some((item) => SENSITIVE_TRAITS.includes(item));
+}
+
+export const CLASSIFIED_CATS = ["Verkaufen", "Suchen", "Tauschen", "Verschenken", "Mitfahrgelegenheit"] as const;
+
+/** What a guest expects, shown to the host with a request. Category-neutral, so it fits cooking as well as sport. */
+export const MOODS = ["Locker", "Gespräch", "Fokus aufs Thema"] as const;
+
+export const HANDOVER_SPOTS = ["Bahnhof", "Rathaus", "Marktplatz", "Bibliothek"] as const;
+
+export const REPORT_REASONS = ["Belästigung", "Fake oder Betrug", "Unangemessen", "Sonstiges"] as const;
+
+export const PROMOTE_AT = 3;
+
+export function lensSubs(lens: string) {
+  if (lens === "essen") return [...(CATEGORY_TREE.find((item) => item.name === "Essen")?.subs ?? [])];
+  if (lens === "business") return [...(CATEGORY_TREE.find((item) => item.name === "Business")?.subs ?? [])];
+  if (lens === "classifieds") return [...CLASSIFIED_CATS];
+  if (lens === "events" || lens === "date" || lens === "friends") return [...CATEGORIES];
+  return [];
+}
+
+export const AREAS = [
+  { id: "dating", title: "Dating", hint: "Treffen, die von Anfang an ein Date sind." },
+  { id: "friends", title: "Freunde", hint: "Gemeinsame Zeit, ohne Dating." },
+  { id: "business", title: "Business", hint: "Netzwerken, Afterwork, Gründung." },
+  { id: "classifieds", title: "Kleinanzeigen", hint: "Etwas suchen, verkaufen oder tauschen." },
+] as const;
+
+const AREA_IDS = AREAS.map((item) => item.id);
+
+export function cleanAreas(value: unknown) {
+  const list = Array.isArray(value) ? value : [];
+  const picked = new Set(list.filter((item): item is string => typeof item === "string"));
+  return AREA_IDS.filter((id) => picked.has(id));
+}
+
+export function areasFromOpen(openTo: string) {
+  if (openTo === "both") return ["dating", "friends"];
+  if (openTo === "dating") return ["dating"];
+  if (openTo === "friends") return ["friends"];
+  return [];
+}
+
+export function openFromAreas(areas: string[]) {
+  const dating = areas.includes("dating");
+  const friends = areas.includes("friends");
+  if (dating && friends) return "both";
+  if (dating) return "dating";
+  if (friends) return "friends";
+  return "none";
+}
+
+export function intentFromAreas(areas: string[]) {
+  if (areas.includes("friends") && !areas.includes("dating")) return "friends";
+  if (areas.includes("dating")) return "curious";
+  return "friends";
+}
+
+export function areaSummary(areas: string[]) {
+  const titles = AREAS.filter((item) => areas.includes(item.id)).map((item) => t(item.title));
+  return titles.length ? titles.join(" · ") : t("Noch nichts gewählt");
+}
+
+export function seesByAreas(areas: string[], intent: string, category: string) {
+  if (areas.includes("business") && categoryMatches(category, "Business")) return true;
+  if (areas.includes("dating") && (intent === "date" || intent === "both")) return true;
+  if (areas.includes("friends") && (intent === "friends" || intent === "both")) return true;
+  return false;
+}
+
+export const INTENTS = [
+  {
+    id: "serious",
+    title: "Etwas Ernstes",
+    hint: "Ein Date, bei dem du dir mehr vorstellen kannst.",
+    open: "dating",
+  },
+  {
+    id: "curious",
+    title: "Mal schauen, was passiert",
+    hint: "Offen, ohne festes Ziel. Trotzdem ein Date.",
+    open: "dating",
+  },
+  {
+    id: "casual",
+    title: "Lockeres Date",
+    hint: "Unverbindlich, und von Anfang an als Date erkennbar.",
+    open: "dating",
+  },
+  {
+    id: "friends",
+    title: "Neue Freunde",
+    hint: "Kein Dating. Nur gemeinsame Zeit.",
+    open: "friends",
+  },
+] as const;
+
+export const RADIUS_OPTIONS = [5, 10, 25, 40, 60, 100] as const;
+
+export function intentTitle(id: string) {
+  return t(INTENTS.find((item) => item.id === id)?.title ?? "Absicht fehlt");
+}
+
+export function openLabel(openTo: string) {
+  if (openTo === "both") return t("Dates und Freundschaft");
+  if (openTo === "dating") return t("Dates");
+  if (openTo === "friends") return t("Freundschaft");
+  return t("Absicht offen");
+}
+
+export function activityIntentLabel(intent: string) {
+  if (intent === "date") return t("Date");
+  if (intent === "friends") return t("Freundschaft");
+  if (intent === "both") return t("Beides");
+  return intentTitle(intent);
+}
+
+export function bookingLabel(mode: string) {
+  return mode === "instant" ? t("Sofortbuchung") : t("Anfrage");
+}
+
+export function berlinDay(value: Date | string = new Date()) {
+  const date = typeof value === "string" ? new Date(value) : value;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+export function addDays(key: string, count: number) {
+  const [year, month, day] = key.split("-").map(Number);
+  return berlinDay(new Date(Date.UTC(year, month - 1, day + count, 12)));
+}
+
+export function weekdayMon(key: string) {
+  const [year, month, day] = key.split("-").map(Number);
+  const js = new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay();
+  return (js + 6) % 7;
+}
+
+export function weekDates(anchor: string) {
+  const start = addDays(anchor, -weekdayMon(anchor));
+  return Array.from({ length: 7 }, (_, index) => addDays(start, index));
+}
+
+export function dayRange(from: string, to: string) {
+  const [start, end] = from < to ? [from, to] : [to, from];
+  const days: string[] = [];
+  for (let cursor = start; cursor <= end && days.length < 62; cursor = addDays(cursor, 1)) days.push(cursor);
+  return days;
+}
+
+export const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
+
+export function formatWhen(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat(locale(), {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Berlin",
+  }).formatToParts(date);
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  const weekday = pick("weekday").replace(/\.$/, "");
+  if (locale() === "en-GB") return `${weekday} ${pick("day")} ${pick("month")}, ${pick("hour")}:${pick("minute")}`;
+  return `${weekday}., ${pick("day")}. ${pick("month")}, ${pick("hour")}:${pick("minute")}`;
+}
+
+export function errText(error: unknown) {
+  if (error instanceof Error && error.message) return t(error.message);
+  if (typeof error === "object" && error && "message" in error && typeof error.message === "string" && error.message) {
+    return t(error.message);
+  }
+  return t("Das hat nicht geklappt.");
+}
+
+export function isUnauthorized(error: unknown) {
+  return errText(error) === "Unauthorized";
+}
+
+/** "in 2 Tagen", "in 3 Stunden": the wait is part of the anticipation. */
+export function countdownLabel(startsAt: string, now = new Date()) {
+  const ms = new Date(startsAt).getTime() - now.getTime();
+  if (ms <= 0) return "";
+  const hours = ms / 3_600_000;
+  if (hours < 1) return t("in {0} Minuten", Math.max(1, Math.round(ms / 60_000)));
+  if (hours < 24) return t("in {0} Stunden", Math.round(hours));
+  const days = Math.round((new Date(`${berlinDay(startsAt)}T12:00:00Z`).getTime() - new Date(`${berlinDay(now)}T12:00:00Z`).getTime()) / 86_400_000);
+  if (days <= 1) return t("morgen");
+  return t("in {0} Tagen", days);
+}
+
+export function replyLabel(hours: number) {
+  if (hours < 1) return t("unter einer Stunde");
+  if (hours < 24) return t("etwa {0} Std.", Math.round(hours));
+  return t("etwa {0} Tagen", Math.round(hours / 24));
+}
+
+/** Starting points for the create form: how many, how long, and a first sentence. Keyed by subcategory, then by parent. */
+export const MEETUP_TEMPLATES: Record<string, { spots: number; durationMin: number; description: string }> = {
+  Laufen: { spots: 6, durationMin: 90, description: "Locker, wir laufen im Tempo der Langsamsten. Danach Kaffee, wenn ihr wollt." },
+  Klettern: { spots: 6, durationMin: 120, description: "Anfänger sind willkommen. Schuhe kann man leihen." },
+  Calisthenics: { spots: 8, durationMin: 90, description: "Alle Level. Wir zeigen uns Technik und trainieren zusammen." },
+  Yoga: { spots: 8, durationMin: 60, description: "Eigene Matte mitbringen. Keine Vorkenntnisse nötig." },
+  Brunch: { spots: 6, durationMin: 120, description: "Wir sitzen zusammen und lassen uns Zeit." },
+  Kaffee: { spots: 4, durationMin: 60, description: "Ein Kaffee, ein Gespräch, kein Programm." },
+  Kochen: { spots: 6, durationMin: 180, description: "Wir kochen gemeinsam und essen danach zusammen." },
+  Spaziergang: { spots: 4, durationMin: 60, description: "Ein ruhiger Spaziergang, bei dem niemand performen muss." },
+  Wandern: { spots: 8, durationMin: 240, description: "Mittlere Strecke, feste Schuhe und etwas zu trinken mitbringen." },
+  Brettspiele: { spots: 6, durationMin: 180, description: "Wir spielen, was auf den Tisch kommt. Keine Vorkenntnisse nötig." },
+  Netzwerken: { spots: 12, durationMin: 120, description: "Kontakte knüpfen, ohne Pitch und ohne Visitenkarten-Pflicht." },
+  Afterwork: { spots: 12, durationMin: 120, description: "Feierabend, ein Getränk, gute Gespräche." },
+  Sport: { spots: 6, durationMin: 90, description: "Alle Level willkommen." },
+  Essen: { spots: 6, durationMin: 120, description: "Gemeinsam essen und sich kennenlernen." },
+  Outdoor: { spots: 6, durationMin: 120, description: "Draußen unterwegs, Wetter angepasste Kleidung mitbringen." },
+};
+
+export function templateFor(category: string) {
+  const { parent, sub } = splitCategory(category);
+  const found = MEETUP_TEMPLATES[sub] ?? MEETUP_TEMPLATES[parent];
+  return found ? { ...found, description: t(found.description) } : null;
+}
+
+export const ARRIVAL_REPLIES = ["Bin unterwegs", "5 Minuten später", "Bin da"] as const;

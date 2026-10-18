@@ -1,0 +1,123 @@
+@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/fraunces";
+@import "@fontsource-variable/figtree";
+@import "@fontsource-variable/literata";
+@import "@fontsource-variable/newsreader";
+@import "@fontsource-variable/nunito-sans";
+@import "tailwindcss";
+
+@theme {
+  --color-sand: #f4e8d8;
+  --color-sand-deep: #eadbc6;
+  --color-card: #fffbf5;
+  --color-ink: #3d405b;
+  --color-muted: #5b5d75;
+  --color-line: #e5d5c0;
+  --color-accent: #e07a5f;
+  --color-accent-deep: #a8462f;
+  --color-friend: #3e6e59;
+  /* Brand green for fills (bars, dots, badges with dark text). As text use friend. */
+  --color-green: #81b29a;
+  --color-onaccent: #fff8f4;
+  /* Text on solid accent fills. Dark on #e07a5f gives 5.7:1, light gave 2.8:1. */
+  --color-onfill: #241c18;
+  /* Warm yellow for "this narrows what you see" notes. */
+  --color-warn: #fbf0c9;
+  --color-onwarn: #5a4300;
+  --font-sans: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces Variable", Georgia, serif;
+  --radius-card: 1.5rem;
+  /* Buttons, chips and other controls: less round than pills (12px). Round stays for icons, avatars, the + button. */
+  --radius-control: 0.75rem;
+}
+
+/* Follows the phone's dark mode. A personal theme from Settings sets these variables on the app shell and wins. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-sand: #171412;
+    --color-sand-deep: #26201c;
+    --color-card: #201b18;
+    --color-ink: #f4efe8;
+    --color-muted: #b9ada3;
+    --color-line: #3b322d;
+    --color-accent-deep: #f1a690;
+    --color-friend: #9dceb8;
+    --color-onaccent: #171412;
+    --color-warn: #3a3118;
+    --color-onwarn: #f2dc98;
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+    font-family: var(--font-sans);
+    background: var(--color-sand);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body { min-height: 100dvh; }
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; letter-spacing: -0.03em; }
+  p { text-wrap: pretty; }
+  button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  ::selection { background: color-mix(in srgb, var(--color-accent) 28%, white); }
+}
+
+/* Page titles share one size. The login line sets its own. */
+h1.font-display.text-4xl {
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+@utility card {
+  background: var(--color-card);
+  border: 1px solid color-mix(in srgb, var(--color-line) 85%, var(--color-card));
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 0 color-mix(in srgb, white 70%, transparent), 0 10px 28px color-mix(in srgb, var(--color-ink) 5%, transparent);
+}
+
+/* Soft page changes, one short cross-fade. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 160ms;
+}
+
+a, button { transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease, opacity 120ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* In the Android and iOS apps: keep content below the status bar and notch, no rubber-band scrolling. */
+html.native body { padding-top: env(safe-area-inset-top); overscroll-behavior: none; -webkit-touch-callout: none; }
+
+/* Paper grain: a tiny inline SVG noise over the sand background. No image request, very low contrast. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.24 0 0 0 0 0.25 0 0 0 0 0.36 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes cardin {
+  from { transform: rotateX(70deg) translateY(8px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* Shared element: the meetup photo flies from the card to the detail page. */
+::view-transition-group(*) { animation-duration: 0.32s; animation-timing-function: cubic-bezier(.2,.8,.2,1); }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  .animate-\[cardin_\.35s_ease-out\] { animation: none !important; }
+}
